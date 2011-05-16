@@ -3,6 +3,7 @@
 This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
 
 How to use:
+
 * Add the package reference via NuGet
 * Add a .coffee, .scss, or .sass file to your project (an easy test is to just
   rename a CSS file to .scss)
