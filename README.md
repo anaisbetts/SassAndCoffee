@@ -17,7 +17,7 @@ be regenerated whenever you modify them.
 
 # How does it work?
 
-SassAndCoffee embeds the original compilers in the DLL as (Sass 3.2.0 and CoffeeScript 1.1.0
+SassAndCoffee embeds the original compilers in the DLL (Sass 3.2.0 and CoffeeScript 1.1.0
 as of this writing) and uses IronRuby and Jurassic respectively to execute the
 compilers against your source.
 
