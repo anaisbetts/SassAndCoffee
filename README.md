@@ -43,3 +43,4 @@ Several folks helped me out with some of the integration details of this project
 * David Padbury for helping me out with the CoffeeScript compiler
 * Levi Broderick for giving me a few hints as to how to rig up the HttpModule
 * Jimmy Schementi for telling me the proper way to redirect 'requires' to an embedded resource
+* Thanks to Nathan Weizenbaum and Jeremy Ashkenas for creating such awesome languages in the first place
