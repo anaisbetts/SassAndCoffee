@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee", "SassAndCoffee\SassAndCoffee.csproj", "{C919A173-DD9B-46C4-88A2-4B31A63C501C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Tests", "SassAndCoffee.Tests\SassAndCoffee.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{C919A173-DD9B-46C4-88A2-4B31A63C501C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C919A173-DD9B-46C4-88A2-4B31A63C501C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C919A173-DD9B-46C4-88A2-4B31A63C501C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

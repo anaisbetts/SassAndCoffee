@@ -29,7 +29,7 @@ namespace SassAndCoffee
             if (_coffeeScriptCode == null)
             {
                 var ms = new MemoryStream();
-                Assembly.GetExecutingAssembly().GetManifestResourceStream("DlrCoffee.lib.coffee-script.js").CopyTo(ms);
+                Assembly.GetExecutingAssembly().GetManifestResourceStream("SassAndCoffee.lib.coffee-script.js").CopyTo(ms);
 
                 var str = Encoding.ASCII.GetString(ms.GetBuffer());
                 _coffeeScriptCode = new StringScriptSource(str.Replace('\0', ' ').Trim());
