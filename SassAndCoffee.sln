@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee", "SassAndCof
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Tests", "SassAndCoffee.Tests\SassAndCoffee.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebTest", "WebTest\WebTest.csproj", "{833D9511-EA87-481A-B5E0-73EBC10F7AFB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,6 +21,10 @@ Global
 		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1CA44023-95FB-471E-ACD8-3ECAFAF37211}.Release|Any CPU.Build.0 = Release|Any CPU
+		{833D9511-EA87-481A-B5E0-73EBC10F7AFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{833D9511-EA87-481A-B5E0-73EBC10F7AFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{833D9511-EA87-481A-B5E0-73EBC10F7AFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{833D9511-EA87-481A-B5E0-73EBC10F7AFB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

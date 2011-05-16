@@ -25,8 +25,7 @@ namespace SassAndCoffee
             // If the output file exists for some reason (i.e. it's precompiled), 
             // just serve it up
             var fi = new FileInfo(context.Request.PhysicalPath);
-            if (fi.Exists)
-            {
+            if (fi.Exists) {
                 context.Response.StatusCode = 200;
                 context.Response.TransmitFile(context.Request.PhysicalPath);
                 return;
@@ -34,29 +33,25 @@ namespace SassAndCoffee
 
             // Look for a file with the same name, but with one of the input 
             // extensions we're interested in
-            foreach (var ext in _compiler.InputFileExtensions)
-            {
+            foreach (var ext in _compiler.InputFileExtensions) {
                 fi = new FileInfo(Path.Combine(fi.DirectoryName,
                     Path.GetFileNameWithoutExtension(fi.FullName) + ext));
-                if (fi.Exists)
-                {
+
+                if (fi.Exists) {
                     break;
                 }
             }
 
             // No file still? Bummer.
-            if (!fi.Exists)
-            {
+            if (!fi.Exists) {
                 context.Response.StatusCode = 404;
                 return;
             }
 
             // Does the cached version of the file exist? Serve it up!
             var outFile = new FileInfo(getOutputFilePath(context, fi.FullName));
-            if (!outFile.Exists)
-            {
-                using (var of = File.Create(outFile.FullName))
-                {
+            if (!outFile.Exists) {
+                using (var of = File.Create(outFile.FullName)) {
                     var buf = Encoding.UTF8.GetBytes(_compiler.ProcessFileContent(fi.FullName));
                     of.Write(buf, 0, buf.Length);
                 }

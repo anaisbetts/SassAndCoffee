@@ -21,7 +21,7 @@ namespace SassAndCoffee
         }
 
         public string OutputFileExtension {
-            get { return ".sass"; }
+            get { return ".css"; }
         }
 
         public void Init(HttpApplication context)
