@@ -1,0 +1,8 @@
+﻿<?xml version="1.0"?>
+<configuration>
+  <system.webServer>
+    <modules>
+      <add name="CompilableFileModule" type="SassAndCoffee.CompilableFileModule" />
+    </modules>
+  </system.webServer>
+</configuration>
