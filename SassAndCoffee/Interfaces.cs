@@ -10,6 +10,7 @@ namespace SassAndCoffee
     {
         string[] InputFileExtensions { get; }
         string OutputFileExtension { get; }
+        string OutputMimeType { get; }
 
         void Init(HttpApplication context);
         string ProcessFileContent(string inputFileContent);

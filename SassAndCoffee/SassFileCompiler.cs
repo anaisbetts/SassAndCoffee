@@ -24,6 +24,10 @@ namespace SassAndCoffee
             get { return ".css"; }
         }
 
+        public string OutputMimeType {
+            get { return "text/css"; }
+        }
+
         public void Init(HttpApplication context)
         {
             var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};

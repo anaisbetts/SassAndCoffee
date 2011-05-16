@@ -11,14 +11,16 @@ namespace SassAndCoffee
     {
         CoffeeScriptCompiler _engine;
 
-        public string[] InputFileExtensions
-        {
+        public string[] InputFileExtensions {
             get { return new[] { ".coffee" }; }
         }
 
-        public string OutputFileExtension
-        {
+        public string OutputFileExtension {
             get { return ".js"; }
+        }
+
+        public string OutputMimeType {
+            get { return "text/javascript"; }
         }
 
         public void Init(HttpApplication context)
@@ -28,12 +30,9 @@ namespace SassAndCoffee
 
         public string ProcessFileContent(string inputFileContent)
         {
-            try
-            {
+            try {
                 return _engine.Compile(File.ReadAllText(inputFileContent));
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 return ex.Message;
             }
         }

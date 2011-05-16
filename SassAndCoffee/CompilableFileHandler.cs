@@ -10,8 +10,7 @@ namespace SassAndCoffee
     public class CompilableFileHandler : IHttpHandler
     {
         ISimpleFileCompiler _compiler;
-        public bool IsReusable
-        {
+        public bool IsReusable {
             get { return true; }
         }
 
@@ -26,8 +25,7 @@ namespace SassAndCoffee
             // just serve it up
             var fi = new FileInfo(context.Request.PhysicalPath);
             if (fi.Exists) {
-                context.Response.StatusCode = 200;
-                context.Response.TransmitFile(context.Request.PhysicalPath);
+                transmitify(context.Response, fi);
                 return;
             }
 
@@ -58,8 +56,17 @@ namespace SassAndCoffee
             }
 
             // Finally! Serve it up
-            context.Response.StatusCode = 200;
-            context.Response.TransmitFile(outFile.FullName);
+            transmitify(context.Response, outFile);
+        }
+
+        void transmitify(HttpResponse response, FileInfo fi)
+        {
+            response.StatusCode = 200;
+            response.AddHeader("ETag", fi.LastWriteTimeUtc.Ticks.ToString("x"));
+            response.AddHeader("Content-Type", _compiler.OutputMimeType);
+            response.AddHeader("Content-Disposition", "inline");
+            response.AddHeader("Last-Modified", fi.LastWriteTimeUtc.ToString("R"));
+            response.WriteFile(fi.FullName);
         }
 
         string getOrCreateCachePath(HttpContext context)
