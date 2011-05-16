@@ -14,6 +14,8 @@ namespace SassAndCoffee
             get { return true; }
         }
 
+        static object _gate = 42;
+
         public CompilableFileHandler(ISimpleFileCompiler compiler)
         {
             _compiler = compiler;
@@ -46,12 +48,16 @@ namespace SassAndCoffee
                 return;
             }
 
-            // Does the cached version of the file exist? Serve it up!
+            // Does the cached version of the file not exist? Build it!
             var outFile = new FileInfo(getOutputFilePath(context, fi.FullName));
             if (!outFile.Exists) {
                 using (var of = File.Create(outFile.FullName)) {
-                    var buf = Encoding.UTF8.GetBytes(_compiler.ProcessFileContent(fi.FullName));
-                    of.Write(buf, 0, buf.Length);
+                    // FIXME: This is clearly performance-retarded, but it'll 
+                    // prevent trashing the script engine
+                    lock (_gate) {
+                        var buf = Encoding.UTF8.GetBytes(_compiler.ProcessFileContent(fi.FullName));
+                        of.Write(buf, 0, buf.Length);
+                    }
                 }
             }
 
