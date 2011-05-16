@@ -30,6 +30,11 @@ compilers against your source.
 * Files are cached and are rebuilt as-needed.
 
 
+# Problems
+
+If you run into bugs / have feature suggestions / have questions, please either send me an Email at paul@paulbetts.org, or file a Github bug. 
+
+
 # Thanks to:
 
 Several folks helped me out with some of the integration details of this project
