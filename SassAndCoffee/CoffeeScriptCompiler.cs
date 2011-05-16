@@ -26,13 +26,8 @@ namespace SassAndCoffee
 
         ScriptEngine initializeCoffeeScriptEngine()
         {
-            if (_coffeeScriptCode == null)
-            {
-                var ms = new MemoryStream();
-                Assembly.GetExecutingAssembly().GetManifestResourceStream("SassAndCoffee.lib.coffee-script.js").CopyTo(ms);
-
-                var str = Encoding.ASCII.GetString(ms.GetBuffer());
-                _coffeeScriptCode = new StringScriptSource(str.Replace('\0', ' ').Trim());
+            if (_coffeeScriptCode == null) {
+                _coffeeScriptCode = new StringScriptSource(Utility.ResourceAsString("SassAndCoffee.lib.coffee-script.js"));
             }
 
             ScriptEngine se = null;

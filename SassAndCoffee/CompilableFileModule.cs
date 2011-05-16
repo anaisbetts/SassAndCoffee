@@ -13,8 +13,9 @@ namespace SassAndCoffee
 
         public void Init(HttpApplication context)
         {
-            var compilers = new[] {
+            var compilers = new ISimpleFileCompiler[] {
                 new CoffeeScriptFileCompiler(),
+                new SassFileCompiler(),
             };
 
             _handlers = new Dictionary<string, IHttpHandler>();
@@ -26,8 +27,7 @@ namespace SassAndCoffee
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
                 string ext = Path.GetExtension(app.Request.PhysicalPath.ToLowerInvariant());
-                if (!_handlers.ContainsKey(ext))
-                {
+                if (!_handlers.ContainsKey(ext)) {
                     return;
                 }
 

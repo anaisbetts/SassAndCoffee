@@ -74,8 +74,32 @@
     <Compile Include="CompilableFileModule.cs" />
     <Compile Include="Interfaces.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SassFileCompiler.cs" />
+    <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="lib\ironruby\digest.rb" />
+    <EmbeddedResource Include="lib\ironruby\digest\md5.rb" />
+    <EmbeddedResource Include="lib\ironruby\digest\sha1.rb" />
+    <EmbeddedResource Include="lib\ironruby\enumerator.rb" />
+    <EmbeddedResource Include="lib\ironruby\etc.rb" />
+    <EmbeddedResource Include="lib\ironruby\rbconfig.rb" />
+    <EmbeddedResource Include="lib\ironruby\stringio.rb" />
+    <EmbeddedResource Include="lib\ironruby\strscan.rb" />
+    <EmbeddedResource Include="lib\ironruby\zlib.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\fileutils.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\pathname.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\set.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\common.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ftp.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\generic.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\http.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\https.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ldap.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ldaps.rb" />
+    <EmbeddedResource Include="lib\ruby\1.9.1\uri\mailto.rb" />
+    <EmbeddedResource Include="lib\sass_in_one.rb" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
