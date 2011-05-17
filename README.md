@@ -1,3 +1,5 @@
+## Important Note! Make sure to be running IIS Express, don't use VS Web Server (Cassini) for now
+
 # SassAndCoffee
 
 This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
@@ -13,7 +15,6 @@ How to use:
 
 That's all there is to it! Files will be cached in your AppData folder and will
 be regenerated whenever you modify them.
-
 
 # How does it work?
 
@@ -43,4 +44,4 @@ Several folks helped me out with some of the integration details of this project
 * David Padbury for helping me out with the CoffeeScript compiler
 * Levi Broderick for giving me a few hints as to how to rig up the HttpModule
 * Jimmy Schementi for telling me the proper way to redirect 'requires' to an embedded resource
-* Thanks to Nathan Weizenbaum and Jeremy Ashkenas for creating such awesome languages in the first place
+* Thanks to Hampton Catlin and Jeremy Ashkenas for creating such awesome languages in the first place
