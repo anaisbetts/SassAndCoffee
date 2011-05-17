@@ -1,3 +1,5 @@
+## Important Note! Make sure to be running IIS Express, don't use VS Web Server (Cassini) for now
+
 # SassAndCoffee
 
 This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
@@ -14,10 +16,9 @@ How to use:
 That's all there is to it! Files will be cached in your AppData folder and will
 be regenerated whenever you modify them.
 
-
 # How does it work?
 
-SassAndCoffee embeds the original compilers in the DLL as (Sass 3.2.0 and CoffeeScript 1.1.0
+SassAndCoffee embeds the original compilers in the DLL (Sass 3.2.0 and CoffeeScript 1.1.0
 as of this writing) and uses IronRuby and Jurassic respectively to execute the
 compilers against your source.
 
@@ -30,6 +31,11 @@ compilers against your source.
 * Files are cached and are rebuilt as-needed.
 
 
+# Problems
+
+If you run into bugs / have feature suggestions / have questions, please either send me an Email at paul@paulbetts.org, or file a Github bug. 
+
+
 # Thanks to:
 
 Several folks helped me out with some of the integration details of this project
@@ -38,3 +44,4 @@ Several folks helped me out with some of the integration details of this project
 * David Padbury for helping me out with the CoffeeScript compiler
 * Levi Broderick for giving me a few hints as to how to rig up the HttpModule
 * Jimmy Schementi for telling me the proper way to redirect 'requires' to an embedded resource
+* Thanks to Hampton Catlin and Jeremy Ashkenas for creating such awesome languages in the first place
