@@ -1,7 +1,14 @@
 ﻿<?xml version="1.0"?>
 <configuration>
+  <system.web>
+    <httpModules>
+      <add name="CompilableFileModule" type="SassAndCoffee.CompilableFileModule" />
+    </httpModules>
+  </system.web>
+
   <system.webServer>
     <modules>
+      <remove name="CompilableFileModule" />
       <add name="CompilableFileModule" type="SassAndCoffee.CompilableFileModule" />
     </modules>
   </system.webServer>
