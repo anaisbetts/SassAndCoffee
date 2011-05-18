@@ -35,7 +35,7 @@ namespace SassAndCoffee
             // extensions we're interested in
             foreach (var ext in _compiler.InputFileExtensions) {
                 fi = new FileInfo(Path.Combine(fi.DirectoryName,
-                    Path.GetFileNameWithoutExtension(fi.FullName) + ext));
+                    fi.FullName.ToLowerInvariant().Replace(_compiler.OutputFileExtension, "") + ext));
 
                 if (fi.Exists) {
                     break;

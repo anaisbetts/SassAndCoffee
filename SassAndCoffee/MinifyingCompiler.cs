@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Web;
 using Jurassic;
 
 namespace SassAndCoffee
@@ -37,6 +39,38 @@ namespace SassAndCoffee
             t.Join();
 
             return se;
+        }
+    }
+
+    public class MinifyingFileCompiler : ISimpleFileCompiler
+    {
+        MinifyingCompiler _engine;
+
+        public string[] InputFileExtensions {
+            get { return new[] {".js"}; }
+        }
+
+        public string OutputFileExtension {
+            get { return ".min.js"; }
+        }
+
+        public string OutputMimeType {
+            get { return "text/javascript"; }
+        }
+
+        public void Init(HttpApplication context)
+        {
+            _engine = new MinifyingCompiler();
+        }
+
+        public string ProcessFileContent(string inputFileContent)
+        {
+            try {
+                var ret = _engine.Compile(File.ReadAllText(inputFileContent));
+                return ret;
+            } catch (Exception ex) {
+                return ex.Message;
+            }
         }
     }
 }

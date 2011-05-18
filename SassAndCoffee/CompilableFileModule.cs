@@ -9,29 +9,32 @@ namespace SassAndCoffee
 {
     public class CompilableFileModule : IHttpModule
     {
-        Dictionary<string, IHttpHandler> _handlers;
+        Dictionary<ISimpleFileCompiler, IHttpHandler> _handlers;
 
         public void Init(HttpApplication context)
         {
             var compilers = new ISimpleFileCompiler[] {
+                new MinifyingFileCompiler(),
                 new CoffeeScriptFileCompiler(),
                 new SassFileCompiler(),
             };
 
-            _handlers = new Dictionary<string, IHttpHandler>();
+            _handlers = new Dictionary<ISimpleFileCompiler, IHttpHandler>();
             foreach (var compiler in compilers) {
                 compiler.Init(context);
-                _handlers[compiler.OutputFileExtension] = new CompilableFileHandler(compiler);
+                _handlers[compiler] = new CompilableFileHandler(compiler);
             }
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
-                string ext = Path.GetExtension(app.Request.PhysicalPath.ToLowerInvariant());
-                if (!_handlers.ContainsKey(ext)) {
+                string path = app.Request.PhysicalPath.ToLowerInvariant();
+                var compiler = _handlers.Keys.FirstOrDefault(x => path.EndsWith(x.OutputFileExtension));
+
+                if (compiler == null) {
                     return;
                 }
 
-                app.Context.RemapHandler(_handlers[ext]);
+                app.Context.RemapHandler(_handlers[compiler]);
             };
         }
 
