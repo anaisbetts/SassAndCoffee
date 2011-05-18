@@ -1,5 +1,3 @@
-## Important Note! Make sure to be running IIS Express, don't use VS Web Server (Cassini) for now
-
 # SassAndCoffee
 
 This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
