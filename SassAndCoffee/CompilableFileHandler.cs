@@ -78,6 +78,11 @@ namespace SassAndCoffee
         string getOrCreateCachePath(HttpContext context)
         {
             var appData = new DirectoryInfo(Path.Combine(context.Request.PhysicalApplicationPath, "App_Data"));
+
+            if (!appData.Exists) {
+                appData.Create();
+            }
+
             var cacheDir = appData.GetDirectories().FirstOrDefault(x => x.Name.ToLowerInvariant() == "_filecache") ?? appData.CreateSubdirectory("_FileCache");
             return cacheDir.FullName;
         }
