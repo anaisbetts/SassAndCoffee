@@ -13,9 +13,11 @@ namespace SassAndCoffee
 
         public void Init(HttpApplication context)
         {
+            var coffeeEngine = new CoffeeScriptCompiler();
+
             var compilers = new ISimpleFileCompiler[] {
-                new MinifyingFileCompiler(),
-                new CoffeeScriptFileCompiler(),
+                new MinifyingFileCompiler(coffeeEngine),
+                new CoffeeScriptFileCompiler(coffeeEngine),
                 new SassFileCompiler(),
             };
 

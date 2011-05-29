@@ -23,9 +23,14 @@ namespace SassAndCoffee
             get { return "text/javascript"; }
         }
 
+        public CoffeeScriptFileCompiler(CoffeeScriptCompiler engine = null)
+        {
+            _engine = engine;
+        }
+
         public void Init(HttpApplication context)
         {
-            _engine = new CoffeeScriptCompiler();
+            _engine = _engine ?? new CoffeeScriptCompiler();
         }
 
         public string ProcessFileContent(string inputFileContent)

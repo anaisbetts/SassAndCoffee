@@ -34,6 +34,7 @@ namespace SassAndCoffee
             // Look for a file with the same name, but with one of the input 
             // extensions we're interested in
             foreach (var ext in _compiler.InputFileExtensions) {
+                fi = new FileInfo(context.Request.PhysicalPath);
                 fi = new FileInfo(Path.Combine(fi.DirectoryName,
                     fi.FullName.ToLowerInvariant().Replace(_compiler.OutputFileExtension, "") + ext));
 

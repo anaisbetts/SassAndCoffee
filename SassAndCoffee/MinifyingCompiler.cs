@@ -44,10 +44,11 @@ namespace SassAndCoffee
 
     public class MinifyingFileCompiler : ISimpleFileCompiler
     {
+        CoffeeScriptCompiler _coffeeEngine;
         MinifyingCompiler _engine;
 
         public string[] InputFileExtensions {
-            get { return new[] {".js"}; }
+            get { return new[] {".js", ".coffee"}; }
         }
 
         public string OutputFileExtension {
@@ -58,6 +59,11 @@ namespace SassAndCoffee
             get { return "text/javascript"; }
         }
 
+        public MinifyingFileCompiler(CoffeeScriptCompiler coffeeScriptEngine)
+        {
+            _coffeeEngine = coffeeScriptEngine;
+        }
+
         public void Init(HttpApplication context)
         {
             _engine = new MinifyingCompiler();
@@ -66,7 +72,13 @@ namespace SassAndCoffee
         public string ProcessFileContent(string inputFileContent)
         {
             try {
-                var ret = _engine.Compile(File.ReadAllText(inputFileContent));
+                string text = File.ReadAllText(inputFileContent);
+
+                if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
+                    text = _coffeeEngine.Compile(text);
+                }
+
+                var ret = _engine.Compile(text);
                 return ret;
             } catch (Exception ex) {
                 return ex.Message;

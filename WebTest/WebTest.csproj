@@ -165,6 +165,7 @@
     <Content Include="Views\Shared\_LogOnPartial.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Web.config" />
+    <None Include="Scripts\Main.coffee" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
