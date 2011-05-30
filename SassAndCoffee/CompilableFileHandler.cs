@@ -84,9 +84,10 @@ namespace SassAndCoffee
         string getOutputFilePath(HttpContext context, string inputFileName)
         {
             var fi = new FileInfo(inputFileName);
+            var token = _compiler.GetFileChangeToken(inputFileName);
 
-            string name = String.Format("{0:yyyyMMddHHmmss}-{1}{2}",
-                fi.LastWriteTimeUtc,
+            string name = String.Format("{0:yyyyMMddHHmmss}-{1}-{2}{3}",
+                fi.LastWriteTimeUtc, token,
                 Path.GetFileNameWithoutExtension(inputFileName),
                 _compiler.OutputFileExtension);
 

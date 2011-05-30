@@ -81,5 +81,10 @@ namespace SassAndCoffee
             var ret = _engine.Compile(text);
             return ret;
         }
+
+        public string GetFileChangeToken(string inputFileContent)
+        {
+            return "";
+        }
     }
 }

@@ -65,6 +65,11 @@ namespace SassAndCoffee
             dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? _sassModule.Value.ScssOption : _sassModule.Value.SassOption);
             return (string) _sassModule.Value.Engine.compile(File.ReadAllText(inputFileContent), opt);
         }
+
+        public string GetFileChangeToken(string inputFileContent)
+        {
+            return "";
+        }
     }
 
     public class ResourceAwareScriptHost : ScriptHost

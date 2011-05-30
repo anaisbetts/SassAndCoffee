@@ -37,5 +37,10 @@ namespace SassAndCoffee
         {
             return _engine.Compile(File.ReadAllText(inputFileContent));
         }
+
+        public string GetFileChangeToken(string inputFileContent)
+        {
+            return "";
+        }
     }
 }

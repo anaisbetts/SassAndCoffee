@@ -20,6 +20,7 @@ namespace SassAndCoffee
 
         void Init(HttpApplication context);
         string ProcessFileContent(string inputFileContent);
+        string GetFileChangeToken(string inputFileContent);
     }
 
     public static class FileCompilerMixins
