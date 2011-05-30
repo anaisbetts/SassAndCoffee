@@ -7,7 +7,7 @@ using System.Web;
 
 namespace SassAndCoffee
 {
-    public class CompilableFileModule : IHttpModule
+    public class CompilableFileModule : IHttpModule, ICompilerHost
     {
         Dictionary<ISimpleFileCompiler, IHttpHandler> _handlers;
 
@@ -16,9 +16,11 @@ namespace SassAndCoffee
             var coffeeEngine = new CoffeeScriptCompiler();
 
             var compilers = new ISimpleFileCompiler[] {
+                new ConcatenationFileHandler(this),
                 new MinifyingFileCompiler(coffeeEngine),
                 new CoffeeScriptFileCompiler(coffeeEngine),
                 new SassFileCompiler(),
+                new JavascriptPassthroughCompiler(),
             };
 
             _handlers = new Dictionary<ISimpleFileCompiler, IHttpHandler>();
@@ -29,8 +31,7 @@ namespace SassAndCoffee
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
-                string path = app.Request.PhysicalPath.ToLowerInvariant();
-                var compiler = _handlers.Keys.FirstOrDefault(x => path.EndsWith(x.OutputFileExtension));
+                var compiler = MapPathToCompiler(app.Request.PhysicalPath);
 
                 if (compiler == null) {
                     return;
@@ -38,6 +39,14 @@ namespace SassAndCoffee
 
                 app.Context.RemapHandler(_handlers[compiler]);
             };
+        }
+
+        public ISimpleFileCompiler MapPathToCompiler(string physicalPath)
+        {
+            string path = physicalPath.ToLowerInvariant();
+
+            return _handlers.Keys
+                .FirstOrDefault(x => path.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(path) != null);
         }
 
         public void Dispose()

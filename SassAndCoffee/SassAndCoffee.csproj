@@ -72,7 +72,9 @@
     <Compile Include="CoffeeScriptFileCompiler.cs" />
     <Compile Include="CompilableFileHandler.cs" />
     <Compile Include="CompilableFileModule.cs" />
+    <Compile Include="ConcatenationFileHandler.cs" />
     <Compile Include="Interfaces.cs" />
+    <Compile Include="JavascriptPassthroughCompiler.cs" />
     <Compile Include="MinifyingCompiler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SassFileCompiler.cs" />
