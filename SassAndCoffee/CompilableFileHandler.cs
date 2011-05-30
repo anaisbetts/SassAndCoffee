@@ -42,13 +42,15 @@ namespace SassAndCoffee
             // Does the cached version of the file not exist? Build it!
             var outFile = new FileInfo(getOutputFilePath(context, fi.FullName));
             if (!outFile.Exists) {
+                // FIXME: This is clearly performance-retarded, but it'll 
+                // prevent trashing the script engine
+                byte[] buf;
+                lock (_gate) {
+                    buf = Encoding.UTF8.GetBytes(_compiler.ProcessFileContent(fi.FullName));
+                }
+
                 using (var of = File.Create(outFile.FullName)) {
-                    // FIXME: This is clearly performance-retarded, but it'll 
-                    // prevent trashing the script engine
-                    lock (_gate) {
-                        var buf = Encoding.UTF8.GetBytes(_compiler.ProcessFileContent(fi.FullName));
-                        of.Write(buf, 0, buf.Length);
-                    }
+                    of.Write(buf, 0, buf.Length);
                 }
             }
 
