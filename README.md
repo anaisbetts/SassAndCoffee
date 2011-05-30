@@ -1,6 +1,7 @@
 # SassAndCoffee
 
 This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
+Javascript and Coffeescript files can also be Minified and combined via UglifyJS.
 
 How to use:
 
@@ -10,6 +11,8 @@ How to use:
 * Reference the file as if it was a CSS file (i.e. to reference
   "scripts/test.coffee", you should reference "scripts/test.js" in your SCRIPT
   tag)
+* To get the minified version of a script, reference the file as ".min.js" (i.e.
+  "~/Scripts/MyCoolFile.min.js")
 
 That's all there is to it! Files will be cached in your AppData folder and will
 be regenerated whenever you modify them.
@@ -20,6 +23,13 @@ SassAndCoffee embeds the original compilers in the DLL (Sass 3.2.0 and CoffeeScr
 as of this writing) and uses IronRuby and Jurassic respectively to execute the
 compilers against your source.
 
+# Combining files
+
+To combine a group of Javascript files together into one file, create a file in
+your scripts folder with an extension of ".combine" - in this file, list the
+files you want to combine (either as paths relative to the same folder, or as
+full paths via '~'). Then, reference the file as if it were a Javascript file
+(i.e. "all\_debug.combine" => "all\_debug.js")
 
 # Why is this better than [SOMEOTHERPROJECT]
 
