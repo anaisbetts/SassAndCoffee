@@ -24,11 +24,7 @@ namespace SassAndCoffee
 
         public string ProcessFileContent(string inputFileContent)
         {
-            try {
-                return File.ReadAllText(inputFileContent);
-            } catch (Exception ex) {
-                return ex.Message;
-            }
+            return File.ReadAllText(inputFileContent);
         }
     }
 }

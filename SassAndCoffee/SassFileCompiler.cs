@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Web;
 using IronRuby;
 using Microsoft.Scripting;
@@ -11,10 +12,37 @@ using Microsoft.Scripting.Hosting;
 
 namespace SassAndCoffee
 {
+    class SassModule
+    {
+        public dynamic Engine { get; set; }
+        public dynamic SassOption { get; set; }
+        public dynamic ScssOption { get; set; }
+    }
+
     public class SassFileCompiler : ISimpleFileCompiler
     {
-        dynamic _sassModule;
-        dynamic _scssOption, _sassOption;
+        static ThreadLocal<SassModule> _sassModule;
+
+        static SassFileCompiler()
+        {
+            _sassModule = new ThreadLocal<SassModule>(() => {
+                var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};
+                srs.AddRubySetup();
+                var runtime = Ruby.CreateRuntime(srs);
+                var engine = runtime.GetRubyEngine();
+                engine.SetSearchPaths(new List<string>() {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"});
+    
+                var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.lib.sass_in_one.rb"), SourceCodeKind.File);
+                var scope = engine.CreateScope();
+                source.Execute(scope);
+    
+                return new SassModule() {
+                    Engine = scope.Engine.Runtime.Globals.GetVariable("Sass"),
+                    SassOption = engine.Execute("{:syntax => :sass}"),
+                    ScssOption = engine.Execute("{:syntax => :scss}"),
+                };
+            });
+        }
 
         public string[] InputFileExtensions {
             get { return new[] {".scss", ".sass"}; }
@@ -30,29 +58,12 @@ namespace SassAndCoffee
 
         public void Init(HttpApplication context)
         {
-            var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};
-            srs.AddRubySetup();
-            var runtime = Ruby.CreateRuntime(srs);
-            var engine = runtime.GetRubyEngine();
-            engine.SetSearchPaths(new List<string>() {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"});
-
-            var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.lib.sass_in_one.rb"), SourceCodeKind.File);
-            var scope = engine.CreateScope();
-            source.Execute(scope);
-
-            _scssOption = engine.Execute("{:syntax => :scss}"); 
-            _sassOption = engine.Execute("{:syntax => :sass}"); 
-            _sassModule = scope.Engine.Runtime.Globals.GetVariable("Sass");
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
-            dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? _scssOption : _sassOption);
-            try {
-                return (string) _sassModule.compile(File.ReadAllText(inputFileContent), opt);
-            } catch (Exception ex) {
-                return ex.Message;
-            }
+            dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? _sassModule.Value.ScssOption : _sassModule.Value.SassOption);
+            return (string) _sassModule.Value.Engine.compile(File.ReadAllText(inputFileContent), opt);
         }
     }
 

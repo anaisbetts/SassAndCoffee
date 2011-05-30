@@ -11,28 +11,29 @@ namespace SassAndCoffee
 {
     public class MinifyingCompiler
     {
-        ScriptEngine _engine;
-        ScriptSource _uglifyJsCode;
+        static ThreadLocal<ScriptEngine> _engine;
+        static ScriptSource _uglifyJsCode;
+
+        static MinifyingCompiler()
+        {
+            _engine = new ThreadLocal<ScriptEngine>(initializeMinificationEngine);
+        }
 
         public string Compile(string javascriptCode)
         {
-            if (_engine == null) {
-                _engine = initializeMinificationEngine();
-            }
-
-            return _engine.CallGlobalFunction<string>("squeeze_it", javascriptCode);
+            return _engine.Value.CallGlobalFunction<string>("squeeze_it", javascriptCode);
         }
 
-        ScriptEngine initializeMinificationEngine()
+        static ScriptEngine initializeMinificationEngine()
         {
-            if (this._uglifyJsCode == null) {
-                this._uglifyJsCode = new StringScriptSource(Utility.ResourceAsString("SassAndCoffee.lib.uglify.js"));
+            if (_uglifyJsCode == null) {
+                _uglifyJsCode = new StringScriptSource(Utility.ResourceAsString("SassAndCoffee.lib.uglify.js"));
             }
 
             ScriptEngine se = null;
             var t = new Thread(() => {
                 se = new ScriptEngine();
-                se.Execute(this._uglifyJsCode);
+                se.Execute(_uglifyJsCode);
             }, 10 * 1048576);
 
             t.Start();
@@ -71,18 +72,14 @@ namespace SassAndCoffee
 
         public string ProcessFileContent(string inputFileContent)
         {
-            try {
-                string text = File.ReadAllText(inputFileContent);
+            string text = File.ReadAllText(inputFileContent);
 
-                if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
-                    text = _coffeeEngine.Compile(text);
-                }
-
-                var ret = _engine.Compile(text);
-                return ret;
-            } catch (Exception ex) {
-                return ex.Message;
+            if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
+                text = _coffeeEngine.Compile(text);
             }
+
+            var ret = _engine.Compile(text);
+            return ret;
         }
     }
 }

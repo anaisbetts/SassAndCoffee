@@ -11,20 +11,20 @@ namespace SassAndCoffee
 {
     public class CoffeeScriptCompiler
     {
-        ScriptEngine _engine;
-        ScriptSource _coffeeScriptCode;
+        static ThreadLocal<ScriptEngine> _engine;
+        static ScriptSource _coffeeScriptCode;
+
+        static CoffeeScriptCompiler()
+        {
+            _engine = new ThreadLocal<ScriptEngine>(initializeCoffeeScriptEngine);
+        }
 
         public string Compile(string coffeeScriptCode)
         {
-            if (_engine == null)
-            {
-                _engine = initializeCoffeeScriptEngine();
-            }
-
-            return _engine.CallGlobalFunction<string>("compilify", coffeeScriptCode);
+            return _engine.Value.CallGlobalFunction<string>("compilify", coffeeScriptCode);
         }
 
-        ScriptEngine initializeCoffeeScriptEngine()
+        static ScriptEngine initializeCoffeeScriptEngine()
         {
             if (_coffeeScriptCode == null) {
                 _coffeeScriptCode = new StringScriptSource(Utility.ResourceAsString("SassAndCoffee.lib.coffee-script.js"));

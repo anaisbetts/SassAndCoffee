@@ -42,29 +42,29 @@ namespace SassAndCoffee
                 _commentRegex = re;
             }
 
-            try {
-                var absolutePaths = File.ReadAllLines(inputFileContent)
-                    .Select(x => _commentRegex.Replace(x, String.Empty))
-                    .Where(x => !String.IsNullOrWhiteSpace(x))
-                    .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
-                    .Select(x => relativeToAbsolutePath(x, _app))
-                    .ToArray();
+            var absolutePaths = File.ReadAllLines(inputFileContent)
+                .Select(x => _commentRegex.Replace(x, String.Empty))
+                .Where(x => !String.IsNullOrWhiteSpace(x))
+                .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
+                .Select(x => relativeToAbsolutePath(x, _app))
+                .ToArray();
 
-                return absolutePaths.Aggregate(new StringBuilder(), (acc, x) => {
-                    string inputFile = null;
+            var allText = absolutePaths.AsParallel().Select(x => {
+                string inputFile = null;
 
-                    var compiler = _host.MapPathToCompiler(x);
-                    if (compiler == null || (inputFile = compiler.FindInputFileGivenOutput(x)) == null) {
-                        throw new Exception(String.Format("Compiler not found for file: '{0}'", x));
-                    }
+                var compiler = _host.MapPathToCompiler(x);
+                if (compiler == null || (inputFile = compiler.FindInputFileGivenOutput(x)) == null) {
+                    throw new Exception(String.Format("Compiler not found for file: '{0}'", x));
+                }
 
-                    acc.Append(compiler.ProcessFileContent(inputFile));
-                    acc.Append("\n");
-                    return acc;
-                }).ToString();
-            } catch (Exception ex) {
-                return ex.Message;
-            }
+                return compiler.ProcessFileContent(inputFile);
+            }).ToArray();
+            
+            return allText.Aggregate(new StringBuilder(), (acc, x) => {
+                acc.Append(x);
+                acc.Append("\n");
+                return acc;
+            }).ToString();
         }
 
         public string relativeToAbsolutePath(string relativePath, HttpApplication context)

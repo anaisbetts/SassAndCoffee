@@ -35,11 +35,7 @@ namespace SassAndCoffee
 
         public string ProcessFileContent(string inputFileContent)
         {
-            try {
-                return _engine.Compile(File.ReadAllText(inputFileContent));
-            } catch (Exception ex) {
-                return ex.Message;
-            }
+            return _engine.Compile(File.ReadAllText(inputFileContent));
         }
     }
 }
