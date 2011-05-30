@@ -9,7 +9,7 @@
     <projectUrl>http://github.com/xpaulbettsx/SassAndCoffee</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
-    <tags>Javascript asp.net scss sass coffeescript</tags>
+    <tags>Javascript asp.net scss sass coffeescript minify uglifyjs</tags>
   </metadata>
 
   <files>
