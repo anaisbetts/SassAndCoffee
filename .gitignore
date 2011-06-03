@@ -1,0 +1,6 @@
+bin
+obj
+*.user
+*.suo
+_ReSharper.*
+packages/compass.net.0.0.1
