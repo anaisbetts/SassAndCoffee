@@ -19,6 +19,39 @@ namespace SassAndCoffee
         public dynamic ScssOption { get; set; }
     }
 
+		/// <summary>
+		/// Defaults are provided for all of these, you do not need to specify
+		/// them, they are used for compass integration.
+		/// </summary>
+		public static class SassConfiguration
+		{
+			/// <summary>
+			/// The Ruby Load path, will be passed as SearchPaths to the IronRubyInterpreter
+			/// </summary>
+			public static String[] RubyLoadPaths { get; set; }
+
+			/// <summary>
+			/// Sass load paths, will be passed to Sass engine, this is where it will look
+			/// for imported stylesheets
+			/// </summary>
+			public static string[] SassLoadPaths { get; set; }
+
+			/// <summary>
+			/// Used to provide a script that sets up your ruby environment. Compass and plain 
+			/// Sass have different requirements.
+			/// </summary>
+			public static Func<ScriptEngine,ScriptSource> RubyStartupScript { get; set; }
+
+
+			static SassConfiguration()
+			{
+				RubyLoadPaths = new[] {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"};
+				RubyStartupScript =
+					engine =>
+					engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.lib.sass_in_one.rb"), SourceCodeKind.File);
+				SassLoadPaths = new[] {"."};
+			}
+		}
     public class SassFileCompiler : ISimpleFileCompiler
     {
         static ThreadLocal<SassModule> _sassModule;
@@ -26,25 +59,35 @@ namespace SassAndCoffee
         static SassFileCompiler()
         {
             _sassModule = new ThreadLocal<SassModule>(() => {
+								var languageSetup = IronRuby.Ruby.CreateRubySetup();
+            		languageSetup.Options.Add("SearchPaths", SassConfiguration.RubyLoadPaths);
+
                 var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};
-                srs.AddRubySetup();
+								srs.LanguageSetups.Add(languageSetup);
+
                 var runtime = Ruby.CreateRuntime(srs);
                 var engine = runtime.GetRubyEngine();
-                engine.SetSearchPaths(new List<string>() {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"});
-    
-                var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.lib.sass_in_one.rb"), SourceCodeKind.File);
+
+								var source = SassConfiguration.RubyStartupScript(engine);
                 var scope = engine.CreateScope();
                 source.Execute(scope);
     
                 return new SassModule() {
                     Engine = scope.Engine.Runtime.Globals.GetVariable("Sass"),
-                    SassOption = engine.Execute("{:syntax => :sass}"),
-                    ScssOption = engine.Execute("{:syntax => :scss}"),
+                    SassOption = engine.Execute("{:syntax => :sass, :load_paths => " + GetSassLoadPaths(SassConfiguration.SassLoadPaths) + "}"),
+                    ScssOption = engine.Execute("{:syntax => :scss, :load_paths => " + GetSassLoadPaths(SassConfiguration.SassLoadPaths) + "}"),
                 };
             });
         }
 
-        public string[] InputFileExtensions {
+    	public static string GetSassLoadPaths(params string[] sassLoadPaths) {
+    		var forwardSlashedAndQuotedPaths =
+    			sassLoadPaths.Select(x => String.Format("'{0}'", x.Replace("\\", "/")));
+
+    		return "[" + String.Join(",", forwardSlashedAndQuotedPaths).TrimEnd(',') + "]";
+    	}
+
+    	public string[] InputFileExtensions {
             get { return new[] {".scss", ".sass"}; }
         }
 

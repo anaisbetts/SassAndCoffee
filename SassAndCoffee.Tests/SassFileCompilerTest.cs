@@ -25,6 +25,15 @@ namespace SassAndCoffee
             Assert.True(output.Contains("Syntax"));
         }
 
+				[Fact]
+				public void SassLoadPathHandling() 
+				{
+					//default is just .
+					Assert.Equal("['.']", SassFileCompiler.GetSassLoadPaths("."));
+
+					//something like what will get passed for compass
+					Assert.Equal("['c:/some/dir/stylesheets/blueprint','c:/some/dir/stylesheets/compass']",SassFileCompiler.GetSassLoadPaths(@"c:\some\dir\stylesheets\blueprint",@"c:\some\dir\stylesheets\compass"));
+				}
         string compileInput(string filename, string input)
         {
             var fixture = new SassFileCompiler();
