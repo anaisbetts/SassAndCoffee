@@ -53,6 +53,7 @@ namespace SassAndCoffee
         {
             _dispatcherThread = new Thread(() => {
                 var engine = JS.CreateJavascriptCompiler();
+
                 while(true) {
                     if (_workQueue == null) {
                         break;
@@ -65,11 +66,16 @@ namespace SassAndCoffee
                         continue;
                     }
 
-                    if (item.Func == null) {
-                        engine.InitializeLibrary(item.Input);
-                        item.Result = "";
-                    } else {
-                        item.Result = engine.Compile(item.Func, item.Input);
+                    try {
+                        if (item.Func == null) {
+                            engine.InitializeLibrary(item.Input);
+                            item.Result = "";
+                        } else {
+                            item.Result = engine.Compile(item.Func, item.Input);
+                        }
+                    } catch (Exception ex) {
+                        item.Result = String.Format("ENGINE FAULT - please report this if it happens frequently: {0}: {1}\n{2}", ex.GetType(), ex.Message, ex.StackTrace);
+                        engine = new JurassicCompiler();
                     }
 
                     item._gate.Set();
