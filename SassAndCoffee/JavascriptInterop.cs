@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -32,6 +33,16 @@ namespace SassAndCoffee
         }
     }
 
+
+    /* XXX: Why this crazy code is here:
+     * 
+     * After many, many painful debugging sessions, I am forced to conclude that 
+     * the V8 JavaScript engine can only be used on one thread. Not only does that
+     * mean that accesses to V8 must be synchronous and only one running at a time,
+     * once you touch V8 from a thread, you must use *that thread* forever. i.e. it
+     * is not only Thread-Unsafe, but also Thread Affinitized.
+     */
+
     public class JavascriptBasedCompiler
     {
         static ConcurrentQueue<JSWorkItem> _workQueue = new ConcurrentQueue<JSWorkItem>();
@@ -50,6 +61,7 @@ namespace SassAndCoffee
                     JSWorkItem item;
                     if (!_workQueue.TryDequeue(out item)) {
                         Thread.Sleep(100);
+
                         continue;
                     }
 
@@ -117,34 +129,28 @@ namespace SassAndCoffee
         }
     }
 
-    public class JSTaskScheduler : TaskScheduler
-    {
-        protected override void QueueTask(Task task)
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued)
-        {
-            return false;
-        }
-
-        protected override IEnumerable<Task> GetScheduledTasks()
-        {
-            throw new NotImplementedException();
-        }
-    }
-
     public static class JS
     {
         static Lazy<Type> _scriptCompilerImpl;
         static object _gate = 42;
 
+        /* XXX: Why this crazy code is here
+         *
+         * V8 is a managed C++ DLL, which means that it must be 
+         * architecture-specific, since it contains native code. However, our host
+         * is *not* architecture specific, it is AnyCPU. To facilitate this, while
+         * still following one of the S&C's core policies of "Don't Make The User
+         * Think!", we actually embed V8Bridge.dll as a resource, then at runtime,
+         * load it based on our actual architecture. *
+         * 
+         * If this can't be done (like if we're on ARM or something weird), we fall
+         * back to the all-managed yet incredibly slow Jurassic engine */
+
         static JS()
         {
             _scriptCompilerImpl = new Lazy<Type>(() => {
                 string assemblyResource = (Environment.Is64BitProcess ?
-                                                                          "SassAndCoffee.lib.amd64.V8Bridge.dll" : "SassAndCoffee.lib.x86.V8Bridge.dll");
+                    "SassAndCoffee.lib.amd64.V8Bridge.dll" : "SassAndCoffee.lib.x86.V8Bridge.dll");
 
                 var v8Name = Path.Combine(Path.GetTempPath(), "V8Bridge.dll");
                 using (var of = File.OpenWrite(v8Name)) {
