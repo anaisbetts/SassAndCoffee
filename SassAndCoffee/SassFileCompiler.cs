@@ -17,15 +17,17 @@ namespace SassAndCoffee
         public dynamic Engine { get; set; }
         public dynamic SassOption { get; set; }
         public dynamic ScssOption { get; set; }
+        public Action<string> ExecuteRubyCode { get; set; }
     }
 
     public class SassFileCompiler : ISimpleFileCompiler
     {
-        static ThreadLocal<SassModule> _sassModule;
+        static TrashStack<SassModule> _sassModule;
+        internal static string RootAppPath;
 
         static SassFileCompiler()
         {
-            _sassModule = new ThreadLocal<SassModule>(() => {
+            _sassModule = new TrashStack<SassModule>(() => {
                 var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};
                 srs.AddRubySetup();
                 var runtime = Ruby.CreateRuntime(srs);
@@ -35,11 +37,12 @@ namespace SassAndCoffee
                 var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.lib.sass_in_one.rb"), SourceCodeKind.File);
                 var scope = engine.CreateScope();
                 source.Execute(scope);
-    
+
                 return new SassModule() {
                     Engine = scope.Engine.Runtime.Globals.GetVariable("Sass"),
                     SassOption = engine.Execute("{:syntax => :sass}"),
                     ScssOption = engine.Execute("{:syntax => :scss}"),
+                    ExecuteRubyCode = code => engine.Execute(code, scope),
                 };
             });
         }
@@ -58,12 +61,20 @@ namespace SassAndCoffee
 
         public void Init(HttpApplication context)
         {
+            RootAppPath = context.Request.PhysicalApplicationPath.ToLowerInvariant();
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
-            dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? _sassModule.Value.ScssOption : _sassModule.Value.SassOption);
-            return (string) _sassModule.Value.Engine.compile(File.ReadAllText(inputFileContent), opt);
+            using (var sassModule = _sassModule.Get()) {
+                dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
+
+                if (!inputFileContent.Contains('\'')) {
+                    sassModule.Value.ExecuteRubyCode(String.Format("Dir.chdir '{0}'", Path.GetDirectoryName(inputFileContent)));
+                }
+    
+                return (string) sassModule.Value.Engine.compile(File.ReadAllText(inputFileContent), opt);
+            }
         }
 
         public string GetFileChangeToken(string inputFileContent)
@@ -87,11 +98,15 @@ namespace SassAndCoffee
 
     public class ResourceAwarePAL : PlatformAdaptationLayer
     {
-        public override System.IO.Stream OpenInputFileStream(string path)
+        public override Stream OpenInputFileStream(string path)
         {
             var ret = Assembly.GetExecutingAssembly().GetManifestResourceStream(pathToResourceName(path));
             if (ret != null) {
                 return ret;
+            }
+
+            if (SassFileCompiler.RootAppPath == null || !path.ToLowerInvariant().StartsWith(SassFileCompiler.RootAppPath)) {
+                return null;
             }
 
             return base.OpenInputFileStream(path);
@@ -101,6 +116,10 @@ namespace SassAndCoffee
         {
             if (Assembly.GetExecutingAssembly().GetManifestResourceInfo(pathToResourceName(path)) != null) {
                 return true;
+            }
+
+            if (path.EndsWith("css")) {
+                int a = 1;
             }
 
             return base.FileExists(path);

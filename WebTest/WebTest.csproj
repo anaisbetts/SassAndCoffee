@@ -198,7 +198,9 @@
     <Content Include="Views\Shared\_LogOnPartial.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Web.config" />
+    <None Include="Content\_rounded.scss" />
     <None Include="Scripts\Main.coffee" />
+    <None Include="Content\style.scss" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
