@@ -2989,7 +2989,7 @@ var options = {
         output: true            // stdout
 };
 
-function squeeze_it(code) {
+function compilify_ujs(code) {
     var result = "";
     var ast = jsp.parse(code); 
     if (options.mangle) {

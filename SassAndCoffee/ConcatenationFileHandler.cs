@@ -40,7 +40,7 @@ namespace SassAndCoffee
         {
             var absolutePaths = parseCombineFileToPaths(inputFileContent);
 
-            var allText = absolutePaths.AsParallel().Select(x => {
+            var allText = absolutePaths./*AsParallel().*/Select(x => {
                 string inputFile = null;
 
                 var compiler = _host.MapPathToCompiler(x);

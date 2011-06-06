@@ -7,7 +7,7 @@ using System.Text;
 
 namespace SassAndCoffee
 {
-    internal class Utility
+    public class Utility
     {
         public static string ResourceAsString(string resource, Assembly assembly = null, Encoding enc = null)
         {

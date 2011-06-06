@@ -6,47 +6,19 @@ using System.Text;
 using System.Threading;
 using System.Web;
 using Jurassic;
+using V8Bridge.Interface;
 
 namespace SassAndCoffee
 {
-    public class MinifyingCompiler
+    public class MinifyingCompiler : JavascriptBasedCompiler
     {
-        static ThreadLocal<ScriptEngine> _engine;
-        static ScriptSource _uglifyJsCode;
-
-        static MinifyingCompiler()
-        {
-            _engine = new ThreadLocal<ScriptEngine>(initializeMinificationEngine);
-        }
-
-        public string Compile(string javascriptCode)
-        {
-            return _engine.Value.CallGlobalFunction<string>("squeeze_it", javascriptCode);
-        }
-
-        static ScriptEngine initializeMinificationEngine()
-        {
-            if (_uglifyJsCode == null) {
-                _uglifyJsCode = new StringScriptSource(Utility.ResourceAsString("SassAndCoffee.lib.uglify.js"));
-            }
-
-            ScriptEngine se = null;
-            var t = new Thread(() => {
-                se = new ScriptEngine();
-                se.Execute(_uglifyJsCode);
-            }, 10 * 1048576);
-
-            t.Start();
-            t.Join();
-
-            return se;
-        }
+        public MinifyingCompiler() : base("SassAndCoffee.lib.uglify.js", "compilify_ujs") { }
     }
 
     public class MinifyingFileCompiler : ISimpleFileCompiler
     {
-        CoffeeScriptCompiler _coffeeEngine;
-        MinifyingCompiler _engine;
+        ThreadLocal<CoffeeScriptCompiler> _coffeeEngine;
+        ThreadLocal<MinifyingCompiler> _engine;
 
         public string[] InputFileExtensions {
             get { return new[] {".js", ".coffee"}; }
@@ -62,23 +34,31 @@ namespace SassAndCoffee
 
         public MinifyingFileCompiler(CoffeeScriptCompiler coffeeScriptEngine)
         {
-            _coffeeEngine = coffeeScriptEngine;
+            _coffeeEngine = new ThreadLocal<CoffeeScriptCompiler>();
+            _engine = new ThreadLocal<MinifyingCompiler>();
         }
 
         public void Init(HttpApplication context)
         {
-            _engine = new MinifyingCompiler();
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
             string text = File.ReadAllText(inputFileContent);
 
-            if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
-                text = _coffeeEngine.Compile(text);
+            if (_coffeeEngine.Value == null) {
+                _coffeeEngine.Value = new CoffeeScriptCompiler();
             }
 
-            var ret = _engine.Compile(text);
+            if (_engine.Value == null) {
+                _engine.Value = new MinifyingCompiler();
+            }
+
+            if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
+                text = _coffeeEngine.Value.Compile(text);
+            }
+
+            var ret = _engine.Value.Compile(text);
             return ret;
         }
 
