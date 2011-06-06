@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Web;
 
 namespace SassAndCoffee
@@ -50,8 +51,20 @@ namespace SassAndCoffee
                     buf = Encoding.UTF8.GetBytes(ex.Message);
                 }
 
-                using (var of = File.Create(outFile.FullName)) {
-                    of.Write(buf, 0, buf.Length);
+                int retries = 3;
+                while (retries > 0) {
+                    try {
+                        using (var of = File.Create(outFile.FullName)) {
+                            of.Write(buf, 0, buf.Length);
+                            break;
+                        }
+                    } catch {
+                        retries--;
+                        if (retries == 0) {
+                            throw;
+                        }
+                        Thread.Sleep(1 * 1000);
+                    }
                 }
             }
 

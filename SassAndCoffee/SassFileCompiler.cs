@@ -22,6 +22,7 @@ namespace SassAndCoffee
 
     public class SassFileCompiler : ISimpleFileCompiler
     {
+        HttpApplication _app;
         static TrashStack<SassModule> _sassModule;
         internal static string RootAppPath;
 
@@ -61,11 +62,13 @@ namespace SassAndCoffee
 
         public void Init(HttpApplication context)
         {
-            RootAppPath = context.Request.PhysicalApplicationPath.ToLowerInvariant();
+            _app = context;
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
+            RootAppPath = RootAppPath ?? _app.Request.PhysicalApplicationPath;
+
             using (var sassModule = _sassModule.Get()) {
                 dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
 
