@@ -53,3 +53,4 @@ Several folks helped me out with some of the integration details of this project
 * Levi Broderick for giving me a few hints as to how to rig up the HttpModule
 * Jimmy Schementi for telling me the proper way to redirect 'requires' to an embedded resource
 * Thanks to Hampton Catlin and Jeremy Ashkenas for creating such awesome languages in the first place
+* The folks on the #chromium IRC channel for helping me with a tricky V8 issue
