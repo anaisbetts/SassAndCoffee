@@ -158,7 +158,7 @@ namespace SassAndCoffee
                 string assemblyResource = (Environment.Is64BitProcess ?
                     "SassAndCoffee.lib.amd64.V8Bridge.dll" : "SassAndCoffee.lib.x86.V8Bridge.dll");
 
-                var v8Name = Path.Combine(Path.GetTempPath(), "V8Bridge.dll");
+                var v8Name = Path.GetTempFileName() + ".dll";
                 using (var of = File.OpenWrite(v8Name)) {
                     Assembly.GetExecutingAssembly().GetManifestResourceStream(assemblyResource).CopyTo(of);
                 }
