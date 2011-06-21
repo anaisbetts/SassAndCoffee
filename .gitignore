@@ -3,3 +3,5 @@ _ReSharper.*
 *.suo
 *.docstates
 *.user
+WebTest/bin
+WebTest/obj
