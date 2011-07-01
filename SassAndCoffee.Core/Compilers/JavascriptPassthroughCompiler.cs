@@ -16,7 +16,7 @@ namespace SassAndCoffee.Core.Compilers
             get { return "text/javascript"; }
         }
 
-        public void Init()
+        public void Init(ICompilerHost host)
         {
         }
 

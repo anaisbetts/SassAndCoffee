@@ -26,7 +26,7 @@
 
             _handlers = new Dictionary<ISimpleFileCompiler, IHttpHandler>();
             foreach (var compiler in compilers) {
-                compiler.Init();
+                compiler.Init(TODO);
                 _handlers[compiler] = new CompilableFileHandler(compiler);
             }
 

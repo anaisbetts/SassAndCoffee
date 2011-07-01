@@ -30,7 +30,7 @@
             _engine = new TrashStack<MinifyingCompiler>(() => new MinifyingCompiler());
         }
 
-        public void Init()
+        public void Init(ICompilerHost host)
         {
         }
 

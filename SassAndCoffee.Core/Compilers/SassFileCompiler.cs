@@ -58,7 +58,7 @@
             get { return "text/css"; }
         }
 
-        public void Init()
+        public void Init(ICompilerHost host)
         {
         }
 

@@ -28,7 +28,7 @@
             _engine = engine;
         }
 
-        public void Init()
+        public void Init(ICompilerHost host)
         {
             _engine = _engine ?? new CoffeeScriptCompiler();
         }

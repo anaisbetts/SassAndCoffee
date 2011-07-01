@@ -96,9 +96,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CompilationResult.cs" />
     <Compile Include="Compilers\CoffeeScriptFileCompiler.cs" />
     <Compile Include="Compilers\FileConcatenationCompiler.cs" />
+    <Compile Include="ContentCompiler.cs" />
     <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
+    <Compile Include="ICompiledCache.cs" />
     <Compile Include="ICompilerHost.cs" />
     <Compile Include="Compilers\ISimpleFileCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />

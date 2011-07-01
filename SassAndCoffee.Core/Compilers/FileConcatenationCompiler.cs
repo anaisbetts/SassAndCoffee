@@ -25,12 +25,7 @@ namespace SassAndCoffee.Core.Compilers
 
         ICompilerHost _host;
 
-        public FileConcatenationCompiler(ICompilerHost host)
-        {
-            _host = host;
-        }
-
-        public void Init()
+        public void Init(ICompilerHost host)
         {
         }
 
