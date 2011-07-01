@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee", "SassAndCoffee\SassAndCoffee.csproj", "{C919A173-DD9B-46C4-88A2-4B31A63C501C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core", "SassAndCoffee.Core\SassAndCoffee.Core.csproj", "{C919A173-DD9B-46C4-88A2-4B31A63C501C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Tests", "SassAndCoffee.Tests\SassAndCoffee.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core.Tests", "SassAndCoffee.Core.Tests\SassAndCoffee.Core.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebTest", "WebTest\WebTest.csproj", "{833D9511-EA87-481A-B5E0-73EBC10F7AFB}"
 EndProject
