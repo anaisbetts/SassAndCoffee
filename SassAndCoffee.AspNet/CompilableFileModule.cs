@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Web;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.AspNet
 {
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Web;
+
+    using SassAndCoffee.Core;
+    using SassAndCoffee.Core.Extensions;
+
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
         Dictionary<ISimpleFileCompiler, IHttpHandler> _handlers;
@@ -25,7 +25,7 @@ namespace SassAndCoffee
 
             _handlers = new Dictionary<ISimpleFileCompiler, IHttpHandler>();
             foreach (var compiler in compilers) {
-                compiler.Init(context);
+                compiler.Init();
                 _handlers[compiler] = new CompilableFileHandler(compiler);
             }
 

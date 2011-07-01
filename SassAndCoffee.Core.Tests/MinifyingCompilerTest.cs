@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Xunit;
-
-namespace SassAndCoffee.Tests
+﻿namespace SassAndCoffee.Core.Tests
 {
+    using System;
+
+    using Xunit;
+
+    using SassAndCoffee.Core;
+
     public class MinifyingCompilerTest
     {
         [Fact]

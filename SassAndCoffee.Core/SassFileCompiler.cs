@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Web;
-using IronRuby;
-using Microsoft.Scripting;
-using Microsoft.Scripting.Hosting;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Reflection;
+
+    using IronRuby;
+
+    using Microsoft.Scripting;
+    using Microsoft.Scripting.Hosting;
+
     class SassModule
     {
         public dynamic Engine { get; set; }
@@ -22,7 +21,6 @@ namespace SassAndCoffee
 
     public class SassFileCompiler : ISimpleFileCompiler
     {
-        HttpApplication _app;
         static TrashStack<SassModule> _sassModule;
         internal static string RootAppPath;
 
@@ -60,14 +58,14 @@ namespace SassAndCoffee
             get { return "text/css"; }
         }
 
-        public void Init(HttpApplication context)
+        public void Init()
         {
-            _app = context;
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
-            RootAppPath = RootAppPath ?? _app.Request.PhysicalApplicationPath;
+            //TODO - fixup
+            //RootAppPath = RootAppPath ?? _app.Request.PhysicalApplicationPath;
 
             using (var sassModule = _sassModule.Get()) {
                 dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);

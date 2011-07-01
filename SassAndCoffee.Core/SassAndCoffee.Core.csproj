@@ -8,10 +8,11 @@
     <ProjectGuid>{C919A173-DD9B-46C4-88A2-4B31A63C501C}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SassAndCoffee</RootNamespace>
-    <AssemblyName>SassAndCoffee</AssemblyName>
+    <RootNamespace>SassAndCoffee.Core</RootNamespace>
+    <AssemblyName>SassAndCoffee.Core</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -88,7 +89,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -97,10 +97,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CoffeeScriptFileCompiler.cs" />
-    <Compile Include="CompilableFileHandler.cs" />
-    <Compile Include="CompilableFileModule.cs" />
     <Compile Include="ConcatenationFileHandler.cs" />
-    <Compile Include="Interfaces.cs" />
+    <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
+    <Compile Include="ICompilerHost.cs" />
+    <Compile Include="ISimpleFileCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />
     <Compile Include="JavascriptPassthroughCompiler.cs" />
     <Compile Include="MinifyingCompiler.cs" />

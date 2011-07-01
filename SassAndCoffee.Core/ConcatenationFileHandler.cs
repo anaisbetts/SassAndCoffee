@@ -1,13 +1,14 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Web;
-
-namespace SassAndCoffee
+namespace SassAndCoffee.Core
 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Security.Cryptography;
+    using System.Text;
+    using System.Text.RegularExpressions;
+
+    using SassAndCoffee.Core.Extensions;
+
     public class ConcatenationFileHandler : ISimpleFileCompiler
     {
         public string[] InputFileExtensions {
@@ -23,16 +24,14 @@ namespace SassAndCoffee
         }
 
         ICompilerHost _host;
-        HttpApplication _app;
 
         public ConcatenationFileHandler(ICompilerHost host)
         {
             _host = host;
         }
 
-        public void Init(HttpApplication context)
+        public void Init()
         {
-            _app = context;
         }
 
         static Regex _commentRegex;
@@ -83,32 +82,35 @@ namespace SassAndCoffee
 
         string[] parseCombineFileToPaths(string inputFileContent)
         {
-            if (_commentRegex == null) {
-                var re = new Regex("#.*$");
-                _commentRegex = re;
-            }
+            return new string[] { };
+            //if (_commentRegex == null) {
+            //    var re = new Regex("#.*$");
+            //    _commentRegex = re;
+            //}
 
-            return File.ReadAllLines(inputFileContent)
-                .Select(x => _commentRegex.Replace(x, String.Empty))
-                .Where(x => !String.IsNullOrWhiteSpace(x))
-                .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
-                .Select(x => relativeToAbsolutePath(x, this._app))
-                .ToArray();
+            //return File.ReadAllLines(inputFileContent)
+            //    .Select(x => _commentRegex.Replace(x, String.Empty))
+            //    .Where(x => !String.IsNullOrWhiteSpace(x))
+            //    .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
+            //    .Select(x => relativeToAbsolutePath(x, this._app))
+            //    .ToArray();
         }
 
-        public string relativeToAbsolutePath(string relativePath, HttpApplication context)
+        public string relativeToAbsolutePath(string relativePath)
         {
-            if (relativePath[0] == '~') {
-                return context.Request.MapPath(relativePath);
-            }
+            return string.Empty;
+            // TODO - Fixup
+            //if (relativePath[0] == '~') {
+            //    return context.Request.MapPath(relativePath);
+            //}
 
-            string baseDir = Path.GetDirectoryName(context.Request.PhysicalPath);
+            //string baseDir = Path.GetDirectoryName(context.Request.PhysicalPath);
 
-            var fi = new FileInfo(Path.Combine(baseDir, relativePath));
-            if (!fi.FullName.ToLowerInvariant().StartsWith(baseDir.ToLowerInvariant())) {
-                return String.Empty;
-            }
-            return fi.FullName;
+            //var fi = new FileInfo(Path.Combine(baseDir, relativePath));
+            //if (!fi.FullName.ToLowerInvariant().StartsWith(baseDir.ToLowerInvariant())) {
+            //    return String.Empty;
+            //}
+            //return fi.FullName;
         }
     }
 }

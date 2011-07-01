@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Web;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.AspNet
 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Text;
+    using System.Threading;
+    using System.Web;
+
+    using SassAndCoffee.Core;
+    using SassAndCoffee.Core.Extensions;
+
     public class CompilableFileHandler : IHttpHandler
     {
         ISimpleFileCompiler _compiler;

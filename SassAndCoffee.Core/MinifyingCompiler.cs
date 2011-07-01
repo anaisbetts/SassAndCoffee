@@ -1,15 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Web;
-using Jurassic;
-using V8Bridge.Interface;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System.IO;
+
     public class MinifyingCompiler : JavascriptBasedCompiler
     {
         public MinifyingCompiler() : base("SassAndCoffee.lib.uglify.js", "compilify_ujs") { }
@@ -38,7 +30,7 @@ namespace SassAndCoffee
             _engine = new TrashStack<MinifyingCompiler>(() => new MinifyingCompiler());
         }
 
-        public void Init(HttpApplication context)
+        public void Init()
         {
         }
 

@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Web;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System.IO;
+
     public class CoffeeScriptCompiler : JavascriptBasedCompiler
     {
         public CoffeeScriptCompiler() : base("SassAndCoffee.lib.coffee-script.js", "compilify_cs") { }
@@ -33,7 +28,7 @@ namespace SassAndCoffee
             _engine = engine;
         }
 
-        public void Init(HttpApplication context)
+        public void Init()
         {
             _engine = _engine ?? new CoffeeScriptCompiler();
         }

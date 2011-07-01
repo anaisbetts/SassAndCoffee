@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System;
+    using System.Collections.Concurrent;
+
     public sealed class ValueContainer<T> : IDisposable
     {
         IDisposable _inner;

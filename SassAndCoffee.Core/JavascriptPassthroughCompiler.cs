@@ -1,9 +1,7 @@
-using System;
-using System.IO;
-using System.Web;
-
-namespace SassAndCoffee
+namespace SassAndCoffee.Core
 {
+    using System.IO;
+
     public class JavascriptPassthroughCompiler : ISimpleFileCompiler
     {
         public string[] InputFileExtensions {
@@ -18,7 +16,7 @@ namespace SassAndCoffee
             get { return "text/javascript"; }
         }
 
-        public void Init(HttpApplication context)
+        public void Init()
         {
         }
 

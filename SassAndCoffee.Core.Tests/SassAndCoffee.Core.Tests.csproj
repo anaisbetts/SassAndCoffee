@@ -8,8 +8,8 @@
     <ProjectGuid>{1CA44023-95FB-471E-ACD8-3ECAFAF37211}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SassAndCoffee.Tests</RootNamespace>
-    <AssemblyName>SassAndCoffee.Tests</AssemblyName>
+    <RootNamespace>SassAndCoffee.Core.Tests</RootNamespace>
+    <AssemblyName>SassAndCoffee.Core.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

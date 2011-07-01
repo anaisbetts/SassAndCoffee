@@ -209,6 +209,10 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SassAndCoffee.AspNet\SassAndCoffee.AspNet.csproj">
+      <Project>{00756046-CCFE-4265-BBDF-7F5FD22E1504}</Project>
+      <Name>SassAndCoffee.AspNet</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SassAndCoffee.Core\SassAndCoffee.Core.csproj">
       <Project>{C919A173-DD9B-46C4-88A2-4B31A63C501C}</Project>
       <Name>SassAndCoffee</Name>

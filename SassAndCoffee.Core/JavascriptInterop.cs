@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Jurassic;
-using V8Bridge.Interface;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.IO;
+    using System.Linq;
+    using System.Reflection;
+    using System.Threading;
+
+    using Jurassic;
+
+    using V8Bridge.Interface;
+
     class JSWorkItem
     {
         readonly internal ManualResetEventSlim _gate = new ManualResetEventSlim();

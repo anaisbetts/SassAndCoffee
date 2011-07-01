@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using Xunit;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core.Tests
 {
+    using System;
+    using System.IO;
+
+    using Xunit;
+
+    using SassAndCoffee.Core;
+
     public class SassFileCompilerTest
     {
         [Fact]
@@ -34,7 +34,7 @@ namespace SassAndCoffee
             }
 
             try {
-                fixture.Init(null);
+                fixture.Init();
                 string result = fixture.ProcessFileContent(filename);
                 Console.WriteLine(result);
                 return result;
