@@ -3,6 +3,8 @@
     using System;
     using System.IO;
 
+    using SassAndCoffee.Core.Compilers;
+
     using Xunit;
 
     using SassAndCoffee.Core;

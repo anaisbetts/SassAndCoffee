@@ -1,4 +1,4 @@
-namespace SassAndCoffee.Core
+namespace SassAndCoffee.Core.Compilers
 {
     using System;
     using System.IO;
@@ -9,7 +9,7 @@ namespace SassAndCoffee.Core
 
     using SassAndCoffee.Core.Extensions;
 
-    public class ConcatenationFileHandler : ISimpleFileCompiler
+    public class FileConcatenationCompiler : ISimpleFileCompiler
     {
         public string[] InputFileExtensions {
             get { return new[] {".combine"}; }
@@ -25,7 +25,7 @@ namespace SassAndCoffee.Core
 
         ICompilerHost _host;
 
-        public ConcatenationFileHandler(ICompilerHost host)
+        public FileConcatenationCompiler(ICompilerHost host)
         {
             _host = host;
         }

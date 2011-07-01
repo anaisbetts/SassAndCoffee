@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core
+﻿namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
 
@@ -24,7 +24,7 @@
             get { return "text/javascript"; }
         }
 
-        public MinifyingFileCompiler(CoffeeScriptCompiler coffeeScriptEngine)
+        public MinifyingFileCompiler()
         {
             _coffeeEngine = new TrashStack<CoffeeScriptCompiler>(() => new CoffeeScriptCompiler());
             _engine = new TrashStack<MinifyingCompiler>(() => new MinifyingCompiler());

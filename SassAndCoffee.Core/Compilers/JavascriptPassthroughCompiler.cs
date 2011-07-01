@@ -1,4 +1,4 @@
-namespace SassAndCoffee.Core
+namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
 

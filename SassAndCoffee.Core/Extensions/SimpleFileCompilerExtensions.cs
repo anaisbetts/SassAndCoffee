@@ -2,6 +2,8 @@ namespace SassAndCoffee.Core.Extensions
 {
     using System.IO;
 
+    using SassAndCoffee.Core.Compilers;
+
     public static class SimpleFileCompilerExtensions
     {
         public static string FindInputFileGivenOutput(this ISimpleFileCompiler This, string outputFilePath)

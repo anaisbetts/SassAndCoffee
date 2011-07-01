@@ -2,6 +2,8 @@
 {
     using System;
 
+    using SassAndCoffee.Core.Compilers;
+
     using Xunit;
 
     using SassAndCoffee.Core;

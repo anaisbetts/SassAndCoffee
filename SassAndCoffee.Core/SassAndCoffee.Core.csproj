@@ -96,16 +96,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CoffeeScriptFileCompiler.cs" />
-    <Compile Include="ConcatenationFileHandler.cs" />
+    <Compile Include="Compilers\CoffeeScriptFileCompiler.cs" />
+    <Compile Include="Compilers\FileConcatenationCompiler.cs" />
     <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
     <Compile Include="ICompilerHost.cs" />
-    <Compile Include="ISimpleFileCompiler.cs" />
+    <Compile Include="Compilers\ISimpleFileCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />
-    <Compile Include="JavascriptPassthroughCompiler.cs" />
-    <Compile Include="MinifyingCompiler.cs" />
+    <Compile Include="Compilers\JavascriptPassthroughCompiler.cs" />
+    <Compile Include="Compilers\MinifyingCompiler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SassFileCompiler.cs" />
+    <Compile Include="Compilers\SassFileCompiler.cs" />
     <Compile Include="TrashStack.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
@@ -154,6 +154,7 @@
     <EmbeddedResource Include="lib\x86\V8Bridge.dll" />
     <None Include="lib\x86\V8Bridge.pdb" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

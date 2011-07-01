@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core
+﻿namespace SassAndCoffee.Core.Compilers
 {
     using System;
     using System.Collections.Generic;
@@ -11,16 +11,16 @@
     using Microsoft.Scripting;
     using Microsoft.Scripting.Hosting;
 
-    class SassModule
-    {
-        public dynamic Engine { get; set; }
-        public dynamic SassOption { get; set; }
-        public dynamic ScssOption { get; set; }
-        public Action<string> ExecuteRubyCode { get; set; }
-    }
-
     public class SassFileCompiler : ISimpleFileCompiler
     {
+        private class SassModule
+        {
+            public dynamic Engine { get; set; }
+            public dynamic SassOption { get; set; }
+            public dynamic ScssOption { get; set; }
+            public Action<string> ExecuteRubyCode { get; set; }
+        }
+
         static TrashStack<SassModule> _sassModule;
         internal static string RootAppPath;
 

@@ -5,6 +5,7 @@
     using System.Web;
 
     using SassAndCoffee.Core;
+    using SassAndCoffee.Core.Compilers;
     using SassAndCoffee.Core.Extensions;
 
     public class CompilableFileModule : IHttpModule, ICompilerHost
@@ -16,8 +17,8 @@
             var coffeeEngine = new CoffeeScriptCompiler();
 
             var compilers = new ISimpleFileCompiler[] {
-                new ConcatenationFileHandler(this),
-                new MinifyingFileCompiler(coffeeEngine),
+                new FileConcatenationCompiler(this),
+                new MinifyingFileCompiler(),
                 new CoffeeScriptFileCompiler(coffeeEngine),
                 new SassFileCompiler(),
                 new JavascriptPassthroughCompiler(),

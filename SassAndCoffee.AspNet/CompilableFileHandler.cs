@@ -8,6 +8,7 @@
     using System.Web;
 
     using SassAndCoffee.Core;
+    using SassAndCoffee.Core.Compilers;
     using SassAndCoffee.Core.Extensions;
 
     public class CompilableFileHandler : IHttpHandler
