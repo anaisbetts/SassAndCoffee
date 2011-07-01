@@ -156,7 +156,7 @@
             _scriptCompilerImpl = new Lazy<Type>(() => {
                 string suffix = (Environment.Is64BitProcess ? "amd64" : "x86");
                 string assemblyResource = (Environment.Is64BitProcess ?
-                    "SassAndCoffee.lib.amd64.V8Bridge.dll" : "SassAndCoffee.lib.x86.V8Bridge.dll");
+                    "SassAndCoffee.Core.lib.amd64.V8Bridge.dll" : "SassAndCoffee.Core.lib.x86.V8Bridge.dll");
 
                 var v8Name = Path.Combine(Path.GetTempPath(), String.Format("V8Bridge_{0}.dll", suffix));
                 try {

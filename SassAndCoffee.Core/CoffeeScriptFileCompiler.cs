@@ -4,7 +4,7 @@
 
     public class CoffeeScriptCompiler : JavascriptBasedCompiler
     {
-        public CoffeeScriptCompiler() : base("SassAndCoffee.lib.coffee-script.js", "compilify_cs") { }
+        public CoffeeScriptCompiler() : base("SassAndCoffee.Core.lib.coffee-script.js", "compilify_cs") { }
     }
 
     public class CoffeeScriptFileCompiler : ISimpleFileCompiler

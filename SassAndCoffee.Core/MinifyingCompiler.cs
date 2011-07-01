@@ -4,7 +4,7 @@
 
     public class MinifyingCompiler : JavascriptBasedCompiler
     {
-        public MinifyingCompiler() : base("SassAndCoffee.lib.uglify.js", "compilify_ujs") { }
+        public MinifyingCompiler() : base("SassAndCoffee.Core.lib.uglify.js", "compilify_ujs") { }
     }
 
     public class MinifyingFileCompiler : ISimpleFileCompiler
