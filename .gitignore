@@ -5,3 +5,5 @@ _ReSharper.*
 *.user
 WebTest/bin
 WebTest/obj
+WebTest/App_Data/_FileCache
+WebTest/Content/.sass-cache

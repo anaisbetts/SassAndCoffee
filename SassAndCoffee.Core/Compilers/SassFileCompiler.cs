@@ -132,7 +132,7 @@
                 .Replace("1.9.1", "_1._9._1")
                 .Replace('\\', '.')
                 .Replace('/', '.')
-                .Replace("R:", "SassAndCoffee");
+                .Replace("R:", "SassAndCoffee.Core");
             return ret;
         }
     }
