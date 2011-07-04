@@ -77,7 +77,7 @@
                 return string.Empty;
             }
 
-            return compiler.FindInputFileGivenOutput(requestedFileName);
+            return compiler.FindInputFileGivenOutput(physicalFileName);
         }
 
         public string GetOutputMimeType(string requestedFileName)
