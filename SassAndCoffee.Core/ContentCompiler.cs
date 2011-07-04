@@ -68,6 +68,18 @@
             return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
         }
 
+        public string GetSourceFileNameFromRequestedFileName(string requestedFileName)
+        {
+            var physicalFileName = this._host.MapPath(requestedFileName);
+            var compiler = this.GetMatchingCompiler(physicalFileName);
+            if (compiler == null)
+            {
+                return string.Empty;
+            }
+
+            return compiler.FindInputFileGivenOutput(requestedFileName);
+        }
+
         public string GetOutputMimeType(string requestedFileName)
         {
             var physicalFileName = this._host.MapPath(requestedFileName);

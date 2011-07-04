@@ -60,32 +60,24 @@ namespace SassAndCoffee.Core.Compilers
 
         public string GetFileChangeToken(string inputFileContent)
         {
-            return "";
+            var md5sum = MD5.Create();
+            var ms = this.GetCombineFileNames(inputFileContent)
+                .Select(x => this._compiler.GetSourceFileNameFromRequestedFileName(x))
+                .Select(x => new FileInfo(x))
+                .Where(x => x.Exists)
+                .Select(x => x.LastWriteTimeUtc.Ticks)
+                .Aggregate(new MemoryStream(), (acc, x) =>
+                {
+                    var buf = BitConverter.GetBytes(x);
+                    acc.Write(buf, 0, buf.Length);
+                    return acc;
+                });
 
-            // TODO - fixup - may require a change to the compiler interface
-
-            //var md5sum = MD5.Create();
-            //var ms = this.GetCombineFileNames(inputFileContent)
-            //    .Select(x =>
-            //    {
-            //        var compiler = _host.MapPathToCompiler(x);
-            //        return (compiler != null ? compiler.FindInputFileGivenOutput(x) ?? "" : "");
-            //    })
-            //    .Select(x => new FileInfo(x))
-            //    .Where(x => x.Exists)
-            //    .Select(x => x.LastWriteTimeUtc.Ticks)
-            //    .Aggregate(new MemoryStream(), (acc, x) =>
-            //    {
-            //        var buf = BitConverter.GetBytes(x);
-            //        acc.Write(buf, 0, buf.Length);
-            //        return acc;
-            //    });
-
-            //return md5sum.ComputeHash(ms.GetBuffer()).Aggregate(new StringBuilder(), (acc, x) =>
-            //{
-            //    acc.Append(x.ToString("x"));
-            //    return acc;
-            //}).ToString();
+            return md5sum.ComputeHash(ms.GetBuffer()).Aggregate(new StringBuilder(), (acc, x) =>
+            {
+                acc.Append(x.ToString("x"));
+                return acc;
+            }).ToString();
         }
 
         IEnumerable<string> GetCombineFileNames(string inputFileContent)
