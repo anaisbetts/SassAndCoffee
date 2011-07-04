@@ -96,6 +96,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Caching\FileCache.cs" />
     <Compile Include="Caching\InMemoryCache.cs" />
     <Compile Include="Caching\NoCache.cs" />
     <Compile Include="CompilationResult.cs" />
@@ -106,6 +107,7 @@
     <Compile Include="Caching\ICompiledCache.cs" />
     <Compile Include="ICompilerHost.cs" />
     <Compile Include="Compilers\ISimpleFileCompiler.cs" />
+    <Compile Include="IContentCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />
     <Compile Include="Compilers\JavascriptPassthroughCompiler.cs" />
     <Compile Include="Compilers\MinifyingCompiler.cs" />

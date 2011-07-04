@@ -9,7 +9,7 @@
     using SassAndCoffee.Core.Compilers;
     using SassAndCoffee.Core.Extensions;
 
-    public class ContentCompiler
+    public class ContentCompiler : IContentCompiler
     {
         private readonly ICompilerHost _host;
 
@@ -41,9 +41,9 @@
                 });
         }
 
-        public bool CanCompile(string inputFileName)
+        public bool CanCompile(string requestedFileName)
         {
-            return _compilers.Any(x => inputFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(inputFileName) != null);
+            return _compilers.Any(x => requestedFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(requestedFileName) != null);
         }
 
         public CompilationResult GetCompiledContent (string requestedFileName)
