@@ -17,6 +17,23 @@
 
         private readonly IEnumerable<ISimpleFileCompiler> _compilers;
 
+        public ContentCompiler(ICompilerHost host, ICompiledCache cache)
+        {
+            _host = host;
+            _cache = cache;
+
+            _compilers = new ISimpleFileCompiler[]
+                {
+                    new FileConcatenationCompiler(this),
+                    new MinifyingFileCompiler(),
+                    new CoffeeScriptFileCompiler(),
+                    new SassFileCompiler(),
+                    new JavascriptPassthroughCompiler(),
+                };
+
+            this.Init();
+        }
+
         public ContentCompiler(ICompilerHost host, ICompiledCache cache, IEnumerable<ISimpleFileCompiler> compilers)
         {
             _host = host;
@@ -24,21 +41,6 @@
             _compilers = compilers;
 
             this.Init();
-        }
-
-        public static ContentCompiler WithAllCompilers(ICompilerHost host, ICompiledCache cache)
-        {
-            return new ContentCompiler(
-                host,
-                cache,
-                new ISimpleFileCompiler[]
-                {
-//                    new FileConcatenationCompiler(),
-                    new MinifyingFileCompiler(),
-                    new CoffeeScriptFileCompiler(),
-                    new SassFileCompiler(),
-                    new JavascriptPassthroughCompiler(),
-                });
         }
 
         public bool CanCompile(string requestedFileName)

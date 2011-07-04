@@ -1,11 +1,12 @@
 ﻿namespace SassAndCoffee.AspNet
 {
     using System.IO;
-    using System.Threading;
     using System.Web;
 
     using SassAndCoffee.Core;
     using SassAndCoffee.Core.Caching;
+
+//#define MEMORY_CACHE
 
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
@@ -19,14 +20,17 @@
         {
             this._application = context;
             // TODO - add web.config entry to allow cache configuration
-            this._compiler = ContentCompiler.WithAllCompilers(this, new InMemoryCache());
-            //var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
-            //if (!Directory.Exists(cachePath))
-            //{
-            //    Directory.CreateDirectory(cachePath);
-            //}
-            //this._compiler = ContentCompiler.WithAllCompilers(this, new FileCache(cachePath)); 
-            
+
+#if MEMORY_CACHE
+            this._compiler = new ContentCompiler(this, new InMemoryCache());
+#else
+            var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
+            if (!Directory.Exists(cachePath))
+            {
+                Directory.CreateDirectory(cachePath);
+            }
+            this._compiler = new ContentCompiler(this, new FileCache(cachePath)); 
+#endif            
             this._handler = new CompilableFileHandler(this._compiler);
 
             context.PostResolveRequestCache += (o, e) => {
