@@ -176,7 +176,7 @@
     <Content Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </Content>
-    <None Include="Content\Site.scss" />
+    <Content Include="Content\Site.css" />
     <Content Include="Scripts\jquery.unobtrusive-ajax.js" />
     <Content Include="Scripts\jquery.unobtrusive-ajax.min.js" />
     <Content Include="Scripts\jquery.validate.unobtrusive.js" />
@@ -199,6 +199,8 @@
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Views\Web.config" />
     <None Include="Content\_rounded.scss" />
+    <None Include="Scripts\debug_all.combine" />
+    <None Include="Scripts\prod_all.combine" />
     <None Include="Scripts\Main.coffee" />
     <None Include="Content\style.scss" />
   </ItemGroup>
@@ -209,7 +211,11 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SassAndCoffee\SassAndCoffee.csproj">
+    <ProjectReference Include="..\SassAndCoffee.AspNet\SassAndCoffee.AspNet.csproj">
+      <Project>{00756046-CCFE-4265-BBDF-7F5FD22E1504}</Project>
+      <Name>SassAndCoffee.AspNet</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SassAndCoffee.Core\SassAndCoffee.Core.csproj">
       <Project>{C919A173-DD9B-46C4-88A2-4B31A63C501C}</Project>
       <Name>SassAndCoffee</Name>
     </ProjectReference>
@@ -233,7 +239,7 @@
           <AutoAssignPort>True</AutoAssignPort>
           <DevelopmentServerPort>58706</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:1915/</IISUrl>
+          <IISUrl>http://localhost:52860/</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>
