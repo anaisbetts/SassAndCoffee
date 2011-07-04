@@ -17,14 +17,35 @@
             _basePath = basePath;
         }
 
-        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate)
+        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
-            throw new NotImplementedException();
+            var outputFileName = Path.Combine(this._basePath, filename);
+            FileInfo fi;
+
+            if (File.Exists(outputFileName))
+            {
+                fi = new FileInfo(outputFileName);
+                return new CompilationResult(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
+            }
+
+            var result = compilationDelegate.Invoke(filename);
+            try
+            {
+                File.WriteAllText(outputFileName, result.Contents);
+                fi = new FileInfo(outputFileName);
+                fi.LastWriteTimeUtc = result.SourceLastModifiedUtc;
+            }
+            catch (IOException)
+            {
+                // TODO - lock around this to prevent multiple requests screwing up, or just catch and return?
+            }
+            
+            return result;
         }
 
         public void Clear()
         {
-            throw new NotImplementedException();
+
         }
     }
 }

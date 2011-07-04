@@ -1,5 +1,7 @@
 ﻿namespace SassAndCoffee.AspNet
 {
+    using System.IO;
+    using System.Threading;
     using System.Web;
 
     using SassAndCoffee.Core;
@@ -16,7 +18,15 @@
         public void Init(HttpApplication context)
         {
             this._application = context;
+            // TODO - add web.config entry to allow cache configuration
             this._compiler = ContentCompiler.WithAllCompilers(this, new InMemoryCache());
+            //var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
+            //if (!Directory.Exists(cachePath))
+            //{
+            //    Directory.CreateDirectory(cachePath);
+            //}
+            //this._compiler = ContentCompiler.WithAllCompilers(this, new FileCache(cachePath)); 
+            
             this._handler = new CompilableFileHandler(this._compiler);
 
             context.PostResolveRequestCache += (o, e) => {

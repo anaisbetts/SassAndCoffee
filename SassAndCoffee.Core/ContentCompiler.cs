@@ -63,7 +63,7 @@
             }
 
             var cacheKey = this.GetCacheKey(physicalFileName, compiler);
-            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler));
+            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
         }
 
         public string GetOutputMimeType(string requestedFileName)

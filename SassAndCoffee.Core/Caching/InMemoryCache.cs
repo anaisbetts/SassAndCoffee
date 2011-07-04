@@ -7,7 +7,7 @@ namespace SassAndCoffee.Core.Caching
     {
         private readonly ConcurrentDictionary<string, CompilationResult> _cache = new ConcurrentDictionary<string, CompilationResult>();
 
-        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate)
+        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
             return this._cache.GetOrAdd(filename, compilationDelegate);
         }
