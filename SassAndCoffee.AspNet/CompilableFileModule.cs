@@ -1,53 +1,47 @@
 ﻿namespace SassAndCoffee.AspNet
 {
-    using System.Collections.Generic;
-    using System.Linq;
     using System.Web;
 
     using SassAndCoffee.Core;
-    using SassAndCoffee.Core.Compilers;
-    using SassAndCoffee.Core.Extensions;
+    using SassAndCoffee.Core.Caching;
 
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
-        Dictionary<ISimpleFileCompiler, IHttpHandler> _handlers;
+        private IContentCompiler _compiler;
+
+        private IHttpHandler _handler;
+
+        private HttpApplication _application;
 
         public void Init(HttpApplication context)
         {
-            var coffeeEngine = new CoffeeScriptCompiler();
-
-            var compilers = new ISimpleFileCompiler[] {
-                new FileConcatenationCompiler(this),
-                new MinifyingFileCompiler(),
-                new CoffeeScriptFileCompiler(coffeeEngine),
-                new SassFileCompiler(),
-                new JavascriptPassthroughCompiler(),
-            };
-
-            _handlers = new Dictionary<ISimpleFileCompiler, IHttpHandler>();
-            foreach (var compiler in compilers) {
-                compiler.Init(TODO);
-                _handlers[compiler] = new CompilableFileHandler(compiler);
-            }
+            this._application = context;
+            this._compiler = ContentCompiler.WithAllCompilers(this, new InMemoryCache());
+            this._handler = new CompilableFileHandler(this._compiler);
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
-                var compiler = MapPathToCompiler(app.Request.PhysicalPath);
 
-                if (compiler == null) {
+                if (!this._compiler.CanCompile(app.Request.Path))
+                {
                     return;
                 }
 
-                app.Context.RemapHandler(_handlers[compiler]);
+                app.Context.RemapHandler(this._handler);
             };
         }
 
-        public ISimpleFileCompiler MapPathToCompiler(string physicalPath)
+        public string ApplicationBasePath
         {
-            string path = physicalPath.ToLowerInvariant();
+            get
+            {
+                return this._application.Request.PhysicalApplicationPath;
+            }
+        }
 
-            return _handlers.Keys
-                .FirstOrDefault(x => path.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(path) != null);
+        public string MapPath(string path)
+        {
+            return this._application.Server.MapPath(path);
         }
 
         public void Dispose()

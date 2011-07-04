@@ -5,5 +5,7 @@ namespace SassAndCoffee.Core
         bool CanCompile(string requestedFileName);
 
         CompilationResult GetCompiledContent (string requestedFileName);
+
+        string GetOutputMimeType(string requestedFileName);
     }
 }

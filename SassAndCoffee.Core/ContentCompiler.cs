@@ -33,7 +33,7 @@
                 cache,
                 new ISimpleFileCompiler[]
                 {
-                    new FileConcatenationCompiler(),
+//                    new FileConcatenationCompiler(),
                     new MinifyingFileCompiler(),
                     new CoffeeScriptFileCompiler(),
                     new SassFileCompiler(),
@@ -43,26 +43,39 @@
 
         public bool CanCompile(string requestedFileName)
         {
-            return _compilers.Any(x => requestedFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(requestedFileName) != null);
+            var physicalFileName = this._host.MapPath(requestedFileName);
+            return _compilers.Any(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
         }
 
         public CompilationResult GetCompiledContent (string requestedFileName)
         {
-            var compiler = this.GetMatchingCompiler(requestedFileName);
+            var sourceFileName = this._host.MapPath(requestedFileName);
+            var compiler = this.GetMatchingCompiler(sourceFileName);
             if (compiler == null)
             {
-                return new CompilationResult(false, string.Empty, string.Empty);
+                return CompilationResult.Error;
             }
 
-            var sourceFileName = compiler.FindInputFileGivenOutput(requestedFileName);
-            var physicalFileName = this._host.MapPath(sourceFileName);
+            var physicalFileName = compiler.FindInputFileGivenOutput(sourceFileName);
             if (!File.Exists(physicalFileName))
             {
-                return new CompilationResult(false, string.Empty, string.Empty);
+                return CompilationResult.Error;
             }
 
             var cacheKey = this.GetCacheKey(physicalFileName, compiler);
             return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler));
+        }
+
+        public string GetOutputMimeType(string requestedFileName)
+        {
+            var physicalFileName = this._host.MapPath(requestedFileName);
+            var compiler = this.GetMatchingCompiler(physicalFileName);
+            if (compiler == null)
+            {
+                return "application/octet-stream";
+            }
+
+            return compiler.OutputMimeType;
         }
 
         private string GetCacheKey(string physicalFileName, ISimpleFileCompiler compiler)
@@ -78,7 +91,9 @@
 
         private CompilationResult CompileContent(string physicalFileName, ISimpleFileCompiler compiler)
         {
-            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType);
+            var fi = new FileInfo(physicalFileName);
+
+            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, fi.LastWriteTimeUtc);
         }
 
         private void Init()
@@ -89,9 +104,9 @@
             }
         }
 
-        private ISimpleFileCompiler GetMatchingCompiler(string requestedFileName)
+        private ISimpleFileCompiler GetMatchingCompiler(string physicalFileName)
         {
-            return _compilers.FirstOrDefault(x => requestedFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(requestedFileName) != null);
+            return _compilers.FirstOrDefault(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
         }
     }
 }
