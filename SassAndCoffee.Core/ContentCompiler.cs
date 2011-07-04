@@ -1,9 +1,11 @@
 ﻿namespace SassAndCoffee.Core
 {
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
 
+    using SassAndCoffee.Core.Caching;
     using SassAndCoffee.Core.Compilers;
     using SassAndCoffee.Core.Extensions;
 
@@ -11,7 +13,7 @@
     {
         private readonly ICompilerHost _host;
 
-        private ICompiledCache _cache;
+        private readonly ICompiledCache _cache;
 
         private readonly IEnumerable<ISimpleFileCompiler> _compilers;
 
@@ -44,33 +46,39 @@
             return _compilers.Any(x => inputFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(inputFileName) != null);
         }
 
-        public CompilationResult GetCompiledContent (string inputFileName)
+        public CompilationResult GetCompiledContent (string requestedFileName)
         {
-            return this._cache.GetOrAdd(inputFileName, this.CompileContent);
-        }
+            var compiler = this.GetMatchingCompiler(requestedFileName);
+            if (compiler == null)
+            {
+                return new CompilationResult(false, string.Empty, string.Empty);
+            }
 
-        private CompilationResult CompileContent(string inputFileName)
-        {
-            var physicalFileName = this._host.MapPath(inputFileName);
-
+            var sourceFileName = compiler.FindInputFileGivenOutput(requestedFileName);
+            var physicalFileName = this._host.MapPath(sourceFileName);
             if (!File.Exists(physicalFileName))
             {
                 return new CompilationResult(false, string.Empty, string.Empty);
             }
 
-            var compiler = this.GetMatchingCompiler(inputFileName);
-
-            if (compiler == null)
-            {
-                return this.GetFileContents(physicalFileName);
-            }
-
-            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType);
+            var cacheKey = this.GetCacheKey(physicalFileName, compiler);
+            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler));
         }
 
-        private CompilationResult GetFileContents(string physicalFileName)
+        private string GetCacheKey(string physicalFileName, ISimpleFileCompiler compiler)
         {
-            return new CompilationResult(false, File.ReadAllText(physicalFileName), string.Empty); 
+            var fi = new FileInfo(physicalFileName);
+            var token = compiler.GetFileChangeToken(physicalFileName) ?? String.Empty;
+
+            return String.Format("{0:yyyyMMddHHmmss}-{1}-{2}{3}",
+                        fi.LastWriteTimeUtc, token,
+                        Path.GetFileNameWithoutExtension(physicalFileName),
+                        compiler.OutputFileExtension);
+        }
+
+        private CompilationResult CompileContent(string physicalFileName, ISimpleFileCompiler compiler)
+        {
+            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType);
         }
 
         private void Init()
@@ -81,9 +89,9 @@
             }
         }
 
-        private ISimpleFileCompiler GetMatchingCompiler(string inputFileName)
+        private ISimpleFileCompiler GetMatchingCompiler(string requestedFileName)
         {
-            return _compilers.FirstOrDefault(x => inputFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(inputFileName) != null);
+            return _compilers.FirstOrDefault(x => requestedFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(requestedFileName) != null);
         }
     }
 }
