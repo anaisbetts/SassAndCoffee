@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-
-namespace SassAndCoffee
+﻿namespace SassAndCoffee.Core
 {
+    using System.IO;
+    using System.Reflection;
+    using System.Text;
+
     public class Utility
     {
         public static string ResourceAsString(string resource, Assembly assembly = null, Encoding enc = null)
