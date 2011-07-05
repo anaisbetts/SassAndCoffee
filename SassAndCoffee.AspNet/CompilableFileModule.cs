@@ -10,52 +10,53 @@
 
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
-        private IContentCompiler _compiler;
+        IContentCompiler _compiler;
 
-        private IHttpHandler _handler;
+        IHttpHandler _handler;
 
-        private HttpApplication _application;
+	// XXX: Can we hold onto the App pointer like this? Won't ASP.NET hate 
+	// on us if we try to touch this outside of an active request?
+        HttpApplication _application;
 
         public void Init(HttpApplication context)
         {
-            this._application = context;
+            _application = context;
+
             // TODO - add web.config entry to allow cache configuration
 
 #if MEMORY_CACHE
-            this._compiler = new ContentCompiler(this, new InMemoryCache());
+            _compiler = new ContentCompiler(this, new InMemoryCache());
 #else
             var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
-            if (!Directory.Exists(cachePath))
-            {
+            if (!Directory.Exists(cachePath)) {
                 Directory.CreateDirectory(cachePath);
             }
-            this._compiler = new ContentCompiler(this, new FileCache(cachePath)); 
+
+            _compiler = new ContentCompiler(this, new FileCache(cachePath)); 
 #endif            
-            this._handler = new CompilableFileHandler(this._compiler);
+
+            _handler = new CompilableFileHandler(this._compiler);
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
 
-                if (!this._compiler.CanCompile(app.Request.Path))
-                {
+                if (!_compiler.CanCompile(app.Request.Path)) {
                     return;
                 }
 
-                app.Context.RemapHandler(this._handler);
+                app.Context.RemapHandler(_handler);
             };
         }
 
-        public string ApplicationBasePath
-        {
-            get
-            {
-                return this._application.Request.PhysicalApplicationPath;
+        public string ApplicationBasePath {
+            get {
+                return _application.Request.PhysicalApplicationPath;
             }
         }
 
         public string MapPath(string path)
         {
-            return this._application.Server.MapPath(path);
+            return _application.Server.MapPath(path);
         }
 
         public void Dispose()

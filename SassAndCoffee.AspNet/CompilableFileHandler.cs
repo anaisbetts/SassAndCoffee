@@ -8,17 +8,15 @@
 
     public class CompilableFileHandler : IHttpHandler
     {
-        private readonly IContentCompiler _contentCompiler;
+        readonly IContentCompiler _contentCompiler;
 
         public CompilableFileHandler(IContentCompiler contentCompiler)
         {
             _contentCompiler = contentCompiler;
         }
 
-        public bool IsReusable
-        {
-            get
-            {
+        public bool IsReusable {
+            get {
                 return true;
             }
         }
@@ -27,16 +25,15 @@
         {
             var fi = new FileInfo(context.Request.PhysicalPath);
             var requestedFileName = fi.FullName;
-            if (fi.Exists)
-            {
+
+            if (fi.Exists) {
                 BuildHeaders(context.Response, this._contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
                 return;
             }
 
             var compilationResult = this._contentCompiler.GetCompiledContent(context.Request.Path);
-            if (compilationResult.Compiled == false)
-            {
+            if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;
             }

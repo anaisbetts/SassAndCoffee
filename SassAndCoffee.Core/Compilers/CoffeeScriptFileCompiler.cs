@@ -2,6 +2,9 @@
 {
     using System.IO;
 
+    // NB: This class seems stupid, but it makes it easier for other projects 
+    // to reuse the CoffeeScript compilation bits without committing to the caching
+    // logic
     public class CoffeeScriptCompiler : JavascriptBasedCompiler
     {
         public CoffeeScriptCompiler() : base("SassAndCoffee.Core.lib.coffee-script.js", "compilify_cs") { }

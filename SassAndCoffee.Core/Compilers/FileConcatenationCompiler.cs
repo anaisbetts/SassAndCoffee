@@ -10,28 +10,19 @@ namespace SassAndCoffee.Core.Compilers
 
     public class FileConcatenationCompiler : ISimpleFileCompiler
     {
-        private ICompilerHost _host;
+        ICompilerHost _host;
+        IContentCompiler _compiler;
 
-        private IContentCompiler _compiler;
-
-        public string[] InputFileExtensions
-        {
+        public string[] InputFileExtensions {
             get { return new[] { ".combine" }; }
         }
 
-        public string OutputFileExtension
-        {
+        public string OutputFileExtension {
             get { return ".js"; }
         }
 
-        public string OutputMimeType
-        {
+        public string OutputMimeType {
             get { return "text/javascript"; }
-        }
-
-        public void Init(ICompilerHost host)
-        {
-            this._host = host;
         }
 
         static readonly Regex _commentRegex = new Regex("#.*$", RegexOptions.Compiled);
@@ -41,17 +32,21 @@ namespace SassAndCoffee.Core.Compilers
             _compiler = compiler;
         }
 
+        public void Init(ICompilerHost host)
+        {
+            _host = host;
+        }
+
         public string ProcessFileContent(string inputFileContent)
         {
             var combineFileNames = this.GetCombineFileNames(inputFileContent);
 
-            var allText = combineFileNames.Select(
-                x => !this._compiler.CanCompile(x) 
-                        ? String.Empty
-                        : this._compiler.GetCompiledContent(x).Contents).ToArray();
+            var allText = combineFileNames
+                .Select( x => _compiler.CanCompile(x) ? 
+                    _compiler.GetCompiledContent(x).Contents : String.Empty)
+                .ToArray();
 
-            return allText.Aggregate(new StringBuilder(), (acc, x) =>
-            {
+            return allText.Aggregate(new StringBuilder(), (acc, x) => {
                 acc.Append(x);
                 acc.Append("\n");
                 return acc;
@@ -61,20 +56,19 @@ namespace SassAndCoffee.Core.Compilers
         public string GetFileChangeToken(string inputFileContent)
         {
             var md5sum = MD5.Create();
+
             var ms = this.GetCombineFileNames(inputFileContent)
                 .Select(x => this._compiler.GetSourceFileNameFromRequestedFileName(x))
                 .Select(x => new FileInfo(x))
                 .Where(x => x.Exists)
                 .Select(x => x.LastWriteTimeUtc.Ticks)
-                .Aggregate(new MemoryStream(), (acc, x) =>
-                {
+                .Aggregate(new MemoryStream(), (acc, x) => {
                     var buf = BitConverter.GetBytes(x);
                     acc.Write(buf, 0, buf.Length);
                     return acc;
                 });
 
-            return md5sum.ComputeHash(ms.GetBuffer()).Aggregate(new StringBuilder(), (acc, x) =>
-            {
+            return md5sum.ComputeHash(ms.GetBuffer()).Aggregate(new StringBuilder(), (acc, x) => {
                 acc.Append(x.ToString("x"));
                 return acc;
             }).ToString();

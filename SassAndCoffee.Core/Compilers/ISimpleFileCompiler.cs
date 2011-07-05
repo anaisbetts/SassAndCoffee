@@ -1,5 +1,6 @@
 namespace SassAndCoffee.Core.Compilers
 {
+    // TODO: Document me
     public interface ISimpleFileCompiler
     {
         string[] InputFileExtensions { get; }

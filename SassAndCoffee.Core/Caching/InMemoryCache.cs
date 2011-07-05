@@ -5,16 +5,16 @@ namespace SassAndCoffee.Core.Caching
 
     public class InMemoryCache : ICompiledCache
     {
-        private readonly ConcurrentDictionary<string, CompilationResult> _cache = new ConcurrentDictionary<string, CompilationResult>();
+        readonly ConcurrentDictionary<string, CompilationResult> _cache = new ConcurrentDictionary<string, CompilationResult>();
 
         public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
-            return this._cache.GetOrAdd(filename, compilationDelegate);
+            return _cache.GetOrAdd(filename, compilationDelegate);
         }
 
         public void Clear()
         {
-            this._cache.Clear();
+            _cache.Clear();
         }
     }
 }

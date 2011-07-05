@@ -31,6 +31,9 @@
                 srs.AddRubySetup();
                 var runtime = Ruby.CreateRuntime(srs);
                 var engine = runtime.GetRubyEngine();
+
+                // NB: 'R:\' is a garbage path that the PAL override below will 
+                // detect and attempt to find via an embedded Resource file
                 engine.SetSearchPaths(new List<string>() {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"});
     
                 var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.Core.lib.sass_in_one.rb"), SourceCodeKind.File);
@@ -60,13 +63,11 @@
 
         public void Init(ICompilerHost host)
         {
+            RootAppPath = RootAppPath ?? host.ApplicationBasePath;
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
-            //TODO - fixup
-            //RootAppPath = RootAppPath ?? _app.Request.PhysicalApplicationPath;
-
             using (var sassModule = _sassModule.Get()) {
                 dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
 

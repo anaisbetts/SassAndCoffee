@@ -2,6 +2,7 @@ namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
 
+    // TODO: Document why this exists
     public class JavascriptPassthroughCompiler : ISimpleFileCompiler
     {
         public string[] InputFileExtensions {

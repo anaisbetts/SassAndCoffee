@@ -36,6 +36,8 @@
             }
 
             try {
+
+		// TODO: Fix this
            //     fixture.Init(TODO);
                 string result = fixture.ProcessFileContent(filename);
                 Console.WriteLine(result);

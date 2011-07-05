@@ -22,22 +22,25 @@
             var outputFileName = Path.Combine(this._basePath, filename);
             FileInfo fi;
 
-            if (File.Exists(outputFileName))
-            {
+            if (File.Exists(outputFileName)) {
                 fi = new FileInfo(outputFileName);
                 return new CompilationResult(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
             }
 
-            var result = compilationDelegate.Invoke(filename);
-            try
-            {
+            var result = compilationDelegate(filename);
+
+            try {
                 File.WriteAllText(outputFileName, result.Contents);
+
+                // XXX: Is this needed?
                 fi = new FileInfo(outputFileName);
                 fi.LastWriteTimeUtc = result.SourceLastModifiedUtc;
-            }
-            catch (IOException)
-            {
-                // TODO - lock around this to prevent multiple requests screwing up, or just catch and return?
+            } catch (IOException) {
+                // NB: If we get here, this means that two threads are trying to 
+                // write the file concurrently - just let the other one win, we will
+                // later try to serve up the static file anyways
+                //
+                // TODO: Verify this :)
             }
             
             return result;
