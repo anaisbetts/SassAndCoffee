@@ -15,14 +15,8 @@
 
         IHttpHandler _handler;
 
-	// XXX: Can we hold onto the App pointer like this? Won't ASP.NET hate 
-	// on us if we try to touch this outside of an active request?
-        HttpApplication _application;
-
         public void Init(HttpApplication context)
         {
-            _application = context;
-
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
 
             // NoCache
@@ -62,13 +56,13 @@
 
         public string ApplicationBasePath {
             get {
-                return _application.Request.PhysicalApplicationPath;
+                return HttpContext.Current.Request.PhysicalApplicationPath;
             }
         }
 
         public string MapPath(string path)
         {
-            return _application.Server.MapPath(path);
+            return HttpContext.Current.Server.MapPath(path);
         }
 
         public void Dispose()
