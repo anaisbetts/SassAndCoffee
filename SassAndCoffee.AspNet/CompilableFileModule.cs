@@ -5,6 +5,7 @@
 
     using SassAndCoffee.Core;
     using SassAndCoffee.Core.Caching;
+    using System.Configuration;
 
 //#define MEMORY_CACHE
 
@@ -22,18 +23,29 @@
         {
             _application = context;
 
-            // TODO - add web.config entry to allow cache configuration
+            var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
 
-#if MEMORY_CACHE
-            _compiler = new ContentCompiler(this, new InMemoryCache());
-#else
-            var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
-            if (!Directory.Exists(cachePath)) {
-                Directory.CreateDirectory(cachePath);
+            // NoCache
+            if (string.Equals(cacheType, "NoCache", System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                _compiler = new ContentCompiler(this, new NoCache());
             }
+            // InMemoryCache
+            else if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                _compiler = new ContentCompiler(this, new InMemoryCache());
+            }
+            // FileCache
+            else
+            {
+                var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
+                if (!Directory.Exists(cachePath))
+                {
+                    Directory.CreateDirectory(cachePath);
+                }
 
-            _compiler = new ContentCompiler(this, new FileCache(cachePath)); 
-#endif            
+                _compiler = new ContentCompiler(this, new FileCache(cachePath));
+            }
 
             _handler = new CompilableFileHandler(this._compiler);
 
