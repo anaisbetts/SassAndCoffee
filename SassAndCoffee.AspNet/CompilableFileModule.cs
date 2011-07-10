@@ -7,8 +7,6 @@
     using SassAndCoffee.Core.Caching;
     using System.Configuration;
 
-//#define MEMORY_CACHE
-
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
         IContentCompiler _compiler;
