@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("SassAndCoffee.AspNet")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("SassAndCoffee is a package that adds SCSS/Sass and CoffeeScript compilation support to ASP.NET, as well as minification support via UglifyJS")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Microsoft")]
-[assembly: AssemblyProduct("SassAndCoffee.AspNet")]
-[assembly: AssemblyCopyright("Copyright © Microsoft 2011")]
+[assembly: AssemblyCompany("Paul Betts")]
+[assembly: AssemblyProduct("SassAndCoffee")]
+[assembly: AssemblyCopyright("Copyright © 2011 Paul Betts")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("f04c1e50-e3ec-44b7-8b66-44f10493bda5")]
+[assembly: Guid("096e5912-dd46-451a-8545-bfe3a57d7d10")]
 
 // Version information for an assembly consists of the following four values:
 //
