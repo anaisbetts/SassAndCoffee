@@ -10,10 +10,13 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <tags>Javascript asp.net scss sass coffeescript minify uglifyjs</tags>
+
+    <dependencies>
+      <dependency id="SassAndCoffee.Core" version="1.0" />
+    </dependencies>
   </metadata>
 
   <files>
-    <file src="tools\*" target="tools" />
-    <file src="..\ext\Jurassic.dll" target="lib\net40" />
+    <file src="content\*" target="content" />
   </files>
 </package>

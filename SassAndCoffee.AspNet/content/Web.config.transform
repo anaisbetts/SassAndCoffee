@@ -2,14 +2,14 @@
 <configuration>
   <system.web>
     <httpModules>
-      <add name="CompilableFileModule" type="SassAndCoffee.CompilableFileModule" />
+      <add name="CompilableFileModule" type="SassAndCoffee.AspNet.CompilableFileModule" />
     </httpModules>
   </system.web>
 
   <system.webServer>
     <modules>
       <remove name="CompilableFileModule" />
-      <add name="CompilableFileModule" type="SassAndCoffee.CompilableFileModule" />
+      <add name="CompilableFileModule" type="SassAndCoffee.AspNet.CompilableFileModule" />
     </modules>
   </system.webServer>
 </configuration>
