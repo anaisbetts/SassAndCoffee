@@ -5,6 +5,7 @@
 
     using SassAndCoffee.Core;
     using SassAndCoffee.Core.Caching;
+    using System.Configuration;
 
 //#define MEMORY_CACHE
 
@@ -14,26 +15,31 @@
 
         IHttpHandler _handler;
 
-	// XXX: Can we hold onto the App pointer like this? Won't ASP.NET hate 
-	// on us if we try to touch this outside of an active request?
-        HttpApplication _application;
-
         public void Init(HttpApplication context)
         {
-            _application = context;
+            var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
 
-            // TODO - add web.config entry to allow cache configuration
-
-#if MEMORY_CACHE
-            _compiler = new ContentCompiler(this, new InMemoryCache());
-#else
-            var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
-            if (!Directory.Exists(cachePath)) {
-                Directory.CreateDirectory(cachePath);
+            // NoCache
+            if (string.Equals(cacheType, "NoCache", System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                _compiler = new ContentCompiler(this, new NoCache());
             }
+            // InMemoryCache
+            else if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                _compiler = new ContentCompiler(this, new InMemoryCache());
+            }
+            // FileCache
+            else
+            {
+                var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
+                if (!Directory.Exists(cachePath))
+                {
+                    Directory.CreateDirectory(cachePath);
+                }
 
-            _compiler = new ContentCompiler(this, new FileCache(cachePath)); 
-#endif            
+                _compiler = new ContentCompiler(this, new FileCache(cachePath));
+            }
 
             _handler = new CompilableFileHandler(this._compiler);
 
@@ -50,13 +56,13 @@
 
         public string ApplicationBasePath {
             get {
-                return _application.Request.PhysicalApplicationPath;
+                return HttpContext.Current.Request.PhysicalApplicationPath;
             }
         }
 
         public string MapPath(string path)
         {
-            return _application.Server.MapPath(path);
+            return HttpContext.Current.Server.MapPath(path);
         }
 
         public void Dispose()
