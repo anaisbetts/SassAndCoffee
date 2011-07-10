@@ -27,7 +27,7 @@
             var requestedFileName = fi.FullName;
 
             if (fi.Exists) {
-                BuildHeaders(context.Response, this._contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
+                BuildHeaders(context.Response, this._contentCompiler.GetOutputMimeType(context.Request.Path), fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
                 return;
             }
