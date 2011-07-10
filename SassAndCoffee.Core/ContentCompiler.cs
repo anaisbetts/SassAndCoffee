@@ -29,6 +29,7 @@
                     new CoffeeScriptFileCompiler(),
                     new SassFileCompiler(),
                     new JavascriptPassthroughCompiler(),
+                    new CssPassthroughCompiler()
                 };
 
             this.Init();
