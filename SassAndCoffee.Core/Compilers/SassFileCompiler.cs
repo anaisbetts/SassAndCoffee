@@ -23,6 +23,7 @@
 
         static TrashStack<SassModule> _sassModule;
         internal static string RootAppPath;
+        ICompilerHost _compilerHost;
 
         static SassFileCompiler()
         {
@@ -63,11 +64,16 @@
 
         public void Init(ICompilerHost host)
         {
-            RootAppPath = RootAppPath ?? host.ApplicationBasePath;
+            _compilerHost = host;
         }
 
         public string ProcessFileContent(string inputFileContent)
         {
+            // NB: We do this here instead of in Init like we should, because in 
+            // ASP.NET trying to get the PhysicalAppPath when a request isn't in-flight
+            // is verboten, for no good reason.
+            RootAppPath = RootAppPath ?? _compilerHost.ApplicationBasePath;
+
             using (var sassModule = _sassModule.Get()) {
                 dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
 
