@@ -24,14 +24,17 @@
             };
 
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
+            var cachePath = context.Server.MapPath(ConfigurationManager.AppSettings["SassAndCoffee.CachePath"]);
+            if (string.IsNullOrWhiteSpace(cachePath))
+                cachePath = context.Server.MapPath("~/App_Data/.sassandcoffeecache");
 
-            _compiler = new ContentCompiler(this, CreateCache(context, cacheType));
+            _compiler = new ContentCompiler(this, CreateCache(cacheType, cachePath));
             _handler = new CompilableFileHandler(_compiler, mimeTypes);
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
 
-                if (_compiler.CanCompile(app.Request.Path)) {
+                if (_compiler.CanCompile(app.Request.PhysicalPath)) {
                     app.Context.RemapHandler(_handler);
                 }
             };
@@ -43,16 +46,11 @@
             }
         }
 
-        public string MapPath(string path)
-        {
-            return HttpContext.Current.Server.MapPath(path);
-        }
-
         public void Dispose()
         {
         }
 
-        static ICompiledCache CreateCache(HttpApplication context, string cacheType)
+        static ICompiledCache CreateCache(string cacheType, string cachePath)
         {
             if (string.Equals("NoCache", cacheType, StringComparison.InvariantCultureIgnoreCase))
                 return new NoCache();
@@ -60,9 +58,9 @@
             if (string.Equals("InMemoryCache", cacheType, StringComparison.InvariantCultureIgnoreCase))
                 return new InMemoryCache();
 
-            var cachePath = context.Server.MapPath("~/App_Data/.sassandcoffeecache");
             if (!Directory.Exists(cachePath))
                 Directory.CreateDirectory(cachePath);
+
             return new FileCache(cachePath);
         }
     }

@@ -2,10 +2,10 @@ namespace SassAndCoffee.Core
 {
     public interface IContentCompiler
     {
-        bool CanCompile(string requestedFileName);
+        bool CanCompile(string filePath);
 
-        CompilationResult GetCompiledContent (string requestedFileName);
+        CompilationResult GetCompiledContent(string filePath);
 
-        string GetSourceFileNameFromRequestedFileName(string requestedFileName);
+        string GetSourceFileNameFromRequestedFileName(string filePath);
     }
 }

@@ -38,7 +38,7 @@
                 return;
             }
 
-            var compilationResult = this._contentCompiler.GetCompiledContent(context.Request.Path);
+            var compilationResult = this._contentCompiler.GetCompiledContent(requestedFileName);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;
