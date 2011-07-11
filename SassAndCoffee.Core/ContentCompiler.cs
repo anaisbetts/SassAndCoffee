@@ -13,14 +13,11 @@
     {
         private readonly ICompilerHost _host;
 
-        private readonly ICompiledCache _cache;
-
         private readonly IEnumerable<ISimpleFileCompiler> _compilers;
 
-        public ContentCompiler(ICompilerHost host, ICompiledCache cache)
+        public ContentCompiler(ICompilerHost host)
         {
             _host = host;
-            _cache = cache;
 
             _compilers = new ISimpleFileCompiler[]
                 {
@@ -35,10 +32,9 @@
             this.Init();
         }
 
-        public ContentCompiler(ICompilerHost host, ICompiledCache cache, IEnumerable<ISimpleFileCompiler> compilers)
+        public ContentCompiler(ICompilerHost host, IEnumerable<ISimpleFileCompiler> compilers)
         {
             _host = host;
-            _cache = cache;
             _compilers = compilers;
 
             this.Init();
@@ -64,7 +60,7 @@
             }
 
             var cacheKey = this.GetCacheKey(inputPhysicalFileName, compiler);
-            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(inputPhysicalFileName, compiler));
+            return this._host.Cache.GetOrAdd(cacheKey, f => this.CompileContent(inputPhysicalFileName, compiler));
         }
 
         public string GetSourceFileNameFromRequestedFileName(string filePath)

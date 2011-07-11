@@ -1,12 +1,10 @@
 namespace SassAndCoffee.Core
 {
-    using SassAndCoffee.Core.Compilers;
+    using SassAndCoffee.Core.Caching;
 
     public interface ICompilerHost
     {
-        /// <summary>
-        /// The base file system path for the application
-        /// </summary>
-        string ApplicationBasePath { get; }
+        ICompiledCache Cache { get; }
+        IContentCompiler Compiler { get; }
     }
 }

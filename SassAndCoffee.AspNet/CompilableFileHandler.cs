@@ -12,16 +12,16 @@
 
     public class CompilableFileHandler : IHttpHandler
     {
-        readonly IContentCompiler _contentCompiler;
+        readonly ICompilerHost _host;
         readonly NameValueCollection _mimeMap = new NameValueCollection()
         {
             {".css", "text/css"},
             {".js", "text/javascript"}
         };
 
-        public CompilableFileHandler(IContentCompiler contentCompiler)
+        public CompilableFileHandler(ICompilerHost host)
         {
-            _contentCompiler = contentCompiler;
+            _host = host;
         }
 
         public bool IsReusable {
@@ -41,7 +41,7 @@
                 return;
             }
 
-            var compilationResult = this._contentCompiler.GetCompiledContent(requestedFileName);
+            var compilationResult = this._host.Compiler.GetCompiledContent(requestedFileName);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;

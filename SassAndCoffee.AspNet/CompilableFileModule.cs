@@ -10,9 +10,9 @@
 
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
-        IContentCompiler _compiler;
+        public ICompiledCache Cache { get; private set; }
 
-        IHttpHandler _handler;
+        public IContentCompiler Compiler { get; private set; }
 
         public void Init(HttpApplication context)
         {
@@ -21,26 +21,17 @@
             if (string.IsNullOrWhiteSpace(cachePath))
                 cachePath = "~/App_Data/.sassandcoffeecache";
 
-            _compiler = new ContentCompiler(this, CreateCache(cacheType, HttpContext.Current.Server.MapPath(cachePath)));
-            _handler = new CompilableFileHandler(_compiler);
+            Cache = CreateCache(cacheType, HttpContext.Current.Server.MapPath(cachePath));
+            Compiler = new ContentCompiler(this);
 
+            var handler = new CompilableFileHandler(this);
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
 
-                if (_compiler.CanCompile(app.Request.PhysicalPath)) {
-                    app.Context.RemapHandler(_handler);
+                if (Compiler.CanCompile(app.Request.PhysicalPath)) {
+                    app.Context.RemapHandler(handler);
                 }
             };
-        }
-
-        public string ApplicationBasePath {
-            get {
-                return HttpContext.Current.Request.PhysicalApplicationPath;
-            }
-        }
-
-        public void Dispose()
-        {
         }
 
         static ICompiledCache CreateCache(string cacheType, string cachePath)
@@ -55,6 +46,10 @@
                 Directory.CreateDirectory(cachePath);
 
             return new FileCache(cachePath);
+        }
+
+        public void Dispose()
+        {
         }
     }
 }
