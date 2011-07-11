@@ -13,12 +13,15 @@
     public class CompilableFileHandler : IHttpHandler
     {
         readonly IContentCompiler _contentCompiler;
-        readonly NameValueCollection _mimeMap;
+        readonly NameValueCollection _mimeMap = new NameValueCollection()
+        {
+            {".css", "text/css"},
+            {".js", "text/javascript"}
+        };
 
-        public CompilableFileHandler(IContentCompiler contentCompiler, NameValueCollection mimeMap)
+        public CompilableFileHandler(IContentCompiler contentCompiler)
         {
             _contentCompiler = contentCompiler;
-            _mimeMap = mimeMap;
         }
 
         public bool IsReusable {

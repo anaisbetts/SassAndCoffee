@@ -16,19 +16,13 @@
 
         public void Init(HttpApplication context)
         {
-            var mimeTypes = new NameValueCollection()
-            {
-                {".css", "text/css"},
-                {".js", "text/javascript"}
-            };
-
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
             var cachePath = ConfigurationManager.AppSettings["SassAndCoffee.CachePath"];
             if (string.IsNullOrWhiteSpace(cachePath))
                 cachePath = "~/App_Data/.sassandcoffeecache";
 
             _compiler = new ContentCompiler(this, CreateCache(cacheType, HttpContext.Current.Server.MapPath(cachePath)));
-            _handler = new CompilableFileHandler(_compiler, mimeTypes);
+            _handler = new CompilableFileHandler(_compiler);
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
