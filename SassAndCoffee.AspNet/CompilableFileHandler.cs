@@ -8,12 +8,12 @@
 
     public class CompilableFileHandler : IHttpHandler
     {
-        readonly CompilableFileModule _httpModule;
+        readonly IContentCompiler _compiler;
         readonly NameValueCollection _mimeMap;
 
-        public CompilableFileHandler(CompilableFileModule httpModule)
+        public CompilableFileHandler(IContentCompiler compiler)
         {
-            this._httpModule = httpModule;
+            this._compiler = compiler;
             this._mimeMap = new NameValueCollection()
             {
                 {".css", "text/css"},
@@ -38,7 +38,7 @@
                 return;
             }
 
-            var compilationResult = this._httpModule._compiler.GetCompiledContent(requestedFileName);
+            var compilationResult = this._compiler.GetCompiledContent(requestedFileName);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;
