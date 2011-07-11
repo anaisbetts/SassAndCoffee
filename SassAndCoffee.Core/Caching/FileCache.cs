@@ -9,8 +9,7 @@
 
         public FileCache(string basePath)
         {
-            if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath))
-            {
+            if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath)) {
                 throw new ArgumentException("basePath");
             }
 
@@ -19,7 +18,7 @@
 
         public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
-            var outputFileName = Path.Combine(this._basePath, filename);
+            var outputFileName = Path.Combine(_basePath, filename);
             FileInfo fi;
 
             if (File.Exists(outputFileName)) {

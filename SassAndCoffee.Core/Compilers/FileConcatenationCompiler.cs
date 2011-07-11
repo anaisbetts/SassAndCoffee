@@ -58,7 +58,7 @@ namespace SassAndCoffee.Core.Compilers
             var md5sum = MD5.Create();
 
             var ms = this.GetCombineFileNames(inputFileContent)
-                .Select(x => this._compiler.GetSourceFileNameFromRequestedFileName(x))
+                .Select(x => _compiler.GetSourceFileNameFromRequestedFileName(x))
                 .Select(x => new FileInfo(x))
                 .Where(x => x.Exists)
                 .Select(x => x.LastWriteTimeUtc.Ticks)

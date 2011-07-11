@@ -22,14 +22,13 @@
             _host = host;
             _cache = cache;
 
-            _compilers = new ISimpleFileCompiler[]
-                {
-                    new FileConcatenationCompiler(this),
-                    new MinifyingFileCompiler(),
-                    new CoffeeScriptFileCompiler(),
-                    new SassFileCompiler(),
-                    new JavascriptPassthroughCompiler(),
-                };
+            _compilers = new ISimpleFileCompiler[] {
+                new FileConcatenationCompiler(this),
+                new MinifyingFileCompiler(),
+                new CoffeeScriptFileCompiler(),
+                new SassFileCompiler(),
+                new JavascriptPassthroughCompiler(),
+            };
 
             Init();
         }
@@ -53,14 +52,12 @@
         {
             var sourceFileName = _host.MapPath(requestedFileName);
             var compiler = GetMatchingCompiler(sourceFileName);
-            if (compiler == null)
-            {
+            if (compiler == null) {
                 return CompilationResult.Error;
             }
 
             var physicalFileName = compiler.FindInputFileGivenOutput(sourceFileName);
-            if (!File.Exists(physicalFileName))
-            {
+            if (!File.Exists(physicalFileName)) {
                 return CompilationResult.Error;
             }
 
@@ -72,8 +69,7 @@
         {
             var physicalFileName = _host.MapPath(requestedFileName);
             var compiler = GetMatchingCompiler(physicalFileName);
-            if (compiler == null)
-            {
+            if (compiler == null) {
                 return string.Empty;
             }
 
@@ -83,8 +79,7 @@
         public string GetOutputMimeType(string requestedFileName)
         {
             var compiler = GetMatchingCompiler(requestedFileName);
-            if (compiler == null)
-            {
+            if (compiler == null) {
                 return "application/octet-stream";
             }
 
@@ -97,9 +92,9 @@
             var token = compiler.GetFileChangeToken(physicalFileName) ?? String.Empty;
 
             return String.Format("{0:yyyyMMddHHmmss}-{1}-{2}{3}",
-                        fi.LastWriteTimeUtc, token,
-                        Path.GetFileNameWithoutExtension(physicalFileName),
-                        compiler.OutputFileExtension);
+                fi.LastWriteTimeUtc, token,
+                Path.GetFileNameWithoutExtension(physicalFileName),
+                compiler.OutputFileExtension);
         }
 
         private CompilationResult CompileContent(string physicalFileName, ISimpleFileCompiler compiler)
@@ -110,8 +105,7 @@
 
         private void Init()
         {
-            foreach (var simpleFileCompiler in _compilers)
-            {
+            foreach (var simpleFileCompiler in _compilers) {
                 simpleFileCompiler.Init(_host);
             }
         }
