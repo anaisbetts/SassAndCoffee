@@ -54,3 +54,4 @@ Several folks helped me out with some of the integration details of this project
 * Jimmy Schementi for telling me the proper way to redirect 'requires' to an embedded resource
 * Thanks to Hampton Catlin and Jeremy Ashkenas for creating such awesome languages in the first place
 * The folks on the #chromium IRC channel for helping me with a tricky V8 issue
+* Steven Robbins for the ton of work put in to refactor the code to work with NancyFx and other non-ASP.NET frameworks
