@@ -16,7 +16,6 @@
 
         public void Init(HttpApplication context)
         {
-            // TODO: gather these values from IIS (support multiple versions of iis/express/cassini)
             var mimeTypes = new NameValueCollection()
             {
                 {".css", "text/css"},
