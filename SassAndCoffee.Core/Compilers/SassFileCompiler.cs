@@ -57,10 +57,6 @@
             get { return ".css"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/css"; }
-        }
-
         public void Init(ICompilerHost host)
         {
             RootAppPath = RootAppPath ?? host.ApplicationBasePath;

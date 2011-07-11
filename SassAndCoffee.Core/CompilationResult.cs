@@ -9,11 +9,9 @@ namespace SassAndCoffee.Core
 
         public string Contents { get; private set; }
 
-        public string MimeType { get; private set; }
-
         public DateTime SourceLastModifiedUtc { get; private set; }
 
-        private static readonly CompilationResult _error = new CompilationResult(false, String.Empty, String.Empty, DateTime.MinValue);
+        private static readonly CompilationResult _error = new CompilationResult(false, String.Empty, DateTime.MinValue);
         public static CompilationResult Error
         {
             get
@@ -22,11 +20,10 @@ namespace SassAndCoffee.Core
             }
         }
 
-        public CompilationResult(bool compiled, string contents, string mimeType, DateTime sourceLastUpdated)
+        public CompilationResult(bool compiled, string contents, DateTime sourceLastUpdated)
         {
             this.Compiled = compiled;
             this.Contents = contents;
-            this.MimeType = mimeType;
             this.SourceLastModifiedUtc = sourceLastUpdated;
         }
     }

@@ -5,14 +5,20 @@
     using System.Web;
 
     using SassAndCoffee.Core;
+    using System.Collections.Generic;
+    using System.DirectoryServices;
+    using System.Reflection;
+    using System.Collections.Specialized;
 
     public class CompilableFileHandler : IHttpHandler
     {
         readonly IContentCompiler _contentCompiler;
+        readonly NameValueCollection _mimeMap;
 
-        public CompilableFileHandler(IContentCompiler contentCompiler)
+        public CompilableFileHandler(IContentCompiler contentCompiler, NameValueCollection mimeMap)
         {
             _contentCompiler = contentCompiler;
+            _mimeMap = mimeMap;
         }
 
         public bool IsReusable {
@@ -27,7 +33,7 @@
             var requestedFileName = fi.FullName;
 
             if (fi.Exists) {
-                BuildHeaders(context.Response, this._contentCompiler.GetOutputMimeType(context.Request.Path), fi.LastWriteTimeUtc);
+                BuildHeaders(context.Response, _mimeMap[Path.GetExtension(requestedFileName)], fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
                 return;
             }
@@ -38,7 +44,7 @@
                 return;
             }
 
-            BuildHeaders(context.Response, compilationResult.MimeType, compilationResult.SourceLastModifiedUtc);
+            BuildHeaders(context.Response, _mimeMap[Path.GetExtension(requestedFileName)], compilationResult.SourceLastModifiedUtc);
             context.Response.Write(compilationResult.Contents);
         }
 

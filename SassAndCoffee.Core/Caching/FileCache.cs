@@ -17,14 +17,14 @@
             _basePath = basePath;
         }
 
-        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
+        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate)
         {
             var outputFileName = Path.Combine(this._basePath, filename);
             FileInfo fi;
 
             if (File.Exists(outputFileName)) {
                 fi = new FileInfo(outputFileName);
-                return new CompilationResult(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
+                return new CompilationResult(true, File.ReadAllText(outputFileName), fi.LastWriteTimeUtc);
             }
 
             var result = compilationDelegate(filename);

@@ -20,10 +20,6 @@
             get { return ".min.js"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/javascript"; }
-        }
-
         public MinifyingFileCompiler()
         {
             _coffeeEngine = new TrashStack<CoffeeScriptCompiler>(() => new CoffeeScriptCompiler());

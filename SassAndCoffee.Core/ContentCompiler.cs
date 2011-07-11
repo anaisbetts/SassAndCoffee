@@ -66,7 +66,7 @@
             }
 
             var cacheKey = this.GetCacheKey(physicalFileName, compiler);
-            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
+            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler));
         }
 
         public string GetSourceFileNameFromRequestedFileName(string requestedFileName)
@@ -79,18 +79,6 @@
             }
 
             return compiler.FindInputFileGivenOutput(physicalFileName);
-        }
-
-        public string GetOutputMimeType(string requestedFileName)
-        {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(physicalFileName);
-            if (compiler == null)
-            {
-                return "application/octet-stream";
-            }
-
-            return compiler.OutputMimeType;
         }
 
         private string GetCacheKey(string physicalFileName, ISimpleFileCompiler compiler)
@@ -108,7 +96,7 @@
         {
             var fi = new FileInfo(physicalFileName);
 
-            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, fi.LastWriteTimeUtc);
+            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), fi.LastWriteTimeUtc);
         }
 
         private void Init()

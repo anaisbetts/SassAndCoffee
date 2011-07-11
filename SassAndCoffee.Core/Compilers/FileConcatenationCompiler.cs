@@ -21,10 +21,6 @@ namespace SassAndCoffee.Core.Compilers
             get { return ".js"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/javascript"; }
-        }
-
         static readonly Regex _commentRegex = new Regex("#.*$", RegexOptions.Compiled);
 
         public FileConcatenationCompiler(IContentCompiler compiler)
