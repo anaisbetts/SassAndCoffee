@@ -5,6 +5,5 @@ namespace SassAndCoffee.Core
     public interface ICompilerHost
     {
         ICompiledCache Cache { get; }
-        IContentCompiler Compiler { get; }
     }
 }

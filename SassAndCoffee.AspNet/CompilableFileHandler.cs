@@ -8,13 +8,13 @@
 
     public class CompilableFileHandler : IHttpHandler
     {
-        readonly ICompilerHost _host;
+        readonly CompilableFileModule _httpModule;
         readonly NameValueCollection _mimeMap;
 
-        public CompilableFileHandler(ICompilerHost host)
+        public CompilableFileHandler(CompilableFileModule httpModule)
         {
-            _host = host;
-            _mimeMap = new NameValueCollection()
+            this._httpModule = httpModule;
+            this._mimeMap = new NameValueCollection()
             {
                 {".css", "text/css"},
                 {".js", "text/javascript"}
@@ -33,18 +33,18 @@
             var requestedFileName = fi.FullName;
 
             if (fi.Exists) {
-                BuildHeaders(context.Response, _mimeMap[Path.GetExtension(requestedFileName)], fi.LastWriteTimeUtc);
+                BuildHeaders(context.Response, this._mimeMap[Path.GetExtension(requestedFileName)], fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
                 return;
             }
 
-            var compilationResult = this._host.Compiler.GetCompiledContent(requestedFileName);
+            var compilationResult = this._httpModule._compiler.GetCompiledContent(requestedFileName);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;
             }
 
-            BuildHeaders(context.Response, _mimeMap[Path.GetExtension(requestedFileName)], compilationResult.SourceLastModifiedUtc);
+            BuildHeaders(context.Response, this._mimeMap[Path.GetExtension(requestedFileName)], compilationResult.SourceLastModifiedUtc);
             context.Response.Write(compilationResult.Contents);
         }
 
