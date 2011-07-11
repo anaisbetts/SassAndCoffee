@@ -112,6 +112,7 @@
     <Compile Include="JavascriptInterop.cs" />
     <Compile Include="Compilers\JavascriptPassthroughCompiler.cs" />
     <Compile Include="Compilers\MinifyingCompiler.cs" />
+    <Compile Include="MemoizingMRUCache.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Compilers\SassFileCompiler.cs" />
     <Compile Include="TrashStack.cs" />
