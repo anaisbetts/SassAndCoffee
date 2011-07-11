@@ -15,5 +15,6 @@
   <files>
     <file src="tools\*" target="tools" />
     <file src="..\ext\Jurassic.dll" target="lib\net40" />
+    <file src="..\V8Bridge.Interface\bin\Release\V8Bridge.Interface.dll" target="lib/net40" />
   </files>
 </package>
