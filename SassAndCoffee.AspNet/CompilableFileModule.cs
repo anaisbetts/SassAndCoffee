@@ -23,11 +23,11 @@
             };
 
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
-            var cachePath = context.Server.MapPath(ConfigurationManager.AppSettings["SassAndCoffee.CachePath"]);
+            var cachePath = ConfigurationManager.AppSettings["SassAndCoffee.CachePath"];
             if (string.IsNullOrWhiteSpace(cachePath))
-                cachePath = context.Server.MapPath("~/App_Data/.sassandcoffeecache");
+                cachePath = "~/App_Data/.sassandcoffeecache";
 
-            _compiler = new ContentCompiler(this, CreateCache(cacheType, cachePath));
+            _compiler = new ContentCompiler(this, CreateCache(cacheType, HttpContext.Current.Server.MapPath(cachePath)));
             _handler = new CompilableFileHandler(_compiler, mimeTypes);
 
             context.PostResolveRequestCache += (o, e) => {
