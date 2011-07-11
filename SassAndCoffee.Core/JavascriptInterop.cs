@@ -170,7 +170,7 @@
                 Assembly v8Assembly;
                 try {
                     v8Assembly = Assembly.LoadFile(v8Name);
-                } catch (Exception ex) {
+                } catch {
                     Console.Error.WriteLine("*** WARNING: You're on ARM, Mono, Itanium (heaven help you), or another architecture\n" +
                         "which isn't x86/amd64 on NT. Loading the Jurassic compiler, which is much slower.");
 

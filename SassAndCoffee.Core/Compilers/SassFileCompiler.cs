@@ -110,10 +110,6 @@
                 return true;
             }
 
-            if (path.EndsWith("css")) {
-                int a = 1;
-            }
-
             return base.FileExists(path);
         }
 
