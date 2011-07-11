@@ -102,6 +102,7 @@
     <Compile Include="Caching\NoCache.cs" />
     <Compile Include="CompilationResult.cs" />
     <Compile Include="Compilers\CoffeeScriptFileCompiler.cs" />
+    <Compile Include="Compilers\CssPassthroughCompiler.cs" />
     <Compile Include="Compilers\FileConcatenationCompiler.cs" />
     <Compile Include="ContentCompiler.cs" />
     <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
