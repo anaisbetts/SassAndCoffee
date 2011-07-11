@@ -9,9 +9,14 @@
 
         public FileCache(string basePath)
         {
-            if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath))
+            if (String.IsNullOrEmpty(basePath))
             {
                 throw new ArgumentException("basePath");
+            }
+
+            if (!Directory.Exists(basePath))
+            {
+                Directory.CreateDirectory(basePath);
             }
 
             _basePath = basePath;

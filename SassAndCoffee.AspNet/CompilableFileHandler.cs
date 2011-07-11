@@ -1,27 +1,24 @@
 ﻿namespace SassAndCoffee.AspNet
 {
     using System;
+    using System.Collections.Specialized;
     using System.IO;
     using System.Web;
-
     using SassAndCoffee.Core;
-    using System.Collections.Generic;
-    using System.DirectoryServices;
-    using System.Reflection;
-    using System.Collections.Specialized;
 
     public class CompilableFileHandler : IHttpHandler
     {
         readonly ICompilerHost _host;
-        readonly NameValueCollection _mimeMap = new NameValueCollection()
-        {
-            {".css", "text/css"},
-            {".js", "text/javascript"}
-        };
+        readonly NameValueCollection _mimeMap;
 
         public CompilableFileHandler(ICompilerHost host)
         {
             _host = host;
+            _mimeMap = new NameValueCollection()
+            {
+                {".css", "text/css"},
+                {".js", "text/javascript"}
+            };
         }
 
         public bool IsReusable {

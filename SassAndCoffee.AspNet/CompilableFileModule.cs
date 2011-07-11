@@ -1,7 +1,6 @@
 ﻿namespace SassAndCoffee.AspNet
 {
     using System;
-    using System.Collections.Specialized;
     using System.Configuration;
     using System.IO;
     using System.Web;
@@ -23,8 +22,8 @@
 
             Cache = CreateCache(cacheType, HttpContext.Current.Server.MapPath(cachePath));
             Compiler = new ContentCompiler(this);
-
             var handler = new CompilableFileHandler(this);
+
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
 
@@ -41,9 +40,6 @@
 
             if (string.Equals("InMemoryCache", cacheType, StringComparison.InvariantCultureIgnoreCase))
                 return new InMemoryCache();
-
-            if (!Directory.Exists(cachePath))
-                Directory.CreateDirectory(cachePath);
 
             return new FileCache(cachePath);
         }
