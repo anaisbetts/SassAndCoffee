@@ -3,23 +3,23 @@
 $pkgDefContent = @"
 
 ; Visual Basic
-[$RootKey$\Projects{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions.coffee]
+[`$RootKey`$\Projects\{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions\.coffee]
 "DefaultBuildAction"="Content"
 
-[$RootKey$\Projects{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions.sass]
+[`$RootKey`$\Projects\{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions\.sass]
 "DefaultBuildAction"="Content"
 
-[$RootKey$\Projects{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions.scss]
+[`$RootKey`$\Projects\{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions\.scss]
 "DefaultBuildAction"="Content"
 
 ; C#
-[$RootKey$\Projects{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions.coffee]
+[`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.coffee]
 "DefaultBuildAction"="Content"
 
-[$RootKey$\Projects{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions.sass]
+[`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.sass]
 "DefaultBuildAction"="Content"
 
-[$RootKey$\Projects{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions.scss]
+[`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.scss]
 "DefaultBuildAction"="Content"
 
 "@
