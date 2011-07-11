@@ -22,7 +22,6 @@
         }
 
         static TrashStack<SassModule> _sassModule;
-        ICompilerHost _compilerHost;
 
         static SassFileCompiler()
         {
@@ -59,7 +58,6 @@
 
         public void Init(ICompilerHost host)
         {
-            _compilerHost = host;
         }
 
         public string ProcessFileContent(string inputFileContent)

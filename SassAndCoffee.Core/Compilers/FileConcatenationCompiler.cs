@@ -10,7 +10,6 @@ namespace SassAndCoffee.Core.Compilers
 
     public class FileConcatenationCompiler : ISimpleFileCompiler
     {
-        ICompilerHost _host;
         IContentCompiler _compiler;
 
         public string[] InputFileExtensions {
@@ -30,7 +29,6 @@ namespace SassAndCoffee.Core.Compilers
 
         public void Init(ICompilerHost host)
         {
-            _host = host;
         }
 
         public string ProcessFileContent(string inputFileContent)
