@@ -24,11 +24,10 @@ namespace SassAndCoffee.AspNet
         {
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
 
-            _handler = new CompilableFileHandler(_compiler);
-
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
                 _compiler = _compiler ?? initializeCompilerFromSettings(cacheType);
+                _handler = _handler ?? new CompilableFileHandler(_compiler);
 
                 if (!_compiler.CanCompile(app.Request.Path)) {
                     return;

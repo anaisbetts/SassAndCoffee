@@ -27,12 +27,12 @@
             var requestedFileName = fi.FullName;
 
             if (fi.Exists) {
-                BuildHeaders(context.Response, this._contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
+                BuildHeaders(context.Response, _contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
                 return;
             }
 
-            var compilationResult = this._contentCompiler.GetCompiledContent(context.Request.Path);
+            var compilationResult = _contentCompiler.GetCompiledContent(context.Request.Path);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;

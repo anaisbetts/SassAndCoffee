@@ -31,7 +31,7 @@
                     new JavascriptPassthroughCompiler(),
                 };
 
-            this.Init();
+            Init();
         }
 
         public ContentCompiler(ICompilerHost host, ICompiledCache cache, IEnumerable<ISimpleFileCompiler> compilers)
@@ -40,19 +40,19 @@
             _cache = cache;
             _compilers = compilers;
 
-            this.Init();
+            Init();
         }
 
         public bool CanCompile(string requestedFileName)
         {
-            var physicalFileName = this._host.MapPath(requestedFileName);
+            var physicalFileName = _host.MapPath(requestedFileName);
             return _compilers.Any(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
         }
 
         public CompilationResult GetCompiledContent (string requestedFileName)
         {
-            var sourceFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(sourceFileName);
+            var sourceFileName = _host.MapPath(requestedFileName);
+            var compiler = GetMatchingCompiler(sourceFileName);
             if (compiler == null)
             {
                 return CompilationResult.Error;
@@ -64,14 +64,14 @@
                 return CompilationResult.Error;
             }
 
-            var cacheKey = this.GetCacheKey(physicalFileName, compiler);
-            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
+            var cacheKey = GetCacheKey(physicalFileName, compiler);
+            return _cache.GetOrAdd(cacheKey, f => CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
         }
 
         public string GetSourceFileNameFromRequestedFileName(string requestedFileName)
         {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(physicalFileName);
+            var physicalFileName = _host.MapPath(requestedFileName);
+            var compiler = GetMatchingCompiler(physicalFileName);
             if (compiler == null)
             {
                 return string.Empty;
@@ -82,8 +82,7 @@
 
         public string GetOutputMimeType(string requestedFileName)
         {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(physicalFileName);
+            var compiler = GetMatchingCompiler(requestedFileName);
             if (compiler == null)
             {
                 return "application/octet-stream";
@@ -106,7 +105,6 @@
         private CompilationResult CompileContent(string physicalFileName, ISimpleFileCompiler compiler)
         {
             var fi = new FileInfo(physicalFileName);
-
             return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, fi.LastWriteTimeUtc);
         }
 
@@ -114,13 +112,13 @@
         {
             foreach (var simpleFileCompiler in _compilers)
             {
-                simpleFileCompiler.Init(this._host);
+                simpleFileCompiler.Init(_host);
             }
         }
 
-        private ISimpleFileCompiler GetMatchingCompiler(string physicalFileName)
+        private ISimpleFileCompiler GetMatchingCompiler(string physicalPath)
         {
-            return _compilers.FirstOrDefault(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
+            return _compilers.FirstOrDefault(x => physicalPath.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalPath) != null);
         }
     }
 }

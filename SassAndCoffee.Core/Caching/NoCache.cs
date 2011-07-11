@@ -6,7 +6,7 @@ namespace SassAndCoffee.Core.Caching
     {
         public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
-            return compilationDelegate.Invoke(filename);
+            return compilationDelegate(filename);
         }
 
         public void Clear()
