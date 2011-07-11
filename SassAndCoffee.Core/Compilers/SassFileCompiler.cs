@@ -58,10 +58,6 @@
             get { return ".css"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/css"; }
-        }
-
         public void Init(ICompilerHost host)
         {
             _compilerHost = host;

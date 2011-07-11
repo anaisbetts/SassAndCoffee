@@ -13,10 +13,6 @@ namespace SassAndCoffee.Core.Compilers
             get { return ".js"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/javascript"; }
-        }
-
         public void Init(ICompilerHost host)
         {
         }

@@ -21,10 +21,6 @@ namespace SassAndCoffee.Core.Compilers
             get { return ".js"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/javascript"; }
-        }
-
         static readonly Regex _commentRegex = new Regex("#.*$", RegexOptions.Compiled);
 
         public FileConcatenationCompiler(IContentCompiler compiler)
@@ -76,10 +72,13 @@ namespace SassAndCoffee.Core.Compilers
 
         IEnumerable<string> GetCombineFileNames(string inputFileContent)
         {
+            var basePath = Path.GetDirectoryName(inputFileContent);
+
             return File.ReadAllLines(inputFileContent)
                 .Select(x => _commentRegex.Replace(x, String.Empty))
                 .Where(x => !String.IsNullOrWhiteSpace(x))
                 .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
+                .Select(x => Path.Combine(basePath, x))
                 .ToArray();
         }
     }

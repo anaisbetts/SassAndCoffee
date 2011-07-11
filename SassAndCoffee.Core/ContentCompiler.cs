@@ -29,6 +29,7 @@
                     new CoffeeScriptFileCompiler(),
                     new SassFileCompiler(),
                     new JavascriptPassthroughCompiler(),
+                    new CssPassthroughCompiler()
                 };
 
             this.Init();
@@ -43,53 +44,38 @@
             this.Init();
         }
 
-        public bool CanCompile(string requestedFileName)
+        public bool CanCompile(string filePath)
         {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            return _compilers.Any(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
+            return _compilers.Any(x => filePath.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(filePath) != null);
         }
 
-        public CompilationResult GetCompiledContent (string requestedFileName)
+        public CompilationResult GetCompiledContent(string filePath)
         {
-            var sourceFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(sourceFileName);
+            var compiler = this.GetMatchingCompiler(filePath);
             if (compiler == null)
             {
                 return CompilationResult.Error;
             }
 
-            var physicalFileName = compiler.FindInputFileGivenOutput(sourceFileName);
-            if (!File.Exists(physicalFileName))
+            var inputPhysicalFileName = compiler.FindInputFileGivenOutput(filePath);
+            if (!File.Exists(inputPhysicalFileName))
             {
                 return CompilationResult.Error;
             }
 
-            var cacheKey = this.GetCacheKey(physicalFileName, compiler);
-            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
+            var cacheKey = this.GetCacheKey(inputPhysicalFileName, compiler);
+            return this._cache.GetOrAdd(cacheKey, f => this.CompileContent(inputPhysicalFileName, compiler));
         }
 
-        public string GetSourceFileNameFromRequestedFileName(string requestedFileName)
+        public string GetSourceFileNameFromRequestedFileName(string filePath)
         {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(physicalFileName);
+            var compiler = this.GetMatchingCompiler(filePath);
             if (compiler == null)
             {
                 return string.Empty;
             }
 
-            return compiler.FindInputFileGivenOutput(physicalFileName);
-        }
-
-        public string GetOutputMimeType(string requestedFileName)
-        {
-            var physicalFileName = this._host.MapPath(requestedFileName);
-            var compiler = this.GetMatchingCompiler(physicalFileName);
-            if (compiler == null)
-            {
-                return "application/octet-stream";
-            }
-
-            return compiler.OutputMimeType;
+            return compiler.FindInputFileGivenOutput(filePath);
         }
 
         private string GetCacheKey(string physicalFileName, ISimpleFileCompiler compiler)
@@ -107,7 +93,7 @@
         {
             var fi = new FileInfo(physicalFileName);
 
-            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, fi.LastWriteTimeUtc);
+            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), fi.LastWriteTimeUtc);
         }
 
         private void Init()

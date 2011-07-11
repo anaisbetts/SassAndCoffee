@@ -22,10 +22,6 @@
             get { return ".js"; }
         }
 
-        public string OutputMimeType {
-            get { return "text/javascript"; }
-        }
-
         public CoffeeScriptFileCompiler(CoffeeScriptCompiler engine = null)
         {
             _engine = engine;
