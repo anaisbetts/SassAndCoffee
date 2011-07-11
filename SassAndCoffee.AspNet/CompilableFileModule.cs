@@ -1,4 +1,6 @@
-﻿namespace SassAndCoffee.AspNet
+﻿using System.Web.Hosting;
+
+namespace SassAndCoffee.AspNet
 {
     using System.IO;
     using System.Web;
@@ -7,44 +9,26 @@
     using SassAndCoffee.Core.Caching;
     using System.Configuration;
 
-//#define MEMORY_CACHE
-
     public class CompilableFileModule : IHttpModule, ICompilerHost
     {
         IContentCompiler _compiler;
-
         IHttpHandler _handler;
+
+        public string ApplicationBasePath {
+            get {
+                return HttpContext.Current.Request.PhysicalApplicationPath;
+            }
+        }
 
         public void Init(HttpApplication context)
         {
             var cacheType = ConfigurationManager.AppSettings["SassAndCoffee.Cache"];
 
-            // NoCache
-            if (string.Equals(cacheType, "NoCache", System.StringComparison.InvariantCultureIgnoreCase))
-            {
-                _compiler = new ContentCompiler(this, new NoCache());
-            }
-            // InMemoryCache
-            else if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase))
-            {
-                _compiler = new ContentCompiler(this, new InMemoryCache());
-            }
-            // FileCache
-            else
-            {
-                var cachePath = Path.Combine(System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data"), ".sassandcoffeecache");
-                if (!Directory.Exists(cachePath))
-                {
-                    Directory.CreateDirectory(cachePath);
-                }
-
-                _compiler = new ContentCompiler(this, new FileCache(cachePath));
-            }
-
-            _handler = new CompilableFileHandler(this._compiler);
+            _handler = new CompilableFileHandler(_compiler);
 
             context.PostResolveRequestCache += (o, e) => {
                 var app = o as HttpApplication;
+                _compiler = _compiler ?? initializeCompilerFromSettings(cacheType);
 
                 if (!_compiler.CanCompile(app.Request.Path)) {
                     return;
@@ -54,15 +38,28 @@
             };
         }
 
-        public string ApplicationBasePath {
-            get {
-                return HttpContext.Current.Request.PhysicalApplicationPath;
-            }
-        }
-
         public string MapPath(string path)
         {
             return HttpContext.Current.Server.MapPath(path);
+        }
+
+        IContentCompiler initializeCompilerFromSettings(string cacheType)
+        {
+            if (string.Equals(cacheType, "NoCache", System.StringComparison.InvariantCultureIgnoreCase)) {
+                // NoCache
+                return new ContentCompiler(this, new NoCache());
+            } else if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase)) {
+                // InMemoryCache
+                return new ContentCompiler(this, new InMemoryCache());
+            } else {
+                // FileCache
+                var cachePath = Path.Combine(HostingEnvironment.MapPath("~/App_Data"), "_FileCache");
+                if (!Directory.Exists(cachePath)) {
+                    Directory.CreateDirectory(cachePath);
+                }
+
+                return new ContentCompiler(this, new FileCache(cachePath));
+            }
         }
 
         public void Dispose()
