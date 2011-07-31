@@ -29,6 +29,7 @@
             if (fi.Exists) {
                 BuildHeaders(context.Response, _contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
                 context.Response.WriteFile(requestedFileName);
+                context.Response.Flush();
                 return;
             }
 
