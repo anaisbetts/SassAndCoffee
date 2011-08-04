@@ -1,4 +1,6 @@
-﻿namespace SassAndCoffee.AspNet
+﻿using System.IO.Compression;
+
+namespace SassAndCoffee.AspNet
 {
     using System;
     using System.IO;
@@ -45,6 +47,9 @@
         static void BuildHeaders(HttpResponse response, string mimeType, DateTime lastModified)
         {
             response.StatusCode = 200;
+            response.Filter = new GZipStream(response.Filter, CompressionMode.Compress);
+            response.AddHeader("content-encoding", "gzip");
+            response.Cache.VaryByHeaders["Accept-encoding"] = true;
             response.AddHeader("ETag", lastModified.Ticks.ToString("x"));
             response.AddHeader("Content-Type", mimeType);
             response.AddHeader("Content-Disposition", "inline");
