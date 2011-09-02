@@ -16,10 +16,11 @@ Assembly V8Bridge.Interface, Version=1.0.*, Culture=Invariant Language (Invarian
 Assembly Microsoft.VisualC, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a: 
 	hash=None, flags=None
 Class V8Bridge.V8ScriptCompiler: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
-    Void .ctor(System.String): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
   Interfaces:
     System.IDisposable
     V8Bridge.Interface.IV8ScriptCompiler
   Methods:
-    Compile(String): PrivateScope, Public, Virtual, HideBySig, VtableLayoutMask
+    InitializeLibrary(String): PrivateScope, Public, Virtual, HideBySig, VtableLayoutMask
+    Compile(String, String): PrivateScope, Public, Virtual, HideBySig, VtableLayoutMask
     Dispose(): PrivateScope, Public, Final, Virtual, HideBySig
