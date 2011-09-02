@@ -74,7 +74,13 @@
                         }
                     } catch (Exception ex) {
                         item.Result = String.Format("ENGINE FAULT - please report this if it happens frequently: {0}: {1}\n{2}", ex.GetType(), ex.Message, ex.StackTrace);
-                        engine = new JurassicCompiler();
+
+                        JS.V8FailureReason = ex;
+                        if (Environment.Is64BitProcess == false) {
+                            engine = new JurassicCompiler();
+                        } else {
+                            throw;
+                        }
                     }
 
                     item._gate.Set();
@@ -151,6 +157,7 @@
          * If this can't be done (like if we're on ARM or something weird), we fall
          * back to the all-managed yet incredibly slow Jurassic engine */
 
+        public static Exception V8FailureReason;
         static JS()
         {
             _scriptCompilerImpl = new Lazy<Type>(() => {
@@ -171,8 +178,15 @@
                 try {
                     v8Assembly = Assembly.LoadFile(v8Name);
                 } catch (Exception ex) {
+                    V8FailureReason = ex;
+
                     Console.Error.WriteLine("*** WARNING: You're on ARM, Mono, Itanium (heaven help you), or another architecture\n" +
                         "which isn't x86/amd64 on NT. Loading the Jurassic compiler, which is much slower.");
+
+                    // Jurassic completely bites it on 64-bit, we just need to abort
+                    if (Environment.Is64BitProcess == false) {
+                        throw;
+                    }
 
                     return typeof (JurassicCompiler);
                 }
