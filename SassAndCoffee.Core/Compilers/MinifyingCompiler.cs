@@ -1,4 +1,7 @@
-﻿namespace SassAndCoffee.Core.Compilers
+﻿using System;
+using System.Collections.Generic;
+
+namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
 
@@ -12,8 +15,11 @@
         TrashStack<CoffeeScriptCompiler> _coffeeEngine;
         TrashStack<MinifyingCompiler> _engine;
 
-        public string[] InputFileExtensions {
-            get { return new[] {".js", ".coffee"}; }
+        public IEnumerable<string> InputFileExtensions {
+            get {
+                yield return ".js";
+                yield return ".coffee";
+            }
         }
 
         public string OutputFileExtension {
@@ -30,29 +36,25 @@
             _engine = new TrashStack<MinifyingCompiler>(() => new MinifyingCompiler());
         }
 
-        public void Init(ICompilerHost host)
+		public string ProcessFileContent(ICompilerFile inputFileContent)
         {
+		    string text;
+		    using (TextReader reader = inputFileContent.Open()) {
+		        text = reader.ReadToEnd();
+		    }
+		    if (inputFileContent.Name.EndsWith(".coffee", StringComparison.OrdinalIgnoreCase)) {
+		        using (ValueContainer<CoffeeScriptCompiler> coffeeEngine = _coffeeEngine.Get()) {
+		            text = coffeeEngine.Value.Compile(text);
+		        }
+		    }
+		    string ret;
+		    using (ValueContainer<MinifyingCompiler> engine = _engine.Get()) {
+		        ret = engine.Value.Compile(text);
+		    }
+		    return ret;
         }
 
-        public string ProcessFileContent(string inputFileContent)
-        {
-            string text = File.ReadAllText(inputFileContent);
-
-            if (inputFileContent.ToLowerInvariant().EndsWith(".coffee")) {
-                using(var coffeeEngine = _coffeeEngine.Get()) {
-                    text = coffeeEngine.Value.Compile(text);
-                }
-            }
-
-            string ret;
-            using (var engine = _engine.Get()) {
-                ret = engine.Value.Compile(text);
-            }
-
-            return ret;
-        }
-
-        public string GetFileChangeToken(string inputFileContent)
+		public string GetFileChangeToken(ICompilerFile inputFileContent)
         {
             return "";
         }

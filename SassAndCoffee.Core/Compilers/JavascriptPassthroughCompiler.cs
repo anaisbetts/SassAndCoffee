@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
@@ -5,8 +7,10 @@ namespace SassAndCoffee.Core.Compilers
     // TODO: Document why this exists
     public class JavascriptPassthroughCompiler : ISimpleFileCompiler
     {
-        public string[] InputFileExtensions {
-            get { return new[] {".js"}; }
+        public IEnumerable<string> InputFileExtensions {
+            get {
+            	yield return ".js";
+            }
         }
 
         public string OutputFileExtension {
@@ -17,16 +21,14 @@ namespace SassAndCoffee.Core.Compilers
             get { return "text/javascript"; }
         }
 
-        public void Init(ICompilerHost host)
+        public string ProcessFileContent(ICompilerFile inputFileContent) 
         {
+            using (TextReader reader = inputFileContent.Open()) {
+                return reader.ReadToEnd();
+            }
         }
 
-        public string ProcessFileContent(string inputFileContent)
-        {
-            return File.ReadAllText(inputFileContent);
-        }
-
-        public string GetFileChangeToken(string inputFileContent)
+        public string GetFileChangeToken(ICompilerFile inputFileContent) 
         {
             return "";
         }

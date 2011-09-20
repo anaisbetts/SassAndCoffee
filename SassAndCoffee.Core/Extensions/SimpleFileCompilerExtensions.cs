@@ -6,19 +6,14 @@ namespace SassAndCoffee.Core.Extensions
 
     public static class SimpleFileCompilerExtensions
     {
-        public static string FindInputFileGivenOutput(this ISimpleFileCompiler This, string outputFilePath)
+        public static ICompilerFile FindInputFileGivenOutput(this ISimpleFileCompiler This, ICompilerFile outputFilePath)
         {
-            var rootFi = new FileInfo(outputFilePath);
-
             foreach (var ext in This.InputFileExtensions) {
-                var fi = new FileInfo(Path.Combine(rootFi.DirectoryName,
-                    rootFi.FullName.ToLowerInvariant().Replace(This.OutputFileExtension, "") + ext));
-
-                if (fi.Exists) {
-                    return fi.FullName;
+                ICompilerFile result = outputFilePath.GetRelativeFile(Path.ChangeExtension(outputFilePath.Name, ext));
+                if (result.Exists) {
+                    return result;
                 }
             }
-
             return null;
         }
     }

@@ -106,7 +106,7 @@
     <Compile Include="ContentCompiler.cs" />
     <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
     <Compile Include="Caching\ICompiledCache.cs" />
-    <Compile Include="ICompilerHost.cs" />
+    <Compile Include="ICompilerFile.cs" />
     <Compile Include="Compilers\ISimpleFileCompiler.cs" />
     <Compile Include="IContentCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />

@@ -19,10 +19,9 @@
         public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
         {
             var outputFileName = Path.Combine(_basePath, filename);
-            FileInfo fi;
+						FileInfo fi = new FileInfo(outputFileName);
 
-            if (File.Exists(outputFileName)) {
-                fi = new FileInfo(outputFileName);
+            if (fi.Exists) {
                 return new CompilationResult(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
             }
 
@@ -32,7 +31,7 @@
                 File.WriteAllText(outputFileName, result.Contents);
 
                 // XXX: Is this needed?
-                fi = new FileInfo(outputFileName);
+                fi.Refresh();
                 fi.LastWriteTimeUtc = result.SourceLastModifiedUtc;
             } catch (IOException) {
                 // NB: If we get here, this means that two threads are trying to 

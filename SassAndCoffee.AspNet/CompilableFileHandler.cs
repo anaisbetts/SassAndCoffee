@@ -3,7 +3,6 @@
 namespace SassAndCoffee.AspNet
 {
     using System;
-    using System.IO;
     using System.Web;
 
     using SassAndCoffee.Core;
@@ -25,16 +24,8 @@ namespace SassAndCoffee.AspNet
 
         public void ProcessRequest(HttpContext context)
         {
-            var fi = new FileInfo(context.Request.PhysicalPath);
-            var requestedFileName = fi.FullName;
-
-            if (fi.Exists) {
-                BuildHeaders(context.Response, _contentCompiler.GetOutputMimeType(requestedFileName), fi.LastWriteTimeUtc);
-                context.Response.WriteFile(requestedFileName);
-                return;
-            }
-
-            var compilationResult = _contentCompiler.GetCompiledContent(context.Request.Path);
+            VirtualPathCompilerFile file = new VirtualPathCompilerFile(context.Request.Path);
+            var compilationResult = _contentCompiler.GetCompiledContent(file);
             if (compilationResult.Compiled == false) {
                 context.Response.StatusCode = 404;
                 return;
@@ -49,7 +40,7 @@ namespace SassAndCoffee.AspNet
             response.StatusCode = 200;
             response.Filter = new GZipStream(response.Filter, CompressionMode.Compress);
             response.AddHeader("content-encoding", "gzip");
-            response.Cache.VaryByHeaders["Accept-encoding"] = true;
+            response.Cache.VaryByHeaders["Accept-Encoding"] = true;
             response.AddHeader("ETag", lastModified.Ticks.ToString("x"));
             response.AddHeader("Content-Type", mimeType);
             response.AddHeader("Content-Disposition", "inline");

@@ -10,11 +10,12 @@ namespace SassAndCoffee.Core.Compilers
 
     public class FileConcatenationCompiler : ISimpleFileCompiler
     {
-        ICompilerHost _host;
-        IContentCompiler _compiler;
+        private static readonly Regex _lineRegex = new Regex(@"(?<=^\s*)(?!=\#|\s)((?!\.combined\s*$).)+?(?=\s*$)", RegexOptions.Compiled|RegexOptions.CultureInvariant|RegexOptions.ExplicitCapture|RegexOptions.IgnoreCase|RegexOptions.Singleline);
 
-        public string[] InputFileExtensions {
-            get { return new[] { ".combine" }; }
+        private readonly IContentCompiler _compiler;
+
+        public IEnumerable<string> InputFileExtensions {
+            get { yield return ".combine"; }
         }
 
         public string OutputFileExtension {
@@ -25,62 +26,57 @@ namespace SassAndCoffee.Core.Compilers
             get { return "text/javascript"; }
         }
 
-        static readonly Regex _commentRegex = new Regex("#.*$", RegexOptions.Compiled);
-
-        public FileConcatenationCompiler(IContentCompiler compiler)
+        public FileConcatenationCompiler(IContentCompiler compiler) 
         {
+            if (compiler == null) {
+                throw new ArgumentNullException("compiler");
+            }
             _compiler = compiler;
         }
 
-        public void Init(ICompilerHost host)
+        public string ProcessFileContent(ICompilerFile inputFileContent) 
         {
-            _host = host;
-        }
-
-        public string ProcessFileContent(string inputFileContent)
-        {
-            var combineFileNames = this.GetCombineFileNames(inputFileContent);
-
-            var allText = combineFileNames
-                .Select( x => _compiler.CanCompile(x) ? 
-                    _compiler.GetCompiledContent(x).Contents : String.Empty)
-                .ToArray();
-
+            IEnumerable<ICompilerFile> combineFileNames = GetCombineFileNames(inputFileContent);
+            string[] allText = combineFileNames
+                    .Select(x => _compiler.CanCompile(x)
+                                         ? _compiler.GetCompiledContent(x).Contents
+                                         : String.Empty)
+                    .ToArray();
             return allText.Aggregate(new StringBuilder(), (acc, x) => {
-                acc.Append(x);
-                acc.Append("\n");
-                return acc;
-            }).ToString();
+                                                              acc.Append(x);
+                                                              acc.Append("\n");
+                                                              return acc;
+                                                          }).ToString();
         }
 
-        public string GetFileChangeToken(string inputFileContent)
+        public string GetFileChangeToken(ICompilerFile inputFileContent) 
         {
-            var md5sum = MD5.Create();
-
-            var ms = this.GetCombineFileNames(inputFileContent)
-                .Select(x => _compiler.GetSourceFileNameFromRequestedFileName(x))
-                .Select(x => new FileInfo(x))
-                .Where(x => x.Exists)
-                .Select(x => x.LastWriteTimeUtc.Ticks)
-                .Aggregate(new MemoryStream(), (acc, x) => {
-                    var buf = BitConverter.GetBytes(x);
-                    acc.Write(buf, 0, buf.Length);
-                    return acc;
-                });
-
+            MD5 md5sum = MD5.Create();
+            MemoryStream ms = GetCombineFileNames(inputFileContent)
+                    .Select(x => _compiler.GetSourceFileNameFromRequestedFileName(x))
+                    .Where(x => (x != null) && x.Exists)
+                    .Select(x => x.LastWriteTimeUtc.Ticks)
+                    .Aggregate(new MemoryStream(), (acc, x) => {
+                                                       byte[] buf = BitConverter.GetBytes(x);
+                                                       acc.Write(buf, 0, buf.Length);
+                                                       return acc;
+                                                   });
             return md5sum.ComputeHash(ms.GetBuffer()).Aggregate(new StringBuilder(), (acc, x) => {
-                acc.Append(x.ToString("x"));
-                return acc;
-            }).ToString();
+                                                                                         acc.Append(x.ToString("x"));
+                                                                                         return acc;
+                                                                                     }).ToString();
         }
 
-        IEnumerable<string> GetCombineFileNames(string inputFileContent)
+        private IEnumerable<ICompilerFile> GetCombineFileNames(ICompilerFile inputFileContent) 
         {
-            return File.ReadAllLines(inputFileContent)
-                .Select(x => _commentRegex.Replace(x, String.Empty))
-                .Where(x => !String.IsNullOrWhiteSpace(x))
-                .Where(x => !x.ToLowerInvariant().EndsWith(".combine"))
-                .ToArray();
+            using (TextReader reader = inputFileContent.Open()) {
+                for (string line = reader.ReadLine(); line != null; line = reader.ReadLine()) {
+                    Match match = _lineRegex.Match(line);
+                    if (match.Success) {
+                        yield return inputFileContent.GetRelativeFile(match.Value);
+                    }
+                }
+            }
         }
     }
 }

@@ -11,15 +11,12 @@
 
     public class ContentCompiler : IContentCompiler
     {
-        private readonly ICompilerHost _host;
-
         private readonly ICompiledCache _cache;
 
         private readonly IEnumerable<ISimpleFileCompiler> _compilers;
 
-        public ContentCompiler(ICompilerHost host, ICompiledCache cache)
+        public ContentCompiler(ICompiledCache cache)
         {
-            _host = host;
             _cache = cache;
 
             _compilers = new ISimpleFileCompiler[] {
@@ -29,35 +26,28 @@
                 new SassFileCompiler(),
                 new JavascriptPassthroughCompiler(),
             };
-
-            Init();
         }
 
-        public ContentCompiler(ICompilerHost host, ICompiledCache cache, IEnumerable<ISimpleFileCompiler> compilers)
+        public ContentCompiler(ICompiledCache cache, IEnumerable<ISimpleFileCompiler> compilers)
         {
-            _host = host;
             _cache = cache;
             _compilers = compilers;
-
-            Init();
         }
 
-        public bool CanCompile(string requestedFileName)
+        public bool CanCompile(ICompilerFile physicalFileName)
         {
-            var physicalFileName = _host.MapPath(requestedFileName);
-            return _compilers.Any(x => physicalFileName.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalFileName) != null);
+            return GetMatchingCompiler(physicalFileName) != null;
         }
 
-        public CompilationResult GetCompiledContent (string requestedFileName)
+		public CompilationResult GetCompiledContent(ICompilerFile sourceFileName)
         {
-            var sourceFileName = _host.MapPath(requestedFileName);
             var compiler = GetMatchingCompiler(sourceFileName);
             if (compiler == null) {
                 return CompilationResult.Error;
             }
 
             var physicalFileName = compiler.FindInputFileGivenOutput(sourceFileName);
-            if (!File.Exists(physicalFileName)) {
+            if (!physicalFileName.Exists) {
                 return CompilationResult.Error;
             }
 
@@ -65,18 +55,17 @@
             return _cache.GetOrAdd(cacheKey, f => CompileContent(physicalFileName, compiler), compiler.OutputMimeType);
         }
 
-        public string GetSourceFileNameFromRequestedFileName(string requestedFileName)
+		public ICompilerFile GetSourceFileNameFromRequestedFileName(ICompilerFile physicalFileName)
         {
-            var physicalFileName = _host.MapPath(requestedFileName);
             var compiler = GetMatchingCompiler(physicalFileName);
             if (compiler == null) {
-                return string.Empty;
+                return null;
             }
 
             return compiler.FindInputFileGivenOutput(physicalFileName);
         }
 
-        public string GetOutputMimeType(string requestedFileName)
+        public string GetOutputMimeType(ICompilerFile requestedFileName)
         {
             var compiler = GetMatchingCompiler(requestedFileName);
             if (compiler == null) {
@@ -86,33 +75,24 @@
             return compiler.OutputMimeType;
         }
 
-        private string GetCacheKey(string physicalFileName, ISimpleFileCompiler compiler)
+        private string GetCacheKey(ICompilerFile physicalFileName, ISimpleFileCompiler compiler)
         {
-            var fi = new FileInfo(physicalFileName);
             var token = compiler.GetFileChangeToken(physicalFileName) ?? String.Empty;
 
             return String.Format("{0:yyyyMMddHHmmss}-{1}-{2}{3}",
-                fi.LastWriteTimeUtc, token,
-                Path.GetFileNameWithoutExtension(physicalFileName),
+                physicalFileName.LastWriteTimeUtc, token,
+                Path.GetFileNameWithoutExtension(physicalFileName.Name),
                 compiler.OutputFileExtension);
         }
 
-        private CompilationResult CompileContent(string physicalFileName, ISimpleFileCompiler compiler)
+        private CompilationResult CompileContent(ICompilerFile physicalFileName, ISimpleFileCompiler compiler)
         {
-            var fi = new FileInfo(physicalFileName);
-            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, fi.LastWriteTimeUtc);
+            return new CompilationResult(true, compiler.ProcessFileContent(physicalFileName), compiler.OutputMimeType, physicalFileName.LastWriteTimeUtc);
         }
 
-        private void Init()
+        private ISimpleFileCompiler GetMatchingCompiler(ICompilerFile physicalPath)
         {
-            foreach (var simpleFileCompiler in _compilers) {
-                simpleFileCompiler.Init(_host);
-            }
-        }
-
-        private ISimpleFileCompiler GetMatchingCompiler(string physicalPath)
-        {
-            return _compilers.FirstOrDefault(x => physicalPath.EndsWith(x.OutputFileExtension) && x.FindInputFileGivenOutput(physicalPath) != null);
+            return _compilers.FirstOrDefault(x => physicalPath.Name.EndsWith(x.OutputFileExtension, StringComparison.OrdinalIgnoreCase) && x.FindInputFileGivenOutput(physicalPath) != null);
         }
     }
 }

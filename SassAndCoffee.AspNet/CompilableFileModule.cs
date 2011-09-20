@@ -9,7 +9,7 @@ namespace SassAndCoffee.AspNet
     using SassAndCoffee.Core.Caching;
     using System.Configuration;
 
-    public class CompilableFileModule : IHttpModule, ICompilerHost
+    public class CompilableFileModule : IHttpModule
     {
         IContentCompiler _compiler;
         IHttpHandler _handler;
@@ -29,7 +29,7 @@ namespace SassAndCoffee.AspNet
                 _compiler = _compiler ?? initializeCompilerFromSettings(cacheType);
                 _handler = _handler ?? new CompilableFileHandler(_compiler);
 
-                if (!_compiler.CanCompile(app.Request.Path)) {
+                if (!_compiler.CanCompile(new VirtualPathCompilerFile(app.Request.Path))) {
                     return;
                 }
 
@@ -42,23 +42,19 @@ namespace SassAndCoffee.AspNet
             return HttpContext.Current.Server.MapPath(path);
         }
 
-        IContentCompiler initializeCompilerFromSettings(string cacheType)
-        {
+        IContentCompiler initializeCompilerFromSettings(string cacheType) {
             if (string.Equals(cacheType, "NoCache", System.StringComparison.InvariantCultureIgnoreCase)) {
                 // NoCache
-                return new ContentCompiler(this, new NoCache());
-            } else if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase)) {
-                // InMemoryCache
-                return new ContentCompiler(this, new InMemoryCache());
-            } else {
-                // FileCache
-                var cachePath = Path.Combine(HostingEnvironment.MapPath("~/App_Data"), "_FileCache");
-                if (!Directory.Exists(cachePath)) {
-                    Directory.CreateDirectory(cachePath);
-                }
-
-                return new ContentCompiler(this, new FileCache(cachePath));
+                return new ContentCompiler(new NoCache());
             }
+            if (string.Equals(cacheType, "InMemoryCache", System.StringComparison.InvariantCultureIgnoreCase)) {
+                // InMemoryCache
+                return new ContentCompiler(new InMemoryCache());
+            }
+            // FileCache
+            var cachePath = Path.Combine(HostingEnvironment.MapPath("~/App_Data"), "_FileCache");
+            Directory.CreateDirectory(cachePath);
+            return new ContentCompiler(new FileCache(cachePath));
         }
 
         public void Dispose()

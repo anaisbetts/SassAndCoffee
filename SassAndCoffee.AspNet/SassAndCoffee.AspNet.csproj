@@ -45,6 +45,7 @@
     <Compile Include="CompilableFileHandler.cs" />
     <Compile Include="CompilableFileModule.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="VirtualPathCompilerFile.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SassAndCoffee.Core\SassAndCoffee.Core.csproj">

@@ -1,7 +1,8 @@
-﻿namespace SassAndCoffee.Core.Compilers
-{
-    using System.IO;
+﻿using System;
+using System.Collections.Generic;
 
+namespace SassAndCoffee.Core.Compilers
+{
     // NB: This class seems stupid, but it makes it easier for other projects 
     // to reuse the CoffeeScript compilation bits without committing to the caching
     // logic
@@ -12,10 +13,10 @@
 
     public class CoffeeScriptFileCompiler : ISimpleFileCompiler
     {
-        CoffeeScriptCompiler _engine;
+        private readonly Lazy<CoffeeScriptCompiler> _engine;
 
-        public string[] InputFileExtensions {
-            get { return new[] { ".coffee" }; }
+        public IEnumerable<string> InputFileExtensions {
+            get { yield return ".coffee"; }
         }
 
         public string OutputFileExtension {
@@ -28,20 +29,17 @@
 
         public CoffeeScriptFileCompiler(CoffeeScriptCompiler engine = null)
         {
-            _engine = engine;
+            _engine = new Lazy<CoffeeScriptCompiler>(() => engine ?? new CoffeeScriptCompiler());
         }
 
-        public void Init(ICompilerHost host)
+        public string ProcessFileContent(ICompilerFile inputFileContent)
         {
-            _engine = _engine ?? new CoffeeScriptCompiler();
+            using (var reader = inputFileContent.Open()) {
+                return _engine.Value.Compile(reader.ReadToEnd());
+            }
         }
 
-        public string ProcessFileContent(string inputFileContent)
-        {
-            return _engine.Compile(File.ReadAllText(inputFileContent));
-        }
-
-        public string GetFileChangeToken(string inputFileContent)
+        public string GetFileChangeToken(ICompilerFile inputFileContent)
         {
             return "";
         }

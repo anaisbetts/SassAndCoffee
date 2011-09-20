@@ -1,4 +1,6 @@
-﻿namespace SassAndCoffee.Core
+﻿using System.Diagnostics;
+
+namespace SassAndCoffee.Core
 {
     using System;
     using System.Collections.Concurrent;
@@ -136,8 +138,7 @@
 
     public static class JS
     {
-        static Lazy<Type> _scriptCompilerImpl;
-        static object _gate = 42;
+        static readonly Lazy<Type> _scriptCompilerImpl;
 
         /* XXX: Why this crazy code is here
          *
@@ -171,6 +172,7 @@
                 try {
                     v8Assembly = Assembly.LoadFile(v8Name);
                 } catch (Exception ex) {
+                    Debug.WriteLine(ex);
                     Console.Error.WriteLine("*** WARNING: You're on ARM, Mono, Itanium (heaven help you), or another architecture\n" +
                         "which isn't x86/amd64 on NT. Loading the Jurassic compiler, which is much slower.");
 
@@ -184,9 +186,7 @@
 
         public static IV8ScriptCompiler CreateJavascriptCompiler()
         {
-            lock(_gate) {
-                return Activator.CreateInstance(_scriptCompilerImpl.Value) as IV8ScriptCompiler;
-            }
+            return Activator.CreateInstance(_scriptCompilerImpl.Value) as IV8ScriptCompiler;
         }
     }
 }

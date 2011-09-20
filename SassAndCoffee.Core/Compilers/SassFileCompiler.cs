@@ -23,7 +23,6 @@
 
         static TrashStack<SassModule> _sassModule;
         internal static string RootAppPath;
-        ICompilerHost _compilerHost;
 
         static SassFileCompiler()
         {
@@ -50,8 +49,11 @@
             });
         }
 
-        public string[] InputFileExtensions {
-            get { return new[] {".scss", ".sass"}; }
+        public IEnumerable<string> InputFileExtensions {
+            get {
+                yield return ".scss";
+                yield return ".sass";
+            }
         }
 
         public string OutputFileExtension {
@@ -62,30 +64,18 @@
             get { return "text/css"; }
         }
 
-        public void Init(ICompilerHost host)
+        public string ProcessFileContent(ICompilerFile inputFileContent)
         {
-            _compilerHost = host;
-        }
-
-        public string ProcessFileContent(string inputFileContent)
-        {
-            // NB: We do this here instead of in Init like we should, because in 
-            // ASP.NET trying to get the PhysicalAppPath when a request isn't in-flight
-            // is verboten, for no good reason.
-            RootAppPath = RootAppPath ?? _compilerHost.ApplicationBasePath;
-
             using (var sassModule = _sassModule.Get()) {
-                dynamic opt = (inputFileContent.ToLowerInvariant().EndsWith("scss") ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
+                dynamic opt = (inputFileContent.Name.EndsWith("scss", StringComparison.OrdinalIgnoreCase) ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
 
-                if (!inputFileContent.Contains('\'')) {
-                    sassModule.Value.ExecuteRubyCode(String.Format("Dir.chdir '{0}'", Path.GetDirectoryName(inputFileContent)));
+                using (var reader = inputFileContent.Open()) {
+                    return (string)sassModule.Value.Engine.compile(reader.ReadToEnd(), opt);
                 }
-    
-                return (string) sassModule.Value.Engine.compile(File.ReadAllText(inputFileContent), opt);
             }
         }
 
-        public string GetFileChangeToken(string inputFileContent)
+        public string GetFileChangeToken(ICompilerFile inputFileContent)
         {
             return "";
         }

@@ -31,15 +31,8 @@
         {
             var fixture = new SassFileCompiler();
 
-            using(var of = File.CreateText(filename)) {
-                of.WriteLine(input);
-            }
-
             try {
-
-		// TODO: Fix this
-           //     fixture.Init(TODO);
-                string result = fixture.ProcessFileContent(filename);
+                string result = fixture.ProcessFileContent(new TestCompilerFile(filename, input));
                 Console.WriteLine(result);
                 return result;
             } finally {
