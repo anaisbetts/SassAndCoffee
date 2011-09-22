@@ -47,13 +47,14 @@
         static ConcurrentQueue<JSWorkItem> _workQueue = new ConcurrentQueue<JSWorkItem>();
         static readonly Thread _dispatcherThread;
         string _compileFuncName;
+        static bool _shouldQuit;
 
         static JavascriptBasedCompiler()
         {
             _dispatcherThread = new Thread(() => {
                 var engine = JS.CreateJavascriptCompiler();
 
-                while(true) {
+                while(!_shouldQuit) {
                     if (_workQueue == null) {
                         break;
                     }
@@ -88,6 +89,12 @@
             });
 
             _dispatcherThread.Start();
+        }
+        
+        internal static void shutdownJSThread()
+        {
+            _shouldQuit = true;
+            _dispatcherThread.Join(TimeSpan.FromSeconds(10));
         }
 
         public JavascriptBasedCompiler(string resource, string compileFuncName)
@@ -201,6 +208,11 @@
             lock(_gate) {
                 return Activator.CreateInstance(_scriptCompilerImpl.Value) as IV8ScriptCompiler;
             }
+        }
+
+        public static void Shutdown()
+        {
+            JavascriptBasedCompiler.shutdownJSThread();
         }
     }
 }
