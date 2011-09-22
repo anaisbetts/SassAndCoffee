@@ -13,8 +13,8 @@ public:
 	NativeV8ScriptCompiler();
 	~NativeV8ScriptCompiler();
 
-	void InitializeLibrary(const char* library_code);
-	char* Compile(const char* function, const char* input);
+	void InitializeLibrary(const wchar_t* library_code);
+	wchar_t* Compile(const wchar_t* function, const wchar_t* input);
 };
 
 
