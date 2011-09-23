@@ -19,7 +19,10 @@ namespace SassAndCoffee.AspNet {
 
         public DateTime LastWriteTimeUtc {
             get {
-                using (Stream stream = OpenStream()) {
+                if (!Exists) {
+                    return default(DateTime);
+                }
+                using (Stream stream = Open()) {
                     FileStream file = stream as FileStream;
                     if (file != null) {
                         return File.GetLastWriteTimeUtc(file.Name);
@@ -30,15 +33,10 @@ namespace SassAndCoffee.AspNet {
             }
         }
 
-        private Stream OpenStream() 
+        public Stream Open() 
         {
             return HostingEnvironment.VirtualPathProvider.GetFile(virtualPath).Open();
         }
-
-        public TextReader Open()
-        {
-            return new StreamReader(OpenStream());
-	    }
 
 	    public string Name {
 	        get {
@@ -54,7 +52,7 @@ namespace SassAndCoffee.AspNet {
 
         public ICompilerFile GetRelativeFile(string relativePath)
         {
-	        return new VirtualPathCompilerFile(HostingEnvironment.VirtualPathProvider.CombineVirtualPaths(virtualPath, relativePath));
+	        return new VirtualPathCompilerFile(HostingEnvironment.VirtualPathProvider.CombineVirtualPaths(virtualPath, relativePath.Replace('\\', '/')));
 	    }
 	}
 }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using SassAndCoffee.Core.Extensions;
+
 namespace SassAndCoffee.Core.Compilers
 {
     // NB: This class seems stupid, but it makes it easier for other projects 
@@ -34,9 +36,7 @@ namespace SassAndCoffee.Core.Compilers
 
         public string ProcessFileContent(ICompilerFile inputFileContent)
         {
-            using (var reader = inputFileContent.Open()) {
-                return _engine.Value.Compile(reader.ReadToEnd());
-            }
+            return _engine.Value.Compile(inputFileContent.ReadAllText());
         }
 
         public string GetFileChangeToken(ICompilerFile inputFileContent)

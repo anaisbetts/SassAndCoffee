@@ -1,10 +1,14 @@
-﻿namespace SassAndCoffee.Core.Compilers
+﻿using System.Diagnostics;
+using System.Linq.Expressions;
+
+using SassAndCoffee.Core.Extensions;
+
+namespace SassAndCoffee.Core.Compilers
 {
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Reflection;
 
     using IronRuby;
 
@@ -19,6 +23,7 @@
             public dynamic SassOption { get; set; }
             public dynamic ScssOption { get; set; }
             public Action<string> ExecuteRubyCode { get; set; }
+            public VirtualFilePAL PlatformAdaptationLayer { get; set; }
         }
 
         static TrashStack<SassModule> _sassModule;
@@ -27,24 +32,27 @@
         static SassFileCompiler()
         {
             _sassModule = new TrashStack<SassModule>(() => {
-                var srs = new ScriptRuntimeSetup() {HostType = typeof (ResourceAwareScriptHost)};
+                var srs = new ScriptRuntimeSetup() {
+                    HostType = typeof (ResourceAwareScriptHost),
+                    //DebugMode = Debugger.IsAttached
+                };
                 srs.AddRubySetup();
                 var runtime = Ruby.CreateRuntime(srs);
                 var engine = runtime.GetRubyEngine();
 
                 // NB: 'R:\' is a garbage path that the PAL override below will 
                 // detect and attempt to find via an embedded Resource file
-                engine.SetSearchPaths(new List<string>() {@"R:\lib\ironruby", @"R:\lib\ruby\1.9.1"});
-    
-                var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.Core.lib.sass_in_one.rb"), SourceCodeKind.File);
+                engine.SetSearchPaths(new[] {@"R:/lib/ironruby", @"R:/lib/ruby/1.9.1"});
+
+                var source = engine.CreateScriptSourceFromString(Utility.ResourceAsString("SassAndCoffee.Core.lib.sass_in_one.rb"), "R:/lib/sass_in_one.rb", SourceCodeKind.File);
                 var scope = engine.CreateScope();
                 source.Execute(scope);
-
-                return new SassModule() {
+                return new SassModule {
+                    PlatformAdaptationLayer = (VirtualFilePAL)runtime.Host.PlatformAdaptationLayer,
                     Engine = scope.Engine.Runtime.Globals.GetVariable("Sass"),
-                    SassOption = engine.Execute("{:syntax => :sass}"),
-                    ScssOption = engine.Execute("{:syntax => :scss}"),
-                    ExecuteRubyCode = code => engine.Execute(code, scope),
+                    SassOption = engine.Execute(@"{:syntax => :sass, :cache_location => ""C:/""}"),
+                    ScssOption = engine.Execute(@"{:syntax => :scss, :cache_location => ""C:/""}"),
+                    ExecuteRubyCode = code => engine.Execute(code, scope)
                 };
             });
         }
@@ -67,10 +75,9 @@
         public string ProcessFileContent(ICompilerFile inputFileContent)
         {
             using (var sassModule = _sassModule.Get()) {
-                dynamic opt = (inputFileContent.Name.EndsWith("scss", StringComparison.OrdinalIgnoreCase) ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
-
-                using (var reader = inputFileContent.Open()) {
-                    return (string)sassModule.Value.Engine.compile(reader.ReadToEnd(), opt);
+                dynamic opt = (inputFileContent.Name.EndsWith(".scss", StringComparison.OrdinalIgnoreCase) ? sassModule.Value.ScssOption : sassModule.Value.SassOption);
+                using (sassModule.Value.PlatformAdaptationLayer.SetCompilerFile(inputFileContent)) {
+                    return (string)sassModule.Value.Engine.compile(inputFileContent.ReadAllText(), opt);
                 }
             }
         }
@@ -83,54 +90,12 @@
 
     public class ResourceAwareScriptHost : ScriptHost
     {
-        PlatformAdaptationLayer _innerPal = null;
+        private readonly PlatformAdaptationLayer _innerPal = new VirtualFilePAL();
+
         public override PlatformAdaptationLayer PlatformAdaptationLayer {
             get {
-                if (_innerPal == null) {
-                    _innerPal = new ResourceAwarePAL();
-                }
                 return _innerPal;
             }
-        }
-    }
-
-    public class ResourceAwarePAL : PlatformAdaptationLayer
-    {
-        public override Stream OpenInputFileStream(string path)
-        {
-            var ret = Assembly.GetExecutingAssembly().GetManifestResourceStream(pathToResourceName(path));
-            if (ret != null) {
-                return ret;
-            }
-
-            if (SassFileCompiler.RootAppPath == null || !path.ToLowerInvariant().StartsWith(SassFileCompiler.RootAppPath)) {
-                return null;
-            }
-
-            return base.OpenInputFileStream(path);
-        }
-
-        public override bool FileExists(string path)
-        {
-            if (Assembly.GetExecutingAssembly().GetManifestResourceInfo(pathToResourceName(path)) != null) {
-                return true;
-            }
-
-            if (path.EndsWith("css")) {
-                int a = 1;
-            }
-
-            return base.FileExists(path);
-        }
-
-        string pathToResourceName(string path)
-        {
-            var ret = path
-                .Replace("1.9.1", "_1._9._1")
-                .Replace('\\', '.')
-                .Replace('/', '.')
-                .Replace("R:", "SassAndCoffee.Core");
-            return ret;
         }
     }
 }

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+using SassAndCoffee.Core.Extensions;
+
 namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
@@ -21,11 +23,9 @@ namespace SassAndCoffee.Core.Compilers
             get { return "text/javascript"; }
         }
 
-        public string ProcessFileContent(ICompilerFile inputFileContent) 
+        public string ProcessFileContent(ICompilerFile inputFileContent)
         {
-            using (TextReader reader = inputFileContent.Open()) {
-                return reader.ReadToEnd();
-            }
+            return inputFileContent.ReadAllText();
         }
 
         public string GetFileChangeToken(ICompilerFile inputFileContent) 

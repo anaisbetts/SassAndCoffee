@@ -20,10 +20,15 @@ namespace SassAndCoffee.Core.Tests {
             }
         }
 
-        public TextReader Open() 
+        public Stream Open() 
         {
             AssertFileExists();
-            return new StringReader(_content);
+            MemoryStream stream = new MemoryStream();
+            StreamWriter writer = new StreamWriter(stream);
+            writer.Write(_content);
+            writer.Flush();
+            stream.Seek(0, SeekOrigin.Begin);
+            return stream;
         }
 
         private void AssertFileExists() 

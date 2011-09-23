@@ -8,7 +8,7 @@ namespace SassAndCoffee.Core
 			get;
 		}
 
-		TextReader Open();
+		Stream Open();
 
 	    string Name {
 	        get;

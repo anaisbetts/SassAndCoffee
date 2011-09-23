@@ -1,3 +1,5 @@
+using SassAndCoffee.Core.Extensions;
+
 namespace SassAndCoffee.Core.Compilers
 {
     using System;
@@ -67,16 +69,11 @@ namespace SassAndCoffee.Core.Compilers
                                                                                      }).ToString();
         }
 
-        private IEnumerable<ICompilerFile> GetCombineFileNames(ICompilerFile inputFileContent) 
-        {
-            using (TextReader reader = inputFileContent.Open()) {
-                for (string line = reader.ReadLine(); line != null; line = reader.ReadLine()) {
-                    Match match = _lineRegex.Match(line);
-                    if (match.Success) {
-                        yield return inputFileContent.GetRelativeFile(match.Value);
-                    }
-                }
-            }
+        private IEnumerable<ICompilerFile> GetCombineFileNames(ICompilerFile inputFileContent) {
+            return inputFileContent.ReadLines()
+                .Select(l => _lineRegex.Match(l))
+                .Where(m => m.Success)
+                .Select(m => inputFileContent.GetRelativeFile(m.Value));
         }
     }
 }

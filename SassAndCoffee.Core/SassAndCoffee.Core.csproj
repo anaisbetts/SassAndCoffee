@@ -103,6 +103,7 @@
     <Compile Include="CompilationResult.cs" />
     <Compile Include="Compilers\CoffeeScriptFileCompiler.cs" />
     <Compile Include="Compilers\FileConcatenationCompiler.cs" />
+    <Compile Include="Compilers\VirtualFilePAL.cs" />
     <Compile Include="ContentCompiler.cs" />
     <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
     <Compile Include="Caching\ICompiledCache.cs" />

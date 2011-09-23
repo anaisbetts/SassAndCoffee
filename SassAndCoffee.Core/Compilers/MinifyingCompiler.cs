@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using SassAndCoffee.Core.Extensions;
+
 namespace SassAndCoffee.Core.Compilers
 {
     using System.IO;
@@ -38,10 +40,7 @@ namespace SassAndCoffee.Core.Compilers
 
 		public string ProcessFileContent(ICompilerFile inputFileContent)
         {
-		    string text;
-		    using (TextReader reader = inputFileContent.Open()) {
-		        text = reader.ReadToEnd();
-		    }
+            string text = inputFileContent.ReadAllText();
 		    if (inputFileContent.Name.EndsWith(".coffee", StringComparison.OrdinalIgnoreCase)) {
 		        using (ValueContainer<CoffeeScriptCompiler> coffeeEngine = _coffeeEngine.Get()) {
 		            text = coffeeEngine.Value.Compile(text);
