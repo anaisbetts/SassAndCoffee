@@ -47,8 +47,11 @@ namespace SassAndCoffee.Core.Compilers
                 .ToArray();
 
             return allText.Aggregate(new StringBuilder(), (acc, x) => {
-                acc.Append(x);
-                acc.Append("\n");
+                if (!String.IsNullOrEmpty(x))
+                {
+                    acc.Append(x);
+                    acc.Append(";\n");                    
+                }
                 return acc;
             }).ToString();
         }
