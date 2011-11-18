@@ -197,18 +197,29 @@
                 string assemblyResource = (Environment.Is64BitProcess ?
                     "SassAndCoffee.Core.lib.amd64.V8Bridge.dll" : "SassAndCoffee.Core.lib.x86.V8Bridge.dll");
 
-                var v8Name = Path.Combine(Path.GetTempPath(), String.Format("V8Bridge_{0}.dll", suffix));
-                try {
-                    using (var of = File.OpenWrite(v8Name)) {
-                        Assembly.GetExecutingAssembly().GetManifestResourceStream(assemblyResource).CopyTo(of);
+                var attemptedPaths = new[] {
+                    Path.Combine(Path.GetTempPath(), String.Format("V8Bridge_{0}.dll", suffix)),
+                    Path.Combine(Path.GetFullPath(@".\App_Data"), String.Format("V8Bridge_{0}.dll", suffix)),
+                    Path.Combine(Path.GetFullPath("."), String.Format("V8Bridge_{0}.dll", suffix)),
+                };
+
+                string succeededPath = null;
+                foreach(var path in attemptedPaths) {
+                    try {
+                        using (var of = File.OpenWrite(path)) {
+                            Assembly.GetExecutingAssembly().GetManifestResourceStream(assemblyResource).CopyTo(of);
+                        }
+
+                        succeededPath = path;
+                        break;
+                    } catch (IOException) {
+                    } catch (UnauthorizedAccessException) {
                     }
-                } catch (IOException) {
-                } catch (UnauthorizedAccessException) {
                 }
 
                 Assembly v8Assembly;
                 try {
-                    v8Assembly = Assembly.LoadFile(v8Name);
+                    v8Assembly = Assembly.LoadFile(succeededPath);
                 } catch (Exception ex) {
                     V8FailureReason = ex;
 
