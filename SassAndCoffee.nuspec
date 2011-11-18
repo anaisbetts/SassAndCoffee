@@ -2,7 +2,7 @@
 <package xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <metadata xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <id>SassAndCoffee</id>
-    <version>1.0.1</version>
+    <version>1.1.5</version>
     <description>SassAndCoffee is a package that adds SCSS/Sass and CoffeeScript compilation support to ASP.NET, as well as minification support via UglifyJS</description>
     <authors>Paul Betts, Steven Robbins, Ken Browning</authors>
     <owners>Paul Betts</owners>
@@ -12,7 +12,7 @@
     <projectUrl>http://github.com/xpaulbettsx/SassAndCoffee</projectUrl>
 
     <dependencies>
-      <dependency id="SassAndCoffee.AspNet" version="1.0.1" />
+      <dependency id="SassAndCoffee.AspNet" version="1.1.5" />
     </dependencies>
   </metadata>
 </package>
