@@ -191,7 +191,7 @@
                         "which isn't x86/amd64 on NT. Loading the Jurassic compiler, which is much slower.");
 
                     // Jurassic completely bites it on 64-bit, we just need to abort
-                    if (Environment.Is64BitProcess == false) {
+                    if (Environment.Is64BitProcess == true) {
                         throw;
                     }
 
