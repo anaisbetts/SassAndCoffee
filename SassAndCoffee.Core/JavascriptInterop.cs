@@ -147,6 +147,31 @@
         }
     }
 
+#if FALSE
+    public class IronJSCompiler : IV8ScriptCompiler
+    {
+        CSharp.Context _engine;
+        Dictionary<string, Func<string, string>> _compilerFunc = new Dictionary<string, Func<string, string>>();
+
+        public void InitializeLibrary(string libraryCode)
+        {
+            _engine = new CSharp.Context();
+            _engine.Execute(libraryCode);
+        }
+
+        public string Compile(string function, string input)
+        {
+            lock(_engine) {
+                if (!_compilerFunc.ContainsKey(function)) {
+                    _compilerFunc[function] = _engine.GetFunctionAs<Func<string, string>>(function);
+                }
+
+                return _compilerFunc[function](input);
+            }
+        }
+    }
+#endif
+
     public static class JS
     {
         static Lazy<Type> _scriptCompilerImpl;
