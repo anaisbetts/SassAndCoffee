@@ -15,6 +15,13 @@
 
         private Dictionary<string, object> _siteItems = new Dictionary<string, object>();
 
+        private const string JavaScriptProgId = "JScript";
+        public static bool IsSupported {
+            get {
+                return Type.GetTypeFromProgID(JavaScriptProgId) != null;
+            }
+        }
+
         public void InitializeLibrary(string libraryCode) {
             try {
                 // Prefer Chakra
@@ -102,11 +109,6 @@
                     Marshal.ReleaseComObject(o);
             }
             o = null;
-        }
-
-        private const string JavaScriptProgId = "JScript";
-        public static bool CheckIfSupported() {
-            return Type.GetTypeFromProgID(JavaScriptProgId) != null;
         }
     }
 }

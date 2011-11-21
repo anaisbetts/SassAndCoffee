@@ -193,6 +193,10 @@
         static JS()
         {
             _scriptCompilerImpl = new Lazy<Type>(() => {
+                if (InternetExplorerJavaScriptCompiler.IsSupported) {
+                    return typeof(InternetExplorerJavaScriptCompiler);
+                }
+
                 string suffix = (Environment.Is64BitProcess ? "amd64" : "x86");
                 string assemblyResource = (Environment.Is64BitProcess ?
                     "SassAndCoffee.Core.lib.amd64.V8Bridge.dll" : "SassAndCoffee.Core.lib.x86.V8Bridge.dll");
