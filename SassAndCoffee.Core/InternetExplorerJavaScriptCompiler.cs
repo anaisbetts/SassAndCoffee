@@ -58,14 +58,25 @@
         }
 
         public string Compile(string function, string input) {
+            string result = null;
             try {
-                return _jsDispatchType.InvokeMember(function, BindingFlags.InvokeMethod, null, _jsDispatch, new object[] { input }) as string;
+                result = _jsDispatchType.InvokeMember(function, BindingFlags.InvokeMethod, null, _jsDispatch, new object[] { input }) as string;
             } catch {
                 var last = GetAndResetLastException();
                 if (last != null)
                     throw last;
                 else throw;
             }
+
+            var compileError = GetAndResetLastException();
+            if (compileError != null)
+                throw compileError;
+
+            // TODO: This is a hack, but I'm not sure how else to test for invalid statements
+            if (result == "this;")
+                throw new ArgumentException(string.Format("{0}('{1}'); is not valid JavaScript.", function, input));
+
+            return result;
         }
 
         public override object GetItem(string name) {
