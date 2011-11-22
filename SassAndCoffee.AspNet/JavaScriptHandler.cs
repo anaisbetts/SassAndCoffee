@@ -12,15 +12,21 @@
     public class JavaScriptHandler : IHttpHandler, IDisposable {
 
         private IInstanceProvider<IJavaScriptRuntime> _jsRuntimeProvider;
-        private Pool<IJavaScriptCompiler, JavaScriptCompilerProxy> _coffeeCompilerPool;
-        private Pool<IJavaScriptCompiler, JavaScriptCompilerProxy> _uglifyCompilerPool;
+        //private Pool<IJavaScriptCompiler, JavaScriptCompilerProxy> _coffeeCompilerPool;
+        //private Pool<IJavaScriptCompiler, JavaScriptCompilerProxy> _uglifyCompilerPool;
+        private IInstanceProvider<IJavaScriptCompiler> _coffeeScriptCompilerProvider;
+        private IInstanceProvider<IJavaScriptCompiler> _uglifyCompilerProvider;
 
         public JavaScriptHandler() {
             _jsRuntimeProvider = new InstanceProvider<IJavaScriptRuntime>(
                 () => new IEJavaScriptRuntime());
-            _coffeeCompilerPool = new Pool<IJavaScriptCompiler, JavaScriptCompilerProxy>(
+            //_coffeeCompilerPool = new Pool<IJavaScriptCompiler, JavaScriptCompilerProxy>(
+            //    () => new CoffeeScriptCompiler(_jsRuntimeProvider));
+            //_uglifyCompilerPool = new Pool<IJavaScriptCompiler, JavaScriptCompilerProxy>(
+            //    () => new UglifyCompiler(_jsRuntimeProvider));
+            _coffeeScriptCompilerProvider = new InstanceProvider<IJavaScriptCompiler>(
                 () => new CoffeeScriptCompiler(_jsRuntimeProvider));
-            _uglifyCompilerPool = new Pool<IJavaScriptCompiler, JavaScriptCompilerProxy>(
+            _uglifyCompilerProvider = new InstanceProvider<IJavaScriptCompiler>(
                 () => new UglifyCompiler(_jsRuntimeProvider));
         }
 
@@ -48,7 +54,8 @@
             // Read in coffeescript source if found
             var coffeeFile = fileRoot + ".coffee";
             if (File.Exists(coffeeFile)) {
-                using (var coffeeCompiler = _coffeeCompilerPool.GetInstance()) {
+                //using (var coffeeCompiler = _coffeeCompilerPool.GetInstance()) {
+                using (var coffeeCompiler = _coffeeScriptCompilerProvider.GetInstance()) {
                     var coffeeSource = File.ReadAllText(coffeeFile);
                     result = coffeeCompiler.Compile(coffeeSource);
                 }
@@ -64,7 +71,8 @@
 
             // Uglify
             if (result != null && uglify) {
-                using (var compiler = _uglifyCompilerPool.GetInstance()) {
+                //using (var compiler = _uglifyCompilerPool.GetInstance()) {
+                using (var compiler = _uglifyCompilerProvider.GetInstance()) {
                     result = compiler.Compile(result);
                 }
             }
@@ -94,14 +102,14 @@
 
         protected virtual void Dispose(bool disposing) {
             if (disposing) {
-                if (_coffeeCompilerPool != null) {
-                    _coffeeCompilerPool.Dispose();
-                    _coffeeCompilerPool = null;
-                }
-                if (_uglifyCompilerPool != null) {
-                    _uglifyCompilerPool.Dispose();
-                    _uglifyCompilerPool = null;
-                }
+                //if (_coffeeCompilerPool != null) {
+                //    _coffeeCompilerPool.Dispose();
+                //    _coffeeCompilerPool = null;
+                //}
+                //if (_uglifyCompilerPool != null) {
+                //    _uglifyCompilerPool.Dispose();
+                //    _uglifyCompilerPool = null;
+                //}
             }
         }
     }
