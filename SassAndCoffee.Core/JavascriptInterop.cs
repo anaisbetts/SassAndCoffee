@@ -42,7 +42,7 @@
      * is not only Thread-Unsafe, but also Thread Affinitized.
      */
 
-    public class JavascriptBasedCompiler
+    public class JavascriptBasedCompiler : IDisposable
     {
         static ConcurrentQueue<JSWorkItem> _workQueue = new ConcurrentQueue<JSWorkItem>();
         static readonly Thread _dispatcherThread;
@@ -74,14 +74,14 @@
                             item.Result = engine.Compile(item.Func, item.Input);
                         }
                     } catch (Exception ex) {
+                        // Note: You absolutely cannot let any exceptions bubble up, as it kills the app domain.
+
                         item.Result = String.Format("ENGINE FAULT - please report this if it happens frequently: {0}: {1}\n{2}", ex.GetType(), ex.Message, ex.StackTrace);
 
                         JS.V8FailureReason = ex;
                         if (Environment.Is64BitProcess == false) {
                             engine = new JurassicCompiler();
-                        } else {
-                            throw;
-                        }
+                        }                        
                     }
 
                     item._gate.Set();
@@ -114,6 +114,12 @@
         }
 
         public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
         {
             _workQueue = null;
         }
@@ -193,6 +199,10 @@
         static JS()
         {
             _scriptCompilerImpl = new Lazy<Type>(() => {
+                if (InternetExplorerJavaScriptCompiler.IsSupported) {
+                    return typeof(InternetExplorerJavaScriptCompiler);
+                }
+
                 string suffix = (Environment.Is64BitProcess ? "amd64" : "x86");
                 string assemblyResource = (Environment.Is64BitProcess ?
                     "SassAndCoffee.Core.lib.amd64.V8Bridge.dll" : "SassAndCoffee.Core.lib.x86.V8Bridge.dll");

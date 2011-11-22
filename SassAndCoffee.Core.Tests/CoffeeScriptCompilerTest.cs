@@ -1,12 +1,9 @@
 ﻿namespace SassAndCoffee.Core.Tests
 {
     using System;
-
-    using SassAndCoffee.Core.Compilers;
-
-    using Xunit;
-
     using SassAndCoffee.Core;
+    using SassAndCoffee.Core.Compilers;
+    using Xunit;
 
     public class CoffeeScriptCompilerTest
     {
@@ -26,17 +23,19 @@
             var input = "@#)$(@#)(@#_$)(@_)@ !!@_@@@ window.alert \"foo\" if 3>2 else if else if";
             var fixture = new CoffeeScriptCompiler();
 
-            bool shouldDie = true;
+            bool shouldDie = false;
             
             try {
                 var result = fixture.Compile(input);
-                Console.WriteLine(result);
+                if (result.StartsWith("ENGINE FAULT"))
+                    shouldDie = true;
+                else Console.WriteLine(result);
             } catch(Exception ex) {
                 Console.WriteLine("Ex: " + ex.Message);
-                shouldDie = false;
+                shouldDie = true;
             }
 
-            Assert.False(shouldDie);
+            Assert.True(shouldDie);
         }
 
         [Fact]
