@@ -73,9 +73,6 @@
       <Private>True</Private>
       <HintPath>..\packages\IronRuby.1.1.3\Lib\IronRuby.Libraries.Yaml.dll</HintPath>
     </Reference>
-    <Reference Include="Jurassic">
-      <HintPath>..\ext\Jurassic.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Dynamic, Version=1.1.0.20, Culture=neutral, PublicKeyToken=7f709c5b713576e1, processorArchitecture=MSIL">
       <Private>True</Private>
       <HintPath>..\packages\IronRuby.1.1.3\Lib\Microsoft.Dynamic.dll</HintPath>
@@ -97,60 +94,71 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Caching\FileCache.cs" />
-    <Compile Include="Caching\InMemoryCache.cs" />
-    <Compile Include="Caching\NoCache.cs" />
-    <Compile Include="CompilationResult.cs" />
-    <Compile Include="Compilers\CoffeeScriptFileCompiler.cs" />
-    <Compile Include="Compilers\FileConcatenationCompiler.cs" />
-    <Compile Include="ContentCompiler.cs" />
-    <Compile Include="Extensions\SimpleFileCompilerExtensions.cs" />
-    <Compile Include="Caching\ICompiledCache.cs" />
-    <Compile Include="ICompilerHost.cs" />
-    <Compile Include="Compilers\ISimpleFileCompiler.cs" />
-    <Compile Include="IContentCompiler.cs" />
-    <Compile Include="InternetExplorerJavaScriptCompiler.cs" />
-    <Compile Include="JavascriptInterop.cs" />
-    <Compile Include="Compilers\JavascriptPassthroughCompiler.cs" />
-    <Compile Include="Compilers\MinifyingCompiler.cs" />
-    <Compile Include="MemoizingMRUCache.cs" />
+    <Compile Include="Legacy\Caching\FileCache.cs" />
+    <Compile Include="Legacy\Caching\InMemoryCache.cs" />
+    <Compile Include="Legacy\Caching\NoCache.cs" />
+    <Compile Include="CoffeeScript\CoffeeScriptCompiler.cs" />
+    <Compile Include="IJavaScriptCompiler.cs" />
+    <Compile Include="JavaScriptCompilerBase.cs" />
+    <Compile Include="JavaScriptCompilerProxy.cs" />
+    <Compile Include="Legacy\CompilationResult.cs" />
+    <Compile Include="Legacy\Compilers\FileConcatenationCompiler.cs" />
+    <Compile Include="Legacy\ContentCompiler.cs" />
+    <Compile Include="Legacy\Caching\ICompiledCache.cs" />
+    <Compile Include="Legacy\Extensions\SimpleFileCompilerExtensions.cs" />
+    <Compile Include="Legacy\ICompilerHost.cs" />
+    <Compile Include="Legacy\Compilers\ISimpleFileCompiler.cs" />
+    <Compile Include="Legacy\IContentCompiler.cs" />
+    <Compile Include="IJavaScriptRuntime.cs" />
+    <Compile Include="IEJavaScriptRuntime.cs" />
+    <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />
+    <Compile Include="Pooling\IInstanceProviderOfT.cs" />
+    <Compile Include="Pooling\InstanceProviderOfT.cs" />
+    <Compile Include="Pooling\IProxyOfT.cs" />
+    <Compile Include="Pooling\PoolOfT.cs" />
+    <Compile Include="Pooling\ProxyBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Compilers\SassFileCompiler.cs" />
-    <Compile Include="TrashStack.cs" />
+    <Compile Include="Legacy\Compilers\SassFileCompiler.cs" />
+    <Compile Include="Sass\ISassCompiler.cs" />
+    <Compile Include="Sass\ResourceRedirectionPlatformAdaptationLayer.cs" />
+    <Compile Include="Sass\SassCompiler.cs" />
+    <Compile Include="Sass\SassCompilerProxy.cs" />
+    <Compile Include="Sass\SassCompilerScriptHost.cs" />
+    <Compile Include="Legacy\TrashStack.cs" />
+    <Compile Include="Uglify\UglifyCompiler.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="lib\ironruby\digest.rb" />
-    <EmbeddedResource Include="lib\ironruby\digest\md5.rb" />
-    <EmbeddedResource Include="lib\ironruby\digest\sha1.rb" />
-    <EmbeddedResource Include="lib\ironruby\enumerator.rb" />
-    <EmbeddedResource Include="lib\ironruby\etc.rb" />
-    <EmbeddedResource Include="lib\ironruby\rbconfig.rb" />
-    <EmbeddedResource Include="lib\ironruby\stringio.rb" />
-    <EmbeddedResource Include="lib\ironruby\strscan.rb" />
-    <EmbeddedResource Include="lib\ironruby\zlib.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\fileutils.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\pathname.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\set.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\common.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ftp.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\generic.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\http.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\https.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ldap.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\ldaps.rb" />
-    <EmbeddedResource Include="lib\ruby\1.9.1\uri\mailto.rb" />
-    <EmbeddedResource Include="lib\sass_in_one.rb" />
-    <None Include="lib\amd64\V8Bridge.dll.metagen" />
-    <None Include="lib\x86\V8Bridge.dll.metagen" />
+    <EmbeddedResource Include="Sass\lib\ironruby\digest.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\digest\md5.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\digest\sha1.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\enumerator.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\etc.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\rbconfig.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\stringio.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\strscan.rb" />
+    <EmbeddedResource Include="Sass\lib\ironruby\zlib.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\fileutils.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\pathname.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\set.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\common.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\ftp.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\generic.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\http.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\https.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\ldap.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\ldaps.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri\mailto.rb" />
+    <EmbeddedResource Include="Sass\lib\sass_in_one.rb" />
     <None Include="packages.config" />
+    <None Include="SassAndCoffee.Core.nuspec" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="lib\coffee-script.js" />
+    <EmbeddedResource Include="CoffeeScript\coffee-script.js" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="lib\uglify.js" />
+    <EmbeddedResource Include="Uglify\uglify.js" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ComImports.ActiveScript\ComImports.ActiveScript.csproj">
@@ -161,18 +169,7 @@
       <Project>{E90AAA57-604C-4468-9EA0-FFCE1B486CD5}</Project>
       <Name>ComImports.JavaScriptEngines</Name>
     </ProjectReference>
-    <ProjectReference Include="..\V8Bridge.Interface\V8Bridge.Interface.csproj">
-      <Project>{C38A2AE1-F18E-4E3E-AAA3-0B9F45B633BC}</Project>
-      <Name>V8Bridge.Interface</Name>
-    </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="lib\amd64\V8Bridge.dll" />
-    <None Include="lib\amd64\V8Bridge.pdb" />
-    <EmbeddedResource Include="lib\x86\V8Bridge.dll" />
-    <None Include="lib\x86\V8Bridge.pdb" />
-  </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

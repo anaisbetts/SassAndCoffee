@@ -1,45 +1,55 @@
-﻿namespace SassAndCoffee.Core.Tests
-{
+﻿namespace SassAndCoffee.Core.Tests {
     using System;
     using System.IO;
-
-    using SassAndCoffee.Core.Compilers;
-
+    using SassAndCoffee.Core.Sass;
     using Xunit;
 
-    using SassAndCoffee.Core;
-
-    public class SassFileCompilerTest
-    {
+    public class SassFileCompilerTest {
         [Fact]
-        public void ScssSmokeTest()
-        {
-            var input = ".foo bar[val=\"//\"] { baz: bang; }";
-            Assert.False(String.IsNullOrWhiteSpace(compileInput("test.scss", input)));
+        public void ScssSmokeTest() {
+            var input = @"
+// SCSS
+
+.error {
+  border: 1px #f00;
+  background: #fdd;
+}
+.error.intrusion {
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+.badError {
+  @extend .error;
+  border-width: 3px;
+}
+";
+            var actual = compileInput("test.scss", input);
+            Assert.False(string.IsNullOrWhiteSpace(actual));
         }
-    
+
         [Fact]
-        public void SassNegativeSmokeTest()
-        {
+        public void SassNegativeSmokeTest() {
             var input = ".foo bar[val=\"//\"] { baz: bang; }";
-            var output = compileInput("test.sass", input);
-
-            Assert.True(output.Contains("Syntax"));
+            try {
+                compileInput("test.sass", input);
+            } catch (Exception e) {
+                Assert.True(e.ToString().Contains("Syntax"));
+            }
         }
 
-        string compileInput(string filename, string input)
-        {
-            var fixture = new SassFileCompiler();
+        string compileInput(string filename, string input) {
+            var fixture = new SassCompiler();
 
-            using(var of = File.CreateText(filename)) {
+            using (var of = File.CreateText(filename)) {
                 of.WriteLine(input);
             }
 
             try {
 
-		// TODO: Fix this
-           //     fixture.Init(TODO);
-                string result = fixture.ProcessFileContent(filename);
+                // TODO: Fix this
+                //     fixture.Init(TODO);
+                string result = fixture.Compile(filename);
                 Console.WriteLine(result);
                 return result;
             } finally {
