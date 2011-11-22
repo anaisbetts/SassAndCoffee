@@ -74,7 +74,7 @@
             try {
                 error.GetExceptionInfo(out excepInfo);
                 message = string.Format(
-                    "Error in {1}: Code {2} (0x{2:X8}), WCode {3}: {0} at line {4}({5}): {6}",
+                    "Error in [{1}]:\n{0}\nat line {4}({5})\nError Code: {2} (0x{2:X8})\nError WCode: {3}",
                     /* 0 */ excepInfo.bstrDescription,
                     /* 1 */ excepInfo.bstrSource,
                     /* 2 */ excepInfo.scode,
