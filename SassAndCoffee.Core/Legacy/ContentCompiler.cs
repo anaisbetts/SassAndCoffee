@@ -24,7 +24,6 @@
 
             _compilers = new ISimpleFileCompiler[] {
                 new FileConcatenationCompiler(this),
-                new SassFileCompiler(),
             };
 
             Init();

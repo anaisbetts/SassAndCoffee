@@ -94,6 +94,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CoffeeScript\CoffeeScriptCompilerContentTransform.cs" />
+    <Compile Include="Legacy\ISimpleFileCompiler.cs" />
+    <Compile Include="Pipeline\ContentPipeline.cs" />
+    <Compile Include="Pipeline\ContentResult.cs" />
+    <Compile Include="Pipeline\ContentTransformBase.cs" />
+    <Compile Include="Pipeline\ContentTransformState.cs" />
+    <Compile Include="Pipeline\FileSourceContentTransform.cs" />
+    <Compile Include="Pipeline\IContentCache.cs" />
+    <Compile Include="Pipeline\IContentPipeline.cs" />
+    <Compile Include="Pipeline\IContentTransform.cs" />
     <Compile Include="Legacy\Caching\FileCache.cs" />
     <Compile Include="Legacy\Caching\InMemoryCache.cs" />
     <Compile Include="Legacy\Caching\NoCache.cs" />
@@ -107,25 +117,26 @@
     <Compile Include="Legacy\Caching\ICompiledCache.cs" />
     <Compile Include="Legacy\Extensions\SimpleFileCompilerExtensions.cs" />
     <Compile Include="Legacy\ICompilerHost.cs" />
-    <Compile Include="Legacy\Compilers\ISimpleFileCompiler.cs" />
     <Compile Include="Legacy\IContentCompiler.cs" />
     <Compile Include="IJavaScriptRuntime.cs" />
     <Compile Include="IEJavaScriptRuntime.cs" />
     <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />
+    <Compile Include="Pipeline\JavaScriptCompilerContentTransformBase.cs" />
     <Compile Include="Pooling\IInstanceProviderOfT.cs" />
     <Compile Include="Pooling\InstanceProviderOfT.cs" />
     <Compile Include="Pooling\IProxyOfT.cs" />
     <Compile Include="Pooling\PoolOfT.cs" />
     <Compile Include="Pooling\ProxyBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Legacy\Compilers\SassFileCompiler.cs" />
     <Compile Include="Sass\ISassCompiler.cs" />
     <Compile Include="Sass\ResourceRedirectionPlatformAdaptationLayer.cs" />
     <Compile Include="Sass\SassCompiler.cs" />
     <Compile Include="Sass\SassCompilerProxy.cs" />
     <Compile Include="Sass\SassCompilerScriptHost.cs" />
     <Compile Include="Legacy\TrashStack.cs" />
+    <Compile Include="Sass\SassCompilerContentTransform.cs" />
     <Compile Include="Uglify\UglifyCompiler.cs" />
+    <Compile Include="Uglify\UglifyCompilerContentTransform.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -170,6 +181,7 @@
       <Name>ComImports.JavaScriptEngines</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

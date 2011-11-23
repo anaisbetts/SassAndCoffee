@@ -9,13 +9,14 @@
     public class SassCompiler : ISassCompiler {
         private ScriptEngine _engine;
         private ScriptScope _scope;
+        private ResourceRedirectionPlatformAdaptationLayer _pal;
         private dynamic _sassCompiler;
         private dynamic _sassOption;
         private dynamic _scssOption;
         private bool _initialized = false;
         private object _lock = new object();
 
-        public string Compile(string path) {
+        public string Compile(string path, IList<string> dependentFileList = null) {
             if (path == null)
                 throw new ArgumentException("source cannot be null.", "source");
 
@@ -38,23 +39,35 @@
                     _engine.Execute(statement, _scope);
                 }
 
-                return (string)_sassCompiler.compile(File.ReadAllText(pathInfo.FullName), compilerOptions);
+                if (dependentFileList != null)
+                    _pal.OnOpenInputFileStream = (accessedFile) => dependentFileList.Add(accessedFile);
+
+                string result;
+                try {
+                    result = (string)_sassCompiler.compile(File.ReadAllText(pathInfo.FullName), compilerOptions);
+                } finally {
+                    _pal.OnOpenInputFileStream = null;
+                }
+                return result;
             }
         }
 
         private void Initialize() {
             if (!_initialized) {
+                _pal = new ResourceRedirectionPlatformAdaptationLayer();
                 var srs = new ScriptRuntimeSetup() { 
                     HostType = typeof(SassCompilerScriptHost),
-                    HostArguments = new List<object>() { new ResourceRedirectionPlatformAdaptationLayer() },
+                    HostArguments = new List<object>() { _pal },
                 };
                 srs.AddRubySetup();
                 var runtime = Ruby.CreateRuntime(srs);
                 _engine = runtime.GetRubyEngine();
 
-                // NB: 'R:\' is a garbage path that the PAL override below will 
+                // NB: 'R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}' is a garbage path that the PAL override will 
                 // detect and attempt to find via an embedded Resource file
-                _engine.SetSearchPaths(new List<string>() { @"R:\lib\ironruby", @"R:\lib\ruby\1.9.1" });
+                _engine.SetSearchPaths(new List<string>() { 
+                    @"R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}\lib\ironruby",
+                    @"R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}\lib\ruby\1.9.1" });
 
                 var source = _engine.CreateScriptSourceFromString(
                     Utility.ResourceAsString("lib.sass_in_one.rb", typeof(SassCompiler)),

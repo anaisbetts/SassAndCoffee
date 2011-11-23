@@ -4,15 +4,19 @@
     using System.IO;
     using System.Linq;
     using System.Web;
+    using SassAndCoffee.Core.Pipeline;
 
-    public abstract class PathBasedHandlerRemapper<T> : IHttpModule
-        where T : class, IHttpHandler, IDisposable, new() {
+    public abstract class PathBasedHandlerRemapper : IHttpModule {
 
-        private T _handler = new T();
+        private PipelineHandler _handler;
+        private IEnumerable<string> _handledExtensions;
 
         public abstract IEnumerable<string> HandledExtensions { get; }
+        public abstract IEnumerable<IContentTransform> Transformations { get; }
 
         public void Init(HttpApplication context) {
+            _handledExtensions = HandledExtensions;
+            _handler = new PipelineHandler(new ContentPipeline(Transformations));
             context.PostResolveRequestCache += ConditionallyRemapHandler;
         }
 

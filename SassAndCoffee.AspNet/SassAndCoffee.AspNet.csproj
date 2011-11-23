@@ -42,15 +42,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Misguided\ITransformHandler.cs" />
     <Compile Include="JavaScriptInterceptorModule.cs" />
-    <Compile Include="Misguided\JavaScriptTransform.cs" />
     <Compile Include="Legacy\CompilableFileHandler.cs" />
     <Compile Include="Legacy\CompilableFileModule.cs" />
-    <Compile Include="JavaScriptHandler.cs" />
     <Compile Include="PathBasedHandlerRemapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SassHandler.cs" />
+    <Compile Include="PipelineHandler.cs" />
     <Compile Include="SassInterceptorModule.cs" />
   </ItemGroup>
   <ItemGroup>

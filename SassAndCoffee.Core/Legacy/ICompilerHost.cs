@@ -1,6 +1,4 @@
-namespace SassAndCoffee.Core
-{
-    using SassAndCoffee.Core.Compilers;
+namespace SassAndCoffee.Core {
 
     public interface ICompilerHost
     {
