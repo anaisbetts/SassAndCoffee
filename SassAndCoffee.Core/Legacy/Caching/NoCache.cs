@@ -4,7 +4,7 @@ namespace SassAndCoffee.Core.Caching
 
     public class NoCache : ICompiledCache
     {
-        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
+        public object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType)
         {
             return compilationDelegate(filename);
         }

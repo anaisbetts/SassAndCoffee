@@ -11,11 +11,15 @@
             new Pool<ISassCompiler, SassCompilerProxy>(() => new SassCompiler());
 
         public override void Execute(ContentTransformState state) {
+            // Support 404, not just 500
+            if (state.RootPath == null)
+                return;
+
             var fileSource = FindFileFromRoot(state.RootPath);
             if (fileSource == null) return;
 
             string result = null;
-            List<string> accessedFiles = new List<string>();
+            var accessedFiles = new List<string>();
             using (var compiler = _compilerPool.GetInstance()) {
                 result = compiler.Compile(fileSource, accessedFiles);
             }

@@ -39,8 +39,13 @@
                     _engine.Execute(statement, _scope);
                 }
 
-                if (dependentFileList != null)
-                    _pal.OnOpenInputFileStream = (accessedFile) => dependentFileList.Add(accessedFile);
+                if (dependentFileList != null) {
+                    dependentFileList.Add(pathInfo.FullName);
+                    _pal.OnOpenInputFileStream = (accessedFile) => {
+                        if(!accessedFile.Contains(".sass-cache"))
+                            dependentFileList.Add(accessedFile);
+                    };
+                }
 
                 string result;
                 try {
@@ -55,7 +60,7 @@
         private void Initialize() {
             if (!_initialized) {
                 _pal = new ResourceRedirectionPlatformAdaptationLayer();
-                var srs = new ScriptRuntimeSetup() { 
+                var srs = new ScriptRuntimeSetup() {
                     HostType = typeof(SassCompilerScriptHost),
                     HostArguments = new List<object>() { _pal },
                 };

@@ -25,15 +25,16 @@
                 response.StatusCode = (int)HttpStatusCode.NotFound;
                 return;
             } else {
-                // TODO: This is needed for kernel caching.  Is it worth it?
+                // TODO: This may be needed for kernel caching.  Is it worth it?
                 //response.Cache.SetOmitVaryStar(true);
-                if (result.CacheInvalidationFileList.Any()) {
-                    response.AddFileDependencies(result.CacheInvalidationFileList.ToArray());
-                }
+
+                response.Cache.SetCacheability(HttpCacheability.Public);
                 if (result.MaxAgeSeconds.HasValue) {
                     response.Cache.SetMaxAge(TimeSpan.FromSeconds(result.MaxAgeSeconds.Value));
                 }
-                response.Cache.SetCacheability(HttpCacheability.Public);
+                if (result.CacheInvalidationFileList.Any()) {
+                    response.AddFileDependencies(result.CacheInvalidationFileList.ToArray());
+                }
                 response.Cache.SetLastModifiedFromFileDependencies();
                 response.Cache.SetETagFromFileDependencies();
                 response.ContentEncoding = Encoding.UTF8;

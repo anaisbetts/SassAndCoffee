@@ -31,8 +31,21 @@
                 return assembly.GetManifestResourceStream(type, resourceName);
             } catch { }
 
-            if (OnOpenInputFileStream != null) OnOpenInputFileStream(path);
+            if (OnOpenInputFileStream != null)
+                OnOpenInputFileStream(this.GetFullPath(path));
             return base.OpenInputFileStream(path);
+        }
+
+        public override Stream OpenInputFileStream(string path, FileMode mode, FileAccess access, FileShare share) {
+            if (OnOpenInputFileStream != null)
+                OnOpenInputFileStream(this.GetFullPath(path));
+            return base.OpenInputFileStream(path, mode, access, share);
+        }
+
+        public override Stream OpenInputFileStream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize) {
+            if (OnOpenInputFileStream != null)
+                OnOpenInputFileStream(this.GetFullPath(path));
+            return base.OpenInputFileStream(path, mode, access, share, bufferSize);
         }
 
         private string PathToResourceName(string path) {

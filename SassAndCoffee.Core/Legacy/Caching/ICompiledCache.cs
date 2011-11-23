@@ -5,7 +5,7 @@
     // TODO: Document me
     public interface ICompiledCache
     {
-        CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType);
+        object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType);
 
         void Clear();
     }

@@ -95,7 +95,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CoffeeScript\CoffeeScriptCompilerContentTransform.cs" />
-    <Compile Include="Legacy\ISimpleFileCompiler.cs" />
+    <Compile Include="Pipeline\JavaScriptCombineContentTransform.cs" />
     <Compile Include="Pipeline\ContentPipeline.cs" />
     <Compile Include="Pipeline\ContentResult.cs" />
     <Compile Include="Pipeline\ContentTransformBase.cs" />
@@ -111,13 +111,7 @@
     <Compile Include="IJavaScriptCompiler.cs" />
     <Compile Include="JavaScriptCompilerBase.cs" />
     <Compile Include="JavaScriptCompilerProxy.cs" />
-    <Compile Include="Legacy\CompilationResult.cs" />
-    <Compile Include="Legacy\Compilers\FileConcatenationCompiler.cs" />
-    <Compile Include="Legacy\ContentCompiler.cs" />
     <Compile Include="Legacy\Caching\ICompiledCache.cs" />
-    <Compile Include="Legacy\Extensions\SimpleFileCompilerExtensions.cs" />
-    <Compile Include="Legacy\ICompilerHost.cs" />
-    <Compile Include="Legacy\IContentCompiler.cs" />
     <Compile Include="IJavaScriptRuntime.cs" />
     <Compile Include="IEJavaScriptRuntime.cs" />
     <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />
@@ -133,7 +127,6 @@
     <Compile Include="Sass\SassCompiler.cs" />
     <Compile Include="Sass\SassCompilerProxy.cs" />
     <Compile Include="Sass\SassCompilerScriptHost.cs" />
-    <Compile Include="Legacy\TrashStack.cs" />
     <Compile Include="Sass\SassCompilerContentTransform.cs" />
     <Compile Include="Uglify\UglifyCompiler.cs" />
     <Compile Include="Uglify\UglifyCompilerContentTransform.cs" />
@@ -164,6 +157,7 @@
     <EmbeddedResource Include="Sass\lib\sass_in_one.rb" />
     <None Include="packages.config" />
     <None Include="SassAndCoffee.Core.nuspec" />
+    <None Include="tools\install.ps1" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="CoffeeScript\coffee-script.js" />

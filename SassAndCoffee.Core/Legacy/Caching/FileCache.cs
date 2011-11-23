@@ -16,24 +16,24 @@
             _basePath = basePath;
         }
 
-        public CompilationResult GetOrAdd(string filename, Func<string, CompilationResult> compilationDelegate, string mimeType)
+        public object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType)
         {
             var outputFileName = Path.Combine(_basePath, filename);
             FileInfo fi;
 
             if (File.Exists(outputFileName)) {
                 fi = new FileInfo(outputFileName);
-                return new CompilationResult(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
+                return null;// new object(true, File.ReadAllText(outputFileName), mimeType, fi.LastWriteTimeUtc);
             }
 
             var result = compilationDelegate(filename);
 
             try {
-                File.WriteAllText(outputFileName, result.Contents);
+                //File.WriteAllText(outputFileName, result.Contents);
 
                 // XXX: Is this needed?
                 fi = new FileInfo(outputFileName);
-                fi.LastWriteTimeUtc = result.SourceLastModifiedUtc;
+                //fi.LastWriteTimeUtc = result.SourceLastModifiedUtc;
             } catch (IOException) {
                 // NB: If we get here, this means that two threads are trying to 
                 // write the file concurrently - just let the other one win, we will

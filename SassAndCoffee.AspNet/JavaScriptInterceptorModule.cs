@@ -13,7 +13,7 @@
             get {
                 return new IContentTransform[] {
                     new FileSourceContentTransform("text/javascript", ".js"),
-                    //new JavaScriptCombineContentTransform(),
+                    new JavaScriptCombineContentTransform(),
                     new FileSourceContentTransform("text/coffeescript", ".coffee"),
                     new CoffeeScriptCompilerContentTransform(),
                     new UglifyCompilerContentTransform(),
