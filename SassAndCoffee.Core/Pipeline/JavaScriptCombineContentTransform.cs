@@ -23,6 +23,7 @@
                     var newPath = Path.Combine(fileInfo.DirectoryName, trimmed);
                     var newContent = state.Pipeline.ProcessRequest(newPath);
                     if (newContent != null) {
+                        newContent.Content += ";";
                         state.AppendContent(newContent);
                     }
                 }
