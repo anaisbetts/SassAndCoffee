@@ -109,6 +109,7 @@
     <Compile Include="ICompilerHost.cs" />
     <Compile Include="Compilers\ISimpleFileCompiler.cs" />
     <Compile Include="IContentCompiler.cs" />
+    <Compile Include="InternetExplorerJavaScriptCompiler.cs" />
     <Compile Include="JavascriptInterop.cs" />
     <Compile Include="Compilers\JavascriptPassthroughCompiler.cs" />
     <Compile Include="Compilers\MinifyingCompiler.cs" />
@@ -152,6 +153,14 @@
     <EmbeddedResource Include="lib\uglify.js" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ComImports.ActiveScript\ComImports.ActiveScript.csproj">
+      <Project>{4E302512-FB48-42A4-B91A-9F35786406E7}</Project>
+      <Name>ComImports.ActiveScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ComImports.JavaScriptEngines\ComImports.JavaScriptEngines.csproj">
+      <Project>{E90AAA57-604C-4468-9EA0-FFCE1B486CD5}</Project>
+      <Name>ComImports.JavaScriptEngines</Name>
+    </ProjectReference>
     <ProjectReference Include="..\V8Bridge.Interface\V8Bridge.Interface.csproj">
       <Project>{C38A2AE1-F18E-4E3E-AAA3-0B9F45B633BC}</Project>
       <Name>V8Bridge.Interface</Name>
