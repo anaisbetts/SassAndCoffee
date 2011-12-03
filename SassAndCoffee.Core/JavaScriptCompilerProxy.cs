@@ -8,8 +8,8 @@
         public JavaScriptCompilerProxy(IJavaScriptCompiler compiler)
             : base(compiler) { }
 
-        public string Compile(string source) {
-            return WrappedItem.Compile(source);
+        public string Compile(string source, params object[] args) {
+            return WrappedItem.Compile(source, args);
         }
     }
 }

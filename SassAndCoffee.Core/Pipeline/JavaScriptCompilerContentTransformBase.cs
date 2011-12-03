@@ -16,13 +16,17 @@
         }
 
         public override void Execute(ContentTransformState state) {
+            Execute(state);
+        }
+
+        protected virtual void Execute(ContentTransformState state, params object[] args) {
             // If input is empty or the wrong type, do nothing
             if (state.Content == null || state.MimeType != InputMimeType)
                 return;
 
             string result = null;
             using (var compiler = _jsCompilerProvider.GetInstance()) {
-                result = compiler.Compile(state.Content);
+                result = compiler.Compile(state.Content, args);
             }
 
             if (result != null) {

@@ -4,6 +4,8 @@
     using SassAndCoffee.Core.Pooling;
 
     public class UglifyCompilerContentTransform : JavaScriptCompilerContentTransformBase {
+        public const string StateKey = "Uglify";
+
         public override string InputMimeType {
             get { return "text/javascript"; }
         }
@@ -14,13 +16,17 @@
 
         public override void PreExecute(ContentTransformState state) {
             if (state.Path.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase)) {
-                state.Items.Add("Uglify", true);
-                state.RemapPath(state.Path.Replace(".min.js", ".js"));
+                state.Items.Add(StateKey, true);
+                var newPath = state.Path
+                    .ToLowerInvariant()
+                    .Replace(".min.js", ".js");
+                state.RemapPath(newPath);
             }
+            base.PreExecute(state);
         }
 
         public override void Execute(ContentTransformState state) {
-            if (!state.Items.ContainsKey("Uglify"))
+            if (!state.Items.ContainsKey(StateKey))
                 return;
 
             base.Execute(state);

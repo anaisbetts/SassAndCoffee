@@ -16,13 +16,22 @@
             _jsRuntimeProvider = jsRuntimeProvider;
         }
 
-        public string Compile(string source) {
+        public string Compile(string source, params object[] args) {
             if (source == null)
                 throw new ArgumentException("source cannot be null.", "source");
 
+            object[] compileArgs = null;
+            if (args != null && args.Length > 0) {
+                compileArgs = new object[args.Length + 1];
+                compileArgs[0] = source;
+                args.CopyTo(compileArgs, 1);
+            } else {
+                compileArgs = new object[] { source };
+            }
+
             lock (_lock) {
                 Initialize();
-                return _js.ExecuteFunction<string>(CompilationFunctionName, source);
+                return _js.ExecuteFunction<string>(CompilationFunctionName, compileArgs);
             }
         }
 

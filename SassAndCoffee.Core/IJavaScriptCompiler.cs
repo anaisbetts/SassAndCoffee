@@ -2,6 +2,6 @@
     using System;
 
     public interface IJavaScriptCompiler : IDisposable {
-        string Compile(string source);
+        string Compile(string source, params object[] args);
     }
 }
