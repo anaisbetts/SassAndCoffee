@@ -2,10 +2,10 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Text;
     using IronRuby;
     using Microsoft.Scripting;
     using Microsoft.Scripting.Hosting;
-    using System.Text;
 
     public class SassCompiler : ISassCompiler {
         private ScriptEngine _engine;
@@ -58,8 +58,7 @@
                         StringBuilder sb = new StringBuilder();
                         sb.AppendFormat("{0}\n\n", error.to_s());
                         sb.AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "");
-                        sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? "");
-                        sb.AppendFormat("LineNumber: {0}\n\n", error.sass_line() ?? "");
+                        sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? pathInfo.FullName);
                         sb.AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "");
                         sb.AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "");
                         sb.AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
