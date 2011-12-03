@@ -5,6 +5,7 @@
     using IronRuby;
     using Microsoft.Scripting;
     using Microsoft.Scripting.Hosting;
+    using System.Text;
 
     public class SassCompiler : ISassCompiler {
         private ScriptEngine _engine;
@@ -42,7 +43,7 @@
                 if (dependentFileList != null) {
                     dependentFileList.Add(pathInfo.FullName);
                     _pal.OnOpenInputFileStream = (accessedFile) => {
-                        if(!accessedFile.Contains(".sass-cache"))
+                        if (!accessedFile.Contains(".sass-cache"))
                             dependentFileList.Add(accessedFile);
                     };
                 }
@@ -50,6 +51,22 @@
                 string result;
                 try {
                     result = (string)_sassCompiler.compile(File.ReadAllText(pathInfo.FullName), compilerOptions);
+                } catch (Exception e) {
+                    // Provide more information for SassSyntaxErrors
+                    if (e.Message == "Sass::SyntaxError") {
+                        dynamic error = e;
+                        StringBuilder sb = new StringBuilder();
+                        sb.AppendFormat("{0}\n\n", error.to_s());
+                        sb.AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "");
+                        sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? "");
+                        sb.AppendFormat("LineNumber: {0}\n\n", error.sass_line() ?? "");
+                        sb.AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "");
+                        sb.AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "");
+                        sb.AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
+                        throw new Exception(sb.ToString(), e);
+                    } else {
+                        throw;
+                    }
                 } finally {
                     _pal.OnOpenInputFileStream = null;
                 }
