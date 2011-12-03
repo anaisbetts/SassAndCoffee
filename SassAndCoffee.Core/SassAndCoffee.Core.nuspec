@@ -1,20 +1,19 @@
 <?xml version="1.0"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
-  <metadata>
-    <id>$id$</id>
-    <version>$version$</version>
-    <authors>$author$</authors>
-    <owners>$author$</owners>
-    <licenseUrl>http://opensource.org/licenses/ms-pl.html</licenseUrl>
-    <projectUrl>http://github.com/xpaulbettsx/SassAndCoffee</projectUrl>
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>$description$</description>
-    <tags>Javascript asp.net scss sass coffeescript minify uglifyjs</tags>
-  </metadata>
+	<metadata>
+		<id>$id$</id>
+		<version>$version$</version>
+		<authors>$author$</authors>
+		<owners>$author$</owners>
+		<licenseUrl>http://opensource.org/licenses/ms-pl.html</licenseUrl>
+		<projectUrl>https://github.com/xpaulbettsx/SassAndCoffee</projectUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>$description$</description>
+		<tags>Javascript asp.net scss sass coffeescript minify uglifyjs</tags>
+	</metadata>
 
-  <files>
-    <file src="tools\*" target="tools" />
-    <file src="..\ext\Jurassic.dll" target="lib\net40" />
-    <file src="..\V8Bridge.Interface\bin\Release\V8Bridge.Interface.dll" target="lib/net40" />
-  </files>
+	<files>
+		<file src="tools\*"
+				target="tools" />
+	</files>
 </package>

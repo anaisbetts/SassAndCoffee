@@ -25,7 +25,7 @@
             try {
                 // Prefer Chakra
                 _jsEngine = new ChakraJavaScriptEngine() as IActiveScript;
-            } catch (Exception e) {
+            } catch {
                 // TODO: Make catch more specific
                 _jsEngine = null;
             }

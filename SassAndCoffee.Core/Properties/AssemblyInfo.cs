@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("SassAndCoffee")]
-[assembly: AssemblyDescription("SassAndCoffee is a package that adds SCSS/Sass and CoffeeScript compilation support to ASP.NET, as well as minification support via UglifyJS")]
+[assembly: AssemblyDescription("SassAndCoffee is a package that adds SCSS/Sass and CoffeeScript compilation support to .NET, as well as minification support via UglifyJS")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Paul Betts")]
 [assembly: AssemblyProduct("SassAndCoffee")]
@@ -31,5 +31,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.1.5.0")]
-[assembly: AssemblyFileVersion("1.1.5.0")]
+[assembly: AssemblyVersion("2.0.0.0")]
+[assembly: AssemblyFileVersion("2.0.0.0")]

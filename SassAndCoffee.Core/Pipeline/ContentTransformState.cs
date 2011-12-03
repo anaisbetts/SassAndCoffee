@@ -6,14 +6,10 @@
     using System.Text;
 
     public class ContentTransformState {
-        public const int MaxContentAgeSeconds = 3600;    // Cache for 1 hour max by default
-
         private StringBuilder _content = new StringBuilder();
-        private int _maxAgeSeconds = MaxContentAgeSeconds;
         private List<string> _cacheInvalidationFileList = new List<string>();
         private Dictionary<string, object> _items = new Dictionary<string, object>();
 
-        public int MaxAgeSeconds { get { return _maxAgeSeconds; } }
         public string Content { get { return (_content.Length == 0) ? null : _content.ToString(); } }
         public IDictionary<string, object> Items { get { return _items; } }
         public IEnumerable<string> CacheInvalidationFileList {
@@ -54,7 +50,6 @@
             _content.AppendLine(append.Content);
             MimeType = append.MimeType;
             MergeCacheInvalidationFileList(append.CacheInvalidationFileList);
-            CoalesceMaxAge(append.MaxAgeSeconds);
         }
 
         public void ReplaceContent(ContentResult replace) {
@@ -65,7 +60,6 @@
             _content.AppendLine(replace.Content);
             MimeType = replace.MimeType;
             MergeCacheInvalidationFileList(replace.CacheInvalidationFileList);
-            CoalesceMaxAge(replace.MaxAgeSeconds);
         }
 
         public void AddCacheInvalidationFiles(IEnumerable<string> cacheInvalidationFileList) {
@@ -83,11 +77,6 @@
                     _cacheInvalidationFileList.AddRange(newFiles);
                 }
             }
-        }
-
-        private void CoalesceMaxAge(int? maxAgeSeconds) {
-            if (maxAgeSeconds.HasValue)
-                _maxAgeSeconds = Math.Min(_maxAgeSeconds, maxAgeSeconds.Value);
         }
 
         private string GetRootPath(string physicalPath) {

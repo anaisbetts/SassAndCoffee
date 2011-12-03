@@ -41,7 +41,6 @@
                 result = new ContentResult() {
                     CacheInvalidationFileList = state.CacheInvalidationFileList,
                     Content = state.Content,
-                    MaxAgeSeconds = state.MaxAgeSeconds,
                     MimeType = state.MimeType,
                 };
 

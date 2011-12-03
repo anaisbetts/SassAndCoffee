@@ -6,8 +6,9 @@
     using System.Web;
     using SassAndCoffee.Core.Pipeline;
 
-    public abstract class PathBasedHandlerRemapper : IHttpModule {
+    public abstract class PathBasedHandlerRemapper : IHttpModule, IDisposable {
 
+        private IContentPipeline _pipeline;
         private PipelineHandler _handler;
         private IEnumerable<string> _handledExtensions;
 
@@ -16,7 +17,8 @@
 
         public void Init(HttpApplication context) {
             _handledExtensions = HandledExtensions;
-            _handler = new PipelineHandler(new ContentPipeline(Transformations));
+            _pipeline = new ContentPipeline(Transformations);
+            _handler = new PipelineHandler(_pipeline);
             context.PostResolveRequestCache += ConditionallyRemapHandler;
         }
 
@@ -38,9 +40,9 @@
 
         protected virtual void Dispose(bool disposing) {
             if (disposing) {
-                if (_handler != null) {
-                    _handler.Dispose();
-                    _handler = null;
+                if (_pipeline != null) {
+                    _pipeline.Dispose();
+                    _pipeline = null;
                 }
             }
         }
