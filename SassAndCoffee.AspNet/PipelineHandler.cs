@@ -6,7 +6,7 @@
     using System.Web;
     using System.Web.Configuration;
     using System.Web.UI;
-    using SassAndCoffee.Core.Pipeline;
+    using SassAndCoffee.Core;
 
     public class PipelineHandler : IHttpHandler {
         public const string CacheProfileName = "SassAndCoffeeCacheSettings";

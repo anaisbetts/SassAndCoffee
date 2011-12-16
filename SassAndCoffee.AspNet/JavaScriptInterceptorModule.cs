@@ -1,24 +1,21 @@
 ﻿namespace SassAndCoffee.AspNet {
-    using System.Collections.Generic;
-    using SassAndCoffee.Core.CoffeeScript;
-    using SassAndCoffee.Core.Pipeline;
-    using SassAndCoffee.Core.Uglify;
+    using SassAndCoffee.Core;
+    using SassAndCoffee.JavaScript;
+    using SassAndCoffee.JavaScript.CoffeeScript;
+    using SassAndCoffee.JavaScript.Uglify;
 
+    /// <summary>
+    /// Conditionally handles .js requests with the combine + coffeescript + uglify content pipeline.
+    /// </summary>
     public class JavaScriptInterceptorModule : PathBasedHandlerRemapper {
-        public override IEnumerable<string> HandledExtensions {
-            get { return new string[] { ".js" }; }
-        }
-
-        public override IEnumerable<IContentTransform> Transformations {
-            get {
-                return new IContentTransform[] {
-                    new FileSourceContentTransform("text/javascript", ".js"),
-                    new JavaScriptCombineContentTransform(),
-                    new FileSourceContentTransform("text/coffeescript", ".coffee"),
-                    new CoffeeScriptCompilerContentTransform(),
-                    new UglifyCompilerContentTransform(),
-                };
-            }
+        public JavaScriptInterceptorModule()
+            : base(
+                ".js",
+                new FileSourceContentTransform("text/javascript", ".js"),
+                new JavaScriptCombineContentTransform(),
+                new FileSourceContentTransform("text/coffeescript", ".coffee"),
+                new CoffeeScriptCompilerContentTransform(),
+                new UglifyCompilerContentTransform()) {
         }
     }
 }

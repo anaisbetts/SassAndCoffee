@@ -13,6 +13,8 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\SassAndCoffee\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -102,19 +104,24 @@
     <Compile Include="MinifyingCompilerTest.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ComImports.ActiveScript\ComImports.ActiveScript.csproj">
-      <Project>{4E302512-FB48-42A4-B91A-9F35786406E7}</Project>
-      <Name>ComImports.ActiveScript</Name>
-    </ProjectReference>
     <ProjectReference Include="..\SassAndCoffee.Core\SassAndCoffee.Core.csproj">
       <Project>{C919A173-DD9B-46C4-88A2-4B31A63C501C}</Project>
       <Name>SassAndCoffee.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SassAndCoffee.JavaScript\SassAndCoffee.JavaScript.csproj">
+      <Project>{86D2D468-71B2-4CB5-86B5-DFE16B4E3A71}</Project>
+      <Name>SassAndCoffee.JavaScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SassAndCoffee.Ruby\SassAndCoffee.Ruby.csproj">
+      <Project>{DBE7871A-C1F5-4AEA-9B0D-378308DABE90}</Project>
+      <Name>SassAndCoffee.Ruby</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

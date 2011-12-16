@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core.Pipeline {
+﻿namespace SassAndCoffee.Core {
     using System.Collections.Generic;
 
     public class ContentResult {
