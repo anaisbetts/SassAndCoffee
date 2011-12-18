@@ -1,6 +1,6 @@
 # SassAndCoffee
-This library adds simple, drop-in support for Sass/SCSS as well as Coffeescript.
-Javascript and Coffeescript files can also be minified and combined via UglifyJS.
+This library adds simple, drop-in support for Sass/SCSS as well as CoffeeScript.
+Javascript and CoffeeScript files can also be minified and combined via UglifyJS.
 
 ## How to use:
 First, add the desired [package reference(s)](#Packages) via [NuGet]. You probably want SassAndCoffee.AspNet.
@@ -19,15 +19,13 @@ First, add the desired [package reference(s)](#Packages) via [NuGet]. You probab
 ### JavaScript Combination
 * Create a .combine file.  We'll use ~/Scripts/home.combine for this example.
 * Fill it with the absolute, relative, and App-relative paths of the scripts you want included:
-    ```
-    # This line is a comment  
-    # Include our minified CoffeeScript file with an absolute path  
-    ~/Scripts/main.min.js  
-    # Include another file in ~/Scripts  
-    header.js  
-    # Include a file in a subfolder of ~/Scripts  
-    subfolder/file.js  
-    ```
+        # This line is a comment
+        # Include our minified CoffeeScript file with an absolute path
+        ~/Scripts/main.min.js
+        # Include another file in ~/Scripts
+        header.js
+        # Include a file in a subfolder of ~/Scripts
+        subfolder/file.js
 * Reference that file in your page as if it were compiled JavaScript: `<script src="/Scripts/home.js" />`
 * *Note*: For now, we recommend that you minify the included files, rather than the combined file.  Uglify can choke on exceedingly large inputs.
 * *Note*: If a file exists named ~/Scripts/home.js, it will be served instead of ~/Scripts/home.combine.  SassAndCoffee *always* preferentially serves existing files on disk.
