@@ -68,7 +68,9 @@
     <Compile Include="SassInterceptorModule.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="content\Web.config.transform" />
+    <None Include="content\Web.config.transform">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
     <None Include="SassAndCoffee.AspNet.nuspec" />
   </ItemGroup>

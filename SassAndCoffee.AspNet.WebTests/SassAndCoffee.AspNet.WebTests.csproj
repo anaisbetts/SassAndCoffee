@@ -159,7 +159,9 @@
     <Content Include="Scripts\jquery.validate.min.js" />
     <None Include="Scripts\Main.coffee" />
     <Content Include="Scripts\modernizr-2.0.6-development-only.js" />
-    <Content Include="Web.config" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
     <Content Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </Content>
