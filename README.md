@@ -19,6 +19,7 @@ First, add the desired [package reference(s)](#Packages) via [NuGet]. You probab
 ### JavaScript Combination
 * Create a .combine file.  We'll use ~/Scripts/home.combine for this example.
 * Fill it with the absolute, relative, and App-relative paths of the scripts you want included:
+    ```
         # This line is a comment
         # Include our minified CoffeeScript file with an absolute path
         ~/Scripts/main.min.js
@@ -26,6 +27,7 @@ First, add the desired [package reference(s)](#Packages) via [NuGet]. You probab
         header.js
         # Include a file in a subfolder of ~/Scripts
         subfolder/file.js
+    ```
 * Reference that file in your page as if it were compiled JavaScript: `<script src="/Scripts/home.js" />`
 * *Note*: For now, we recommend that you minify the included files, rather than the combined file.  Uglify can choke on exceedingly large inputs.
 * *Note*: If a file exists named ~/Scripts/home.js, it will be served instead of ~/Scripts/home.combine.  SassAndCoffee *always* preferentially serves existing files on disk.
