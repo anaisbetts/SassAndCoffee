@@ -12,6 +12,9 @@ $pkgDefContent = @"
 [`$RootKey`$\Projects\{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions\.scss]
 "DefaultBuildAction"="Content"
 
+[`$RootKey`$\Projects\{F184B08F-C81C-45f6-A57F-5ABD9991F28F}\FileExtensions\.combine]
+"DefaultBuildAction"="Content"
+
 ; C#
 [`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.coffee]
 "DefaultBuildAction"="Content"
@@ -20,6 +23,9 @@ $pkgDefContent = @"
 "DefaultBuildAction"="Content"
 
 [`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.scss]
+"DefaultBuildAction"="Content"
+
+[`$RootKey`$\Projects\{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\FileExtensions\.combine]
 "DefaultBuildAction"="Content"
 
 "@

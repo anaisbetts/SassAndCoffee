@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core.Pipeline {
+﻿namespace SassAndCoffee.Core {
     using System;
     using System.Collections.Generic;
 
@@ -41,7 +41,6 @@
                 result = new ContentResult() {
                     CacheInvalidationFileList = state.CacheInvalidationFileList,
                     Content = state.Content,
-                    MaxAgeSeconds = state.MaxAgeSeconds,
                     MimeType = state.MimeType,
                 };
 

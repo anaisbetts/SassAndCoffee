@@ -32,6 +32,7 @@
 [Rr]elease/
 _ReSharper
 TestResults/
+packages/
 
 WebTest/App_Data/_FileCache
 WebTest/App_Data/.sassandcoffeecache

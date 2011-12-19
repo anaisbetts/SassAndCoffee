@@ -1,19 +1,10 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
     using System.IO;
-    using System.Reflection;
 
     public static class Utility {
-        public static string ResourceAsString(string resource, Type scope = null) {
-            var assembly = Assembly.GetExecutingAssembly();
-            Stream resourceStream;
-
-            if (scope != null)
-                resourceStream = assembly.GetManifestResourceStream(scope, resource);
-            else
-                resourceStream = assembly.GetManifestResourceStream(resource);
-
-            using (resourceStream)
+        public static string ResourceAsString(string resource, Type scope) {
+            using (var resourceStream = scope.Assembly.GetManifestResourceStream(scope, resource))
             using (var reader = new StreamReader(resourceStream))
                 return reader.ReadToEnd();
         }

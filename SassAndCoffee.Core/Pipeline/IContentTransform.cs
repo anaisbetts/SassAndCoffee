@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core.Pipeline {
+﻿namespace SassAndCoffee.Core {
     using System;
 
     public interface IContentTransform : IDisposable {

@@ -1,15 +1,51 @@
 ﻿<?xml version="1.0"?>
 <configuration>
-  <system.web>
-    <httpModules>
-      <add name="CompilableFileModule" type="SassAndCoffee.AspNet.CompilableFileModule" />
-    </httpModules>
-  </system.web>
-
-  <system.webServer>
-    <modules>
-      <remove name="CompilableFileModule" />
-      <add name="CompilableFileModule" type="SassAndCoffee.AspNet.CompilableFileModule" />
-    </modules>
-  </system.webServer>
+    <appSettings>
+        <remove key="SassAndCoffee.Cache" />
+    </appSettings>
+    <system.web>
+        <caching>
+            <outputCacheSettings>
+                <outputCacheProfiles>
+                    <add name="SassAndCoffeeCacheSettings"
+                         enabled="true"
+                         duration="3600"
+                         location="Any"
+                         varyByHeader="Accept-Encoding" />
+                </outputCacheProfiles>
+            </outputCacheSettings>
+        </caching>
+        <httpModules>
+            <add name="SassInterceptorModule"
+                 type="SassAndCoffee.AspNet.SassInterceptorModule" />
+            <add name="JavaScriptInterceptorModule"
+                 type="SassAndCoffee.AspNet.JavaScriptInterceptorModule" />
+        </httpModules>
+    </system.web>
+    <system.webServer>
+        <validation validateIntegratedModeConfiguration="false" />
+        <modules runAllManagedModulesForAllRequests="true" >
+            <add name="SassInterceptorModule"
+                 type="SassAndCoffee.AspNet.SassInterceptorModule" />
+            <add name="JavaScriptInterceptorModule"
+                 type="SassAndCoffee.AspNet.JavaScriptInterceptorModule" />
+        </modules>
+        <caching enabled="true"
+                 enableKernelCache="true">
+            <profiles>
+                <add extension=".css"
+                     policy="CacheUntilChange"
+                     kernelCachePolicy="CacheUntilChange"
+                     varyByHeaders="Accept-Encoding"
+                     location="Any"/>
+                <add extension=".js"
+                     policy="CacheUntilChange"
+                     kernelCachePolicy="CacheUntilChange"
+                     varyByHeaders="Accept-Encoding"
+                     location="Any"/>
+            </profiles>
+        </caching>
+        <urlCompression doStaticCompression="true"
+                        doDynamicCompression="true" />
+    </system.webServer>
 </configuration>
