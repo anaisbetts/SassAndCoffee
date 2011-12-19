@@ -1,8 +1,8 @@
 ﻿namespace SassAndCoffee.Core.Tests {
     using System;
     using SassAndCoffee.Core;
-    using SassAndCoffee.Core.CoffeeScript;
-    using SassAndCoffee.Core.Pooling;
+    using SassAndCoffee.JavaScript;
+    using SassAndCoffee.JavaScript.CoffeeScript;
     using Xunit;
 
     public class CoffeeScriptCompilerTest {

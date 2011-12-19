@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core.Pooling {
+﻿namespace SassAndCoffee.Core {
     using System;
 
     public sealed class InstanceProvider<T> : IInstanceProvider<T>

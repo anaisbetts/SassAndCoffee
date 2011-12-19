@@ -1,4 +1,4 @@
-﻿namespace SassAndCoffee.Core.Pooling {
+﻿namespace SassAndCoffee.Core {
     using System;
 
     public class ProxyBase<T> : IProxy<T>

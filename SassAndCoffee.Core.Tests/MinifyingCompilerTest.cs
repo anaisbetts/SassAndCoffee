@@ -1,8 +1,8 @@
 ﻿namespace SassAndCoffee.Core.Tests {
     using System;
     using SassAndCoffee.Core;
-    using SassAndCoffee.Core.Pooling;
-    using SassAndCoffee.Core.Uglify;
+    using SassAndCoffee.JavaScript;
+    using SassAndCoffee.JavaScript.Uglify;
     using Xunit;
 
     public class MinifyingCompilerTest {

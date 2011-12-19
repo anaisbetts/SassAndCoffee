@@ -1,7 +1,7 @@
 ﻿namespace SassAndCoffee.Core.Tests {
     using System;
     using System.IO;
-    using SassAndCoffee.Core.Sass;
+    using SassAndCoffee.Ruby.Sass;
     using Xunit;
 
     public class SassFileCompilerTest {
