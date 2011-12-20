@@ -38,6 +38,8 @@ subfolder/file.js
 * Add a .scss or .sass file to your project. We'll use ~/Content/site.scss for this example.
 * Reference that file in your page as if it were compiled CSS: `<link href="/Content/site.css" type="text/css" />`
 * CSS combination can be achieved with `@import "";` directives
+* Minification works just like with JavaScript (but only for Sass/SCSS files). Just add .min to the filename before .css.
+    `<link href="/Content/site.min.css" type="text/css" />` will serve the minified version of `<link href="/Content/site.css" type="text/css" />`
 * *Note*: If a file exists named ~/Content/site.css, it will be served instead of ~/Scripts/site.scss.  SassAndCoffee *always* preferentially serves existing files on disk.
 
 ## What about performance?

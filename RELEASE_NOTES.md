@@ -1,4 +1,10 @@
 # Release Notes
+## v2.0.1
+This release adds minification to Sass/SCSS.  Just like with JavaScript, just add .min before .css (.min.css) when referencing the file.
+
+### Enhancements
+* Minification for Sass/SCSS
+
 ## v2.0
 v2.0 is a major relase and contains potentially breaking changes. Please carefully read these release notes and thoroughly test your app before upgrading.
 
