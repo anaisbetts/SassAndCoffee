@@ -94,7 +94,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Uglify\uglify.js" />
     <EmbeddedResource Include="CoffeeScript\coffee-script.js" />
-    <Content Include="JavaScriptEngines\Notes.txt" />
+    <None Include="JavaScriptEngines\Notes.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SassAndCoffee.JavaScript.nuspec" />
