@@ -26,7 +26,7 @@ ECHO Using signing key at %KEYFILE%
 
 REM Check for changes
 CALL git rev-parse --verify HEAD >NUL
-IF %ERRORLEVEL% NEQ 0 (
+IF ERRORLEVEL 1 (
 	ECHO Not in a git repo?
 	EXIT /B -1
 )
@@ -34,20 +34,20 @@ IF %ERRORLEVEL% NEQ 0 (
 CALL git update-index -q --ignore-submodules --refresh
 
 CALL git diff-files --quiet --ignore-submodules
-IF %ERRORLEVEL% NEQ 0 (
+IF ERRORLEVEL 1 (
 	ECHO Abort: You have unstaged changes.
 	EXIT /B -1
 )
 
 CALL git diff-index --cached --quiet --ignore-submodules HEAD --
-IF %ERRORLEVEL% NEQ 0 (
+IF ERRORLEVEL 1 (
 	ECHO Abort: Your index contains uncommitted changes.
 	EXIT /B -1
 )
 
 ECHO Everything looks good so far.
 CHOICE /M "About to purge. Continue?"
-IF %ERRORLEVEL% NEQ 1 (
+IF ERRORLEVEL 2 (
 	ECHO Aborting.
 	EXIT /B -1
 )
@@ -58,7 +58,7 @@ ECHO Purge complete.
 
 REM Build Package
 %NUGET% pack %1 -Properties "Configuration=Release;SignAssembly=true;AssemblyOriginatorKeyFile=%KEYFILE%" -verbose -symbols -build
-IF %ERRORLEVEL% NEQ 0 (
+IF ERRORLEVEL 1 (
 	ECHO Unable to create package!  Abort!
 	EXIT /B -1
 )
@@ -66,12 +66,12 @@ IF %ERRORLEVEL% NEQ 0 (
 REM Publish release
 FOR %%P IN (*.nupkg) DO (
 	CHOICE /M "Continue pushing package: '%%~nxP'?"
-	IF %ERRORLEVEL% NEQ 1 (
+	IF ERRORLEVEL 2 (
 		ECHO Aborting.
 		EXIT /B -1
 	)
 	%NUGET% push "%%~nxP"
-	IF %ERRORLEVEL% NEQ 0 (
+	IF ERRORLEVEL 1 (
 		ECHO Unable to push package %%~nxP!  Abort!
 		EXIT /B -1
 	)
