@@ -49,7 +49,7 @@
 
                 // TODO: Fix this
                 //     fixture.Init(TODO);
-                string result = fixture.Compile(filename);
+                string result = fixture.Compile(filename, true, null);
                 Console.WriteLine(result);
                 return result;
             } finally {

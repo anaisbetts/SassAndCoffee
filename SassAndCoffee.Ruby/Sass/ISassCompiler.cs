@@ -3,6 +3,6 @@
     using System.Collections.Generic;
 
     public interface ISassCompiler : IDisposable {
-        string Compile(string path, IList<string> dependentFileList = null);
+        string Compile(string path, bool compressed, IList<string> dependentFileList);
     }
 }

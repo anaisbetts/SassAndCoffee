@@ -15,10 +15,12 @@
         private dynamic _sassCompiler;
         private dynamic _sassOption;
         private dynamic _scssOption;
+        private dynamic _sassOptionCompressed;
+        private dynamic _scssOptionCompressed;
         private bool _initialized = false;
         private object _lock = new object();
 
-        public string Compile(string path, IList<string> dependentFileList = null) {
+        public string Compile(string path, bool compressed, IList<string> dependentFileList) {
             if (path == null)
                 throw new ArgumentException("source cannot be null.", "source");
 
@@ -30,10 +32,11 @@
                 Initialize();
 
                 dynamic compilerOptions;
-                if (pathInfo.Extension.Equals(".sass", StringComparison.OrdinalIgnoreCase))
-                    compilerOptions = _sassOption;
-                else
-                    compilerOptions = _scssOption;
+                if (pathInfo.Extension.Equals(".sass", StringComparison.OrdinalIgnoreCase)) {
+                    compilerOptions = compressed ? _sassOptionCompressed : _sassOption;
+                } else {
+                    compilerOptions = compressed ? _scssOptionCompressed : _scssOption;
+                }
 
                 var directoryPath = pathInfo.DirectoryName;
                 if (!directoryPath.Contains("\'")) {
@@ -98,8 +101,10 @@
                 source.Execute(_scope);
 
                 _sassCompiler = _scope.Engine.Runtime.Globals.GetVariable("Sass");
-                _sassOption = _engine.Execute("{:syntax => :sass}");
-                _scssOption = _engine.Execute("{:syntax => :scss}");
+                _sassOption = _engine.Execute("{:cache => false, :syntax => :sass}");
+                _scssOption = _engine.Execute("{:cache => false, :syntax => :scss}");
+                _sassOptionCompressed = _engine.Execute("{:cache => false, :syntax => :sass, :style => :compressed}");
+                _scssOptionCompressed = _engine.Execute("{:cache => false, :syntax => :scss, :style => :compressed}");
 
                 _initialized = true;
             }

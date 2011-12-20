@@ -50,12 +50,38 @@
 
         private string PathToResourceName(string path) {
             // This is kind of a hack, but I couldn't think of anything better worth the effort.
-            return path                
+            return path
                 .Replace("1.9.1", "_1._9._1")
                 .Replace('\\', '.')
                 .Replace('/', '.')
                 .Replace(@"R:.{345ED29D-C275-4C64-8372-65B06E54F5A7}", "")
                 .TrimStart('.');
+        }
+
+        /* These methods are disabled for safety.  We shouldn't need them. */
+
+        public override void CreateDirectory(string path) {
+            throw new NotImplementedException();
+        }
+
+        public override void DeleteDirectory(string path, bool recursive) {
+            throw new NotImplementedException();
+        }
+
+        public override void DeleteFile(string path, bool deleteReadOnly) {
+            throw new NotImplementedException();
+        }
+
+        public override void MoveFileSystemEntry(string sourcePath, string destinationPath) {
+            throw new NotImplementedException();
+        }
+
+        public override void SetEnvironmentVariable(string key, string value) {
+            throw new NotImplementedException();
+        }
+
+        public override Stream OpenOutputFileStream(string path) {
+            throw new NotImplementedException();
         }
     }
 }

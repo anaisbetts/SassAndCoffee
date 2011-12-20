@@ -9,8 +9,8 @@
         public SassCompilerProxy(ISassCompiler compiler)
             : base(compiler) { }
 
-        public string Compile(string path, IList<string> dependentFileList = null) {
-            return WrappedItem.Compile(path, dependentFileList);
+        public string Compile(string path, bool compressed, IList<string> dependentFileList) {
+            return WrappedItem.Compile(path, compressed, dependentFileList);
         }
     }
 }
