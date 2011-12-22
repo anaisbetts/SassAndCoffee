@@ -16,6 +16,14 @@ IF NOT EXIST %NUGET% (
 )
 ECHO Using NuGet at %NUGET%
 
+REM Strong Name Key
+SET KEYFILE=%~dp0..\SassAndCoffee.pfx
+IF NOT EXIST %KEYFILE% (
+	ECHO Couldn't locate SassAndCoffee.pfx!
+	EXIT /B -1
+)
+ECHO Using signing key at %KEYFILE%
+
 REM Check for changes
 CALL git rev-parse --verify HEAD >NUL
 IF ERRORLEVEL 1 (
@@ -49,7 +57,7 @@ CALL git clean -x -d -f >NUL 2>&1
 ECHO Purge complete.
 
 REM Build Package
-%NUGET% pack %1 -Properties "Configuration=Release" -verbose -symbols -build
+%NUGET% pack %1 -Properties "Configuration=Release;SignAssembly=true;AssemblyOriginatorKeyFile=%KEYFILE%" -verbose -symbols -build
 IF ERRORLEVEL 1 (
 	ECHO Unable to create package!  Abort!
 	EXIT /B -1
