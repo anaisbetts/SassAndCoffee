@@ -8,6 +8,7 @@
     /// An HttpModule that will conditionally handle requests for files with certain extensions.
     /// </summary>
     public class PathBasedHandlerRemapper : IHttpModule, IDisposable {
+        private IContentCache _cache;
         private IContentPipeline _pipeline;
         private PipelineHandler _handler;
         private string _handledExtension;
@@ -20,6 +21,8 @@
         public PathBasedHandlerRemapper(string handledExtension, params IContentTransform[] transformations) {
             _handledExtension = handledExtension;
             _pipeline = new ContentPipeline(transformations);
+            //_cache = new InMemoryCache();
+            //_pipeline = new CachingContentPipeline(_cache, transformations);
             _handler = new PipelineHandler(_pipeline);
         }
 

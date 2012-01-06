@@ -40,7 +40,7 @@
                 state.ReplaceContent(new ContentResult() {
                     Content = result,
                     MimeType = MimeType,
-                    CacheInvalidationFileList = accessedFiles,
+                    CacheInvalidationFileList = accessedFiles.ToArray(),
                 });
             }
         }
