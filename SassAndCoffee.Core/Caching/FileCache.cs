@@ -11,7 +11,7 @@
     /// Caches files to disk.
     /// </summary>
     public class FileCache : IContentCache {
-        private const string DefaultCachePath = @".\SassAndCoffeeCache\";
+        public const string DefaultCachePath = @".\SassAndCoffeeCache\";
         private readonly string _cachePath;
         private byte[] _nonce = new byte[4];
 
@@ -138,7 +138,7 @@
             using (var hmac = new HMACSHA1(_nonce)) {
                 var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(path));
                 var fileName = new SoapHexBinary(hash).ToString();
-                return Path.Combine(_cachePath, path);
+                return Path.Combine(_cachePath, fileName);
             }
         }
     }

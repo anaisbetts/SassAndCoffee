@@ -42,10 +42,25 @@ subfolder/file.js
     `<link href="/Content/site.min.css" type="text/css" />` will serve the minified version of `<link href="/Content/site.css" type="text/css" />`
 * *Note*: If a file exists named ~/Content/site.css, it will be served instead of ~/Scripts/site.scss.  SassAndCoffee *always* preferentially serves existing files on disk.
 
-## What about performance?
-SassAndCoffee offloads caching and compression to ASP.Net and IIS. To modify the default cache settings, alter the `SassAndCoffeeCacheSettings` cache profile in web.config.  To enable compression, install IIS's compression features.
+## Caching:
+SassAndCoffee uses a hybrid caching model. Enough information is provided to IIS to enable even kernel mode caching, but for IIS cache misses, there are optional in-memory and disk-backed caches. This keeps things fast even when you can't control the server settings. To modify the default IIS cache settings, alter the `SassAndCoffeeCacheSettings` cache profile in web.config.
 
-SassAndCoffee watches your source files for changes and invalidates the cache when appropriate.
+* The fallback cache is controlled by the `SassAndCoffee.Cache` appSettings value in web.config.
+    * `Memory` will use an unbounded memory backed cache.
+    * `File` will use an unbounded file backed cache.
+    * `None` won't cache anything at all, but does not disable the IIS cache.
+* The location of the file backed cache is controlled by the `SassAndCoffee.Cache.Path` appSettings value in web.config.
+    * **WARNING: The contents of this directory will be cleared when your application starts!**
+    * If the directory does not exist, SassAndCoffee will attempt to create it.
+    * If the value starts with `%DataDirectory%`, %DataDirectory% will be replaced with the location of the application's App_Data folder.
+    * If an absolute path is provided, it is used.
+    * If this value is undefined, behavior is also undefined.
+    * Your web application must have read/write access to this directory.
+
+Don't worry, both IIS and SassAndCoffee watch your source files for changes and invalidate the cache when appropriate. SassAndCoffee can't invalidate your users' browser caches though, so keep that in mind.
+
+## Compression:
+SassAndCoffee offloads compression to IIS. To enable compression, install IIS's compression features.
 
 ## How does it work?
 SassAndCoffee embeds the original compilers in the DLL (Sass 3.2.0 and CoffeeScript 1.1.3

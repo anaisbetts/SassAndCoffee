@@ -3,15 +3,21 @@
     using System.IO;
     using System.Web;
     using SassAndCoffee.Core;
+    using System.Configuration;
 
     /// <summary>
     /// An HttpModule that will conditionally handle requests for files with certain extensions.
     /// </summary>
     public class PathBasedHandlerRemapper : IHttpModule, IDisposable {
+        public const string SassAndCoffeeCacheTypeKey = "SassAndCoffee.Cache";
+        public const string SassAndCoffeeCachePathKey = "SassAndCoffee.Cache.Path";
+        public const string AppDataSpecialKey = "%DataDirectory%";
+
         private IContentCache _cache;
         private IContentPipeline _pipeline;
         private PipelineHandler _handler;
         private string _handledExtension;
+        private IContentTransform[] _transformations;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PathBasedHandlerRemapper"/> class.
@@ -20,10 +26,7 @@
         /// <param name="transformations">The transformations to apply in the content pipeline.</param>
         public PathBasedHandlerRemapper(string handledExtension, params IContentTransform[] transformations) {
             _handledExtension = handledExtension;
-            _pipeline = new ContentPipeline(transformations);
-            //_cache = new InMemoryCache();
-            //_pipeline = new CachingContentPipeline(_cache, transformations);
-            _handler = new PipelineHandler(_pipeline);
+            _transformations = transformations;
         }
 
         /// <summary>
@@ -32,6 +35,13 @@
         /// <param name="context">An <see cref="T:System.Web.HttpApplication"/> that provides access to
         /// the methods, properties, and events common to all application objects within an ASP.NET application</param>
         public void Init(HttpApplication context) {
+            // TODO: This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
+            // TODO: This technically makes two caches if the user enables both CoffeeScript and Sass/SCSS
+            _cache = GetCacheFromSettings();
+            _cache.Initialize();
+            _pipeline = new CachingContentPipeline(_cache, _transformations);
+            _handler = new PipelineHandler(_pipeline);
+
             context.PostResolveRequestCache += ConditionallyRemapHandler;
         }
 
@@ -42,7 +52,7 @@
         /// </summary>
         /// <param name="sender">The HttpApplication.</param>
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
-        void ConditionallyRemapHandler(object sender, EventArgs e) {
+        protected virtual void ConditionallyRemapHandler(object sender, EventArgs e) {
             var app = sender as HttpApplication;
             var path = app.Request.Path;
             if (path.EndsWith(_handledExtension, StringComparison.OrdinalIgnoreCase)) {
@@ -51,6 +61,26 @@
                     app.Context.RemapHandler(_handler);
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the correct IContentCache implementation from the application settings.
+        /// </summary>
+        protected virtual IContentCache GetCacheFromSettings() {
+            var cacheSetting = ConfigurationManager.AppSettings[SassAndCoffeeCacheTypeKey];
+            if (cacheSetting == "Memory") {
+                return new InMemoryCache();
+            } else if (cacheSetting == "File") {
+                var path = ConfigurationManager.AppSettings[SassAndCoffeeCachePathKey];
+                if (path.StartsWith(AppDataSpecialKey)) {
+                    path = path.Substring(AppDataSpecialKey.Length);
+                    path = path.TrimStart(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    path = Path.Combine(
+                        AppDomain.CurrentDomain.GetData("DataDirectory").ToString(),
+                        path);
+                }
+                return new FileCache(path);
+            } else return new NoCache();
         }
 
         /// <summary>
