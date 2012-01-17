@@ -57,6 +57,10 @@
             if (File.Exists(fileName))
                 return fileName;
 
+            fileName = fileRoot + ".css";
+            if (File.Exists(fileName))
+                return fileName;
+
             return null;
         }
 

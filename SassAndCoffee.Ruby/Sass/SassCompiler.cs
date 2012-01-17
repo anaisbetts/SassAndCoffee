@@ -34,7 +34,7 @@
                 dynamic compilerOptions;
                 if (pathInfo.Extension.Equals(".sass", StringComparison.OrdinalIgnoreCase)) {
                     compilerOptions = compressed ? _sassOptionCompressed : _sassOption;
-                } else {
+                } else /* .scss and .css */{
                     compilerOptions = compressed ? _scssOptionCompressed : _scssOption;
                 }
 
