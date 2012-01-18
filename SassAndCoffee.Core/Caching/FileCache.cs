@@ -11,12 +11,14 @@
     /// Caches files to disk.
     /// </summary>
     public class FileCache : IContentCache {
-        public const string DefaultCachePath = @".\SassAndCoffeeCache\";
+        public const int NonceSize = 4;
+        public const string DefaultCachePath = @".\.SassAndCoffeeCache\";
         private readonly string _cachePath;
         private byte[] _nonce = new byte[4];
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileCache"/> class.
+        /// Defaults to [AppDomainBase]\.SassAndCoffeeCache\
         /// </summary>
         public FileCache()
             : this(null) {
@@ -25,27 +27,29 @@
         /// <summary>
         /// Initializes a new instance of the <see cref="FileCache"/> class.
         /// </summary>
-        /// <param name="cachePath">The cache path.</param>
+        /// <param name="cachePath">The cache path. Defaults to [AppDomainBase]\.SassAndCoffeeCache\ if null.</param>
         public FileCache(string cachePath) {
             if (string.IsNullOrWhiteSpace(cachePath)) {
-                _cachePath = DefaultCachePath;
-            } else {
-                if (!cachePath.EndsWith("" + Path.DirectorySeparatorChar)
-                    && !cachePath.EndsWith("" + Path.AltDirectorySeparatorChar)) {
-                    cachePath += Path.DirectorySeparatorChar;
-                }
-                _cachePath = cachePath;
+                cachePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DefaultCachePath);
             }
+            // Normalize Path
+            cachePath = new DirectoryInfo(cachePath).FullName;
+            if (!cachePath.EndsWith("" + Path.DirectorySeparatorChar)
+                && !cachePath.EndsWith("" + Path.AltDirectorySeparatorChar)) {
+                cachePath += Path.DirectorySeparatorChar;
+            }
+            _cachePath = cachePath;
         }
 
         /// <summary>
-        /// Tries to get a cached copy of the requested path.  Returns false if not found.
+        /// If available, returns the cached content for the requested resource. Returns false if not found.
+        /// Must be thread safe per resource.
         /// </summary>
-        /// <param name="path">The path requested.</param>
-        /// <param name="result">The cached result. Null is a valid value.</param>
+        /// <param name="resource">The resource requested.</param>
+        /// <param name="result">The cached result. If null when returning true, interpreted as "Not Found".</param>
         /// <returns></returns>
-        public bool TryGet(string path, out ContentResult result) {
-            var file = new FileInfo(GetCacheForPath(path));
+        public bool TryGet(string resource, out ContentResult result) {
+            var file = new FileInfo(GetCacheForResource(resource));
             if (file.Exists) {
                 var formatter = new BinaryFormatter();
                 using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
@@ -59,12 +63,13 @@
         }
 
         /// <summary>
-        /// Sets the cached result for the specified path.
+        /// Sets the cached content for the specified resource.
+        /// Need not be thread safe.
         /// </summary>
-        /// <param name="path">The path requested.</param>
-        /// <param name="result">The result for that path.</param>
-        public void Set(string path, ContentResult result) {
-            var file = new FileInfo(GetCacheForPath(path));
+        /// <param name="resource">The resource requested.</param>
+        /// <param name="result">The content for that resource.</param>
+        public void Set(string resource, ContentResult result) {
+            var file = new FileInfo(GetCacheForResource(resource));
             var formatter = new BinaryFormatter();
             using (var stream = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.Delete)) {
                 formatter.Serialize(stream, result);
@@ -72,17 +77,19 @@
         }
 
         /// <summary>
-        /// Invalidates the specified cached path.
+        /// Invalidates the cached content for the specified resource.
+        /// Need not be thread safe.
         /// </summary>
-        /// <param name="path">The cached path to invalidate.</param>
-        public void Invalidate(string path) {
-            var file = new FileInfo(GetCacheForPath(path));
+        /// <param name="resource">The cached resource to invalidate.</param>
+        public void Invalidate(string resource) {
+            var file = new FileInfo(GetCacheForResource(resource));
             if (file.Exists)
                 file.Delete();
         }
 
         /// <summary>
         /// Clears the cache.
+        /// Need not be thread safe.
         /// </summary>
         public void Clear() {
             SetNonce();
@@ -110,6 +117,7 @@
         /// <summary>
         /// Initializes the cache. May throw exceptions and perform IO.
         /// Must be called before attempting to use the cache.
+        /// Need not be thread safe.
         /// </summary>
         public void Initialize() {
             Clear();
@@ -120,15 +128,22 @@
              * There's no efficient way for us to know if source files changed while we weren't running.
              */
             using (var rng = new RNGCryptoServiceProvider()) {
-                rng.GetBytes(_nonce);
+                var temp = new byte[NonceSize];
+                rng.GetBytes(temp);
+                _nonce = temp;
             }
         }
 
-        private string GetCacheForPath(string path) {
-            // TODO: Case insensitivity?
-            // TODO: Performance?
-            using (var hmac = new HMACSHA1(_nonce)) {
-                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(path));
+        private string GetCacheForResource(string resource) {
+            // Since we're on Windows...
+            var fileInfo = new FileInfo(resource);
+            var normalizedPath = fileInfo.FullName.ToUpperInvariant();
+
+            // Grab a local copy in case it changes under us (Clear)
+            var nonce = _nonce;
+            // Create a new instance here each time for thread safety of reads
+            using (var hmac = new HMACSHA1(nonce)) {
+                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(normalizedPath));
                 var fileName = new SoapHexBinary(hash).ToString();
                 return Path.Combine(_cachePath, fileName);
             }
