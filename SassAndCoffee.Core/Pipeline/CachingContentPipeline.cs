@@ -14,7 +14,7 @@
         private IContentPipeline _innerPipeline;
         private IContentCache _cache;
 
-        private object _cacheAccountingLock = new object();
+        private ReaderWriterLockSlim _cacheAccountingLock = new ReaderWriterLockSlim();
         private Dictionary<string, CacheItem> _cacheItems =
             new Dictionary<string, CacheItem>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, CacheDependency> _cacheDependencies =
@@ -42,6 +42,7 @@
         }
 
         public ContentResult ProcessRequest(string physicalPath) {
+            var resource = new FileInfo(physicalPath).FullName;
             ContentResult result = null;
 
             /* Cache implementations are not required to be thread safe for writes.
@@ -51,30 +52,14 @@
              */
 
             // Try to get the lock for this item
-            ReaderWriterLockSlim cacheItemLock = null;
-            do {
-                if (!_cacheLocks.TryGetValue(physicalPath, out cacheItemLock)) {
-                    ReaderWriterLockSlim newLock = null;
-                    try {
-                        newLock = new ReaderWriterLockSlim();
-                        if (_cacheLocks.TryAdd(physicalPath, newLock)) {
-                            cacheItemLock = newLock;
-                        }
-                    } finally {
-                        if (cacheItemLock != newLock) {
-                            newLock.Dispose();
-                        }
-                    }
-                }
-            }
-            while (cacheItemLock == null);
+            ReaderWriterLockSlim cacheItemLock = GetCacheLockForResource(resource);
 
-            // We have a lock!
             try {
+                _cacheAccountingLock.EnterReadLock();
                 cacheItemLock.EnterReadLock();
 
                 // TODO: Cache 404s too.  Right now the null check deliberately disables this.
-                if (!_cache.TryGet(physicalPath, out result) || result == null) {
+                if (!_cache.TryGet(resource, out result) || result == null) {
 
                     // Enter in upgradable mode
                     try {
@@ -82,17 +67,17 @@
                         cacheItemLock.EnterUpgradeableReadLock();
 
                         // TODO: Cache 404s too.  Right now the null check deliberately disables this.
-                        if (!_cache.TryGet(physicalPath, out result) || result == null) {
+                        if (!_cache.TryGet(resource, out result) || result == null) {
                             // OK, now we really have to make it.
                             try {
                                 cacheItemLock.EnterWriteLock();
 
                                 // TODO: Do deep caching of compiled dependencies (for javascript includes, etc)
-                                result = _innerPipeline.ProcessRequest(physicalPath);
+                                result = _innerPipeline.ProcessRequest(resource);
 
                                 // TODO: Cache 404s too.  This prevents that.
                                 if (result != null) {
-                                    SaveCacheItem(physicalPath, result);
+                                    SaveCacheItem(resource, result);
                                 }
                             } finally {
                                 if (cacheItemLock.IsWriteLockHeld) cacheItemLock.ExitWriteLock();
@@ -103,22 +88,48 @@
                     }
                 }
             } finally {
+                if (_cacheAccountingLock.IsReadLockHeld) _cacheAccountingLock.ExitReadLock();
                 if (cacheItemLock.IsReadLockHeld) cacheItemLock.ExitReadLock();
             }
 
             // Prevent denial of service by only saving locks for resources that exist (finite)
             if (result == null) {
-                if (_cacheLocks.TryRemove(physicalPath, out cacheItemLock)) {
-                    cacheItemLock.Dispose();
-                } else {
-                    throw new SynchronizationLockException("Nick can't write threading code. Report error 5885 on github issues for SassAndCoffee.");
+                ReaderWriterLockSlim toDispose = null;
+                if (_cacheLocks.TryRemove(resource, out toDispose)) {
+                    toDispose.Dispose();
                 }
             }
 
             return result;
         }
 
+        /// <summary>
+        /// Gets the cache lock for the resource.
+        /// No locks required to call this.
+        /// </summary>
+        /// <param name="resource">The resource.</param>
+        private ReaderWriterLockSlim GetCacheLockForResource(string resource) {
+            ReaderWriterLockSlim cacheItemLock = null;
+            do {
+                if (!_cacheLocks.TryGetValue(resource, out cacheItemLock)) {
+                    ReaderWriterLockSlim newLock = null;
+                    try {
+                        newLock = new ReaderWriterLockSlim();
+                        if (_cacheLocks.TryAdd(resource, newLock)) {
+                            cacheItemLock = newLock;
+                        }
+                    } finally {
+                        if (cacheItemLock != newLock) {
+                            newLock.Dispose();
+                        }
+                    }
+                }
+            } while (cacheItemLock == null);
+            return cacheItemLock;
+        }
+
         private void OnInvalidationError(object sender, ErrorEventArgs e) {
+            // TODO: Logging?
             var ex = e.GetException();
         }
 
@@ -130,13 +141,19 @@
             EvictCacheItemsByDependency(e.FullPath);
         }
 
-        private void SaveCacheItem(string cacheItemPhysicalPath, ContentResult result) {
-            lock (_cacheAccountingLock) {
-                // Abort if already cached.  When I'm done this should never happen.
-                if (_cacheItems.ContainsKey(cacheItemPhysicalPath))
-                    return;
+        /// <summary>
+        /// Saves the cache item.
+        /// You MUST have a write lock on the cache item before calling this method.
+        /// You MUST have a read lock on the _cacheAccountingLock before calling this method.
+        /// </summary>
+        /// <param name="resource">The resource to cache.</param>
+        /// <param name="result">The result to cache.</param>
+        private void SaveCacheItem(string resource, ContentResult result) {
+            try {
+                _cacheAccountingLock.ExitReadLock();
+                _cacheAccountingLock.EnterWriteLock();
 
-                var cacheItem = new CacheItem(cacheItemPhysicalPath);
+                var cacheItem = new CacheItem(resource);
                 _cacheItems.Add(cacheItem.PhysicalPath, cacheItem);
                 foreach (var requiredFile in result.CacheInvalidationFileList) {
                     CacheDependency dependency = null;
@@ -159,14 +176,19 @@
                     // Add dependency link
                     cacheItem.Dependencies.UnionWith(new CacheDependency[] { dependency });
                 }
+                _cache.Set(resource, result);
 
-                // TODO: Locking around cache access?
-                _cache.Set(cacheItemPhysicalPath, result);
+                _cacheAccountingLock.ExitWriteLock();
+                _cacheAccountingLock.EnterReadLock();
+            } finally {
+                if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
             }
         }
 
         private void EvictCacheItemsByDependency(string dependencyPath) {
-            lock (_cacheAccountingLock) {
+            try {
+                _cacheAccountingLock.EnterWriteLock();
+
                 // Find CacheDependency
                 CacheDependency dependency = null;
                 if (!_cacheDependencies.TryGetValue(dependencyPath, out dependency))
@@ -192,6 +214,8 @@
                     // TODO: Locking around cache access?
                     _cache.Invalidate(item.PhysicalPath);
                 }
+            } finally {
+                if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
             }
         }
 
@@ -209,6 +233,15 @@
                 if (_watcher != null) {
                     _watcher.Dispose();
                     _watcher = null;
+                }
+                if (_cacheLocks != null) {
+                    foreach (var cacheLock in _cacheLocks) {
+                        ReaderWriterLockSlim toDispose;
+                        if (_cacheLocks.TryRemove(cacheLock.Key, out toDispose)) {
+                            toDispose.Dispose();
+                        }
+                    }
+                    _cacheLocks = null;
                 }
             }
         }
