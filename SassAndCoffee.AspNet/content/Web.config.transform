@@ -1,7 +1,10 @@
 ﻿<?xml version="1.0"?>
 <configuration>
     <appSettings>
-        <remove key="SassAndCoffee.Cache" />
+        <add key="SassAndCoffee.Cache"
+             value="Memory" />
+        <add key="SassAndCoffee.Cache.Path"
+             value="%DataDirectory%\.SassAndCoffeeCache\" />
     </appSettings>
     <system.web>
         <caching>

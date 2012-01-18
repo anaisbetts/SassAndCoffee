@@ -34,6 +34,4 @@ _ReSharper
 TestResults/
 packages/
 
-WebTest/App_Data/_FileCache
-WebTest/App_Data/.sassandcoffeecache
-WebTest/Content/.sass-cache
+SassAndCoffee.AspNet.WebTests/App_Data/.SassAndCoffeeCache/

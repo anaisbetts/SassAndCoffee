@@ -1,6 +1,7 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     public class ContentPipeline : IContentPipeline {
         private List<IContentTransform> _transformations = new List<IContentTransform>();
@@ -15,39 +16,28 @@
         }
 
         public ContentResult ProcessRequest(string physicalPath) {
-            ContentResult result = null;
+            var state = new ContentTransformState(this, physicalPath);
 
-            // TODO: Check cache
-            // result = GetFromCache
-
-            if (result == null) { // Cache miss
-                var state = new ContentTransformState(this, physicalPath);
-
-                // Pre-Execute
-                foreach (var transform in _transformations) {
-                    transform.PreExecute(state);
-                }
-
-                // Execute
-                foreach (var transform in _transformations) {
-                    transform.Execute(state);
-                }
-
-                if (state.Content == null) {
-                    // No source content found
-                    return null;
-                }
-
-                result = new ContentResult() {
-                    CacheInvalidationFileList = state.CacheInvalidationFileList,
-                    Content = state.Content,
-                    MimeType = state.MimeType,
-                };
-
-                // TODO: Save in cache
+            // Pre-Execute
+            foreach (var transform in _transformations) {
+                transform.PreExecute(state);
             }
 
-            return result;
+            // Execute
+            foreach (var transform in _transformations) {
+                transform.Execute(state);
+            }
+
+            if (state.Content == null) {
+                // No source content found
+                return null;
+            }
+
+            return new ContentResult() {
+                CacheInvalidationFileList = state.CacheInvalidationFileList.ToArray(),
+                Content = state.Content,
+                MimeType = state.MimeType,
+            };
         }
 
         public void Dispose() {

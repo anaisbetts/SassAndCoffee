@@ -70,6 +70,13 @@
     <Compile Include="..\CommonAssemblyInfo.cs">
       <Link>Properties\CommonAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="Caching\CacheDependency.cs" />
+    <Compile Include="Caching\CacheItem.cs" />
+    <Compile Include="Caching\FileCache.cs" />
+    <Compile Include="Caching\CacheInvalidationWatcher.cs" />
+    <Compile Include="Caching\InMemoryCache.cs" />
+    <Compile Include="Caching\NoCache.cs" />
+    <Compile Include="Pipeline\CachingContentPipeline.cs" />
     <Compile Include="Pipeline\ContentPipeline.cs" />
     <Compile Include="Pipeline\ContentResult.cs" />
     <Compile Include="Pipeline\ContentTransformBase.cs" />
@@ -80,7 +87,6 @@
     <Compile Include="Pipeline\IContentTransform.cs" />
     <Compile Include="Legacy\Caching\FileCache.cs" />
     <Compile Include="Legacy\Caching\InMemoryCache.cs" />
-    <Compile Include="Legacy\Caching\NoCache.cs" />
     <Compile Include="Legacy\Caching\ICompiledCache.cs" />
     <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />
     <Compile Include="Pooling\IInstanceProviderOfT.cs" />

@@ -40,7 +40,7 @@
                 state.ReplaceContent(new ContentResult() {
                     Content = result,
                     MimeType = MimeType,
-                    CacheInvalidationFileList = accessedFiles,
+                    CacheInvalidationFileList = accessedFiles.ToArray(),
                 });
             }
         }
@@ -54,6 +54,10 @@
                 return fileName;
 
             fileName = fileRoot + ".sass";
+            if (File.Exists(fileName))
+                return fileName;
+
+            fileName = fileRoot + ".css";
             if (File.Exists(fileName))
                 return fileName;
 

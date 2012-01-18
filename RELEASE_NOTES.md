@@ -1,4 +1,14 @@
 # Release Notes
+## v2.1.0
+Bring back in-memory and file-backed caching.  This time with FileSystemWatcher based cache invalidation.
+
+### Enhancements
+* In-Memory Caching
+* File backed Caching
+
+## v2.0.2
+This minor release fixed NuGet packaging issues.
+
 ## v2.0.1
 This release adds minification to Sass/SCSS.  Just like with JavaScript, just add .min before .css (.min.css) when referencing the file.
 
