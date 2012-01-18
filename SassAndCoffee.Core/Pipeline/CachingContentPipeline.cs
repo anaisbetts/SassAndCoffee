@@ -1,7 +1,9 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.IO;
+    using System.Threading;
 
     /// <summary>
     /// Caches results content results using the provided cache implementation.
@@ -17,6 +19,9 @@
             new Dictionary<string, CacheItem>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, CacheDependency> _cacheDependencies =
             new Dictionary<string, CacheDependency>(StringComparer.OrdinalIgnoreCase);
+
+        private ConcurrentDictionary<string, ReaderWriterLockSlim> _cacheLocks =
+            new ConcurrentDictionary<string, ReaderWriterLockSlim>(StringComparer.OrdinalIgnoreCase);
 
         public IList<IContentTransform> Transformations { get { return _innerPipeline.Transformations; } }
 
@@ -39,15 +44,74 @@
         public ContentResult ProcessRequest(string physicalPath) {
             ContentResult result = null;
 
-            // TODO: Cache 404s too.  Right now the null check deliberately disables this.
-            if (!_cache.TryGet(physicalPath, out result) || result == null) {
-                // TODO: Hold subsequent requests for a resource that's being compiled
-                // TODO: Do deep caching of compiled dependencies (for javascript includes, etc)
-                result = _innerPipeline.ProcessRequest(physicalPath);
+            /* Cache implementations are not required to be thread safe for writes.
+             * Reads while not writing are safe on a per-item level. Enforcing safe
+             * access patterns here allows us to consolidate requests as well as
+             * serialize access to the cache.
+             */
 
-                // TODO: Cache 404s too.  This prevents that.
-                if (result != null) {
-                    SaveCacheItem(physicalPath, result);
+            // Try to get the lock for this item
+            ReaderWriterLockSlim cacheItemLock = null;
+            do {
+                if (!_cacheLocks.TryGetValue(physicalPath, out cacheItemLock)) {
+                    ReaderWriterLockSlim newLock = null;
+                    try {
+                        newLock = new ReaderWriterLockSlim();
+                        if (_cacheLocks.TryAdd(physicalPath, newLock)) {
+                            cacheItemLock = newLock;
+                        }
+                    } finally {
+                        if (cacheItemLock != newLock) {
+                            newLock.Dispose();
+                        }
+                    }
+                }
+            }
+            while (cacheItemLock == null);
+
+            // We have a lock!
+            try {
+                cacheItemLock.EnterReadLock();
+
+                // TODO: Cache 404s too.  Right now the null check deliberately disables this.
+                if (!_cache.TryGet(physicalPath, out result) || result == null) {
+
+                    // Enter in upgradable mode
+                    try {
+                        cacheItemLock.ExitReadLock();
+                        cacheItemLock.EnterUpgradeableReadLock();
+
+                        // TODO: Cache 404s too.  Right now the null check deliberately disables this.
+                        if (!_cache.TryGet(physicalPath, out result) || result == null) {
+                            // OK, now we really have to make it.
+                            try {
+                                cacheItemLock.EnterWriteLock();
+
+                                // TODO: Do deep caching of compiled dependencies (for javascript includes, etc)
+                                result = _innerPipeline.ProcessRequest(physicalPath);
+
+                                // TODO: Cache 404s too.  This prevents that.
+                                if (result != null) {
+                                    SaveCacheItem(physicalPath, result);
+                                }
+                            } finally {
+                                if (cacheItemLock.IsWriteLockHeld) cacheItemLock.ExitWriteLock();
+                            }
+                        }
+                    } finally {
+                        if (cacheItemLock.IsUpgradeableReadLockHeld) cacheItemLock.ExitUpgradeableReadLock();
+                    }
+                }
+            } finally {
+                if (cacheItemLock.IsReadLockHeld) cacheItemLock.ExitReadLock();
+            }
+
+            // Prevent denial of service by only saving locks for resources that exist (finite)
+            if (result == null) {
+                if (_cacheLocks.TryRemove(physicalPath, out cacheItemLock)) {
+                    cacheItemLock.Dispose();
+                } else {
+                    throw new SynchronizationLockException("Nick can't write threading code. Report error 5885 on github issues for SassAndCoffee.");
                 }
             }
 

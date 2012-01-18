@@ -47,14 +47,10 @@
         public bool TryGet(string path, out ContentResult result) {
             var file = new FileInfo(GetCacheForPath(path));
             if (file.Exists) {
-                try {
-                    var formatter = new BinaryFormatter();
-                    using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
-                        result = formatter.Deserialize(stream) as ContentResult;
-                        return true;
-                    }
-                } catch (Exception e) {
-                    // Debugging
+                var formatter = new BinaryFormatter();
+                using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
+                    result = formatter.Deserialize(stream) as ContentResult;
+                    return true;
                 }
             }
 
@@ -69,13 +65,9 @@
         /// <param name="result">The result for that path.</param>
         public void Set(string path, ContentResult result) {
             var file = new FileInfo(GetCacheForPath(path));
-            try {
-                var formatter = new BinaryFormatter();
-                using (var stream = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.Read | FileShare.Delete)) {
-                    formatter.Serialize(stream, result);
-                }
-            } catch (Exception e) {
-                // Debugging
+            var formatter = new BinaryFormatter();
+            using (var stream = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.Delete)) {
+                formatter.Serialize(stream, result);
             }
         }
 
