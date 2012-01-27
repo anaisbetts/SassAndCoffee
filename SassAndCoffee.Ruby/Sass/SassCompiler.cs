@@ -4,6 +4,7 @@
     using System.IO;
     using System.Text;
     using IronRuby;
+    using IronRuby.Runtime;
     using Microsoft.Scripting;
     using Microsoft.Scripting.Hosting;
     using SassAndCoffee.Core;
@@ -18,23 +19,24 @@
         private dynamic _sassOptionCompressed;
         private dynamic _scssOptionCompressed;
         private bool _initialized = false;
-        private object _lock = new object();
 
         public string Compile(string path, bool compressed, IList<string> dependentFileList) {
             if (path == null)
                 throw new ArgumentException("source cannot be null.", "source");
 
+            if (!_initialized)
+                throw new InvalidOperationException("Compiler must be initialized first.");
+
             var pathInfo = new FileInfo(path);
             if (!pathInfo.Exists)
                 return null;
 
-            lock (_lock) {
-                Initialize();
-
+            string result;
+            try {
                 dynamic compilerOptions;
                 if (pathInfo.Extension.Equals(".sass", StringComparison.OrdinalIgnoreCase)) {
                     compilerOptions = compressed ? _sassOptionCompressed : _sassOption;
-                } else /* .scss and .css */{
+                } else /* .scss and .css */ {
                     compilerOptions = compressed ? _scssOptionCompressed : _scssOption;
                 }
 
@@ -47,37 +49,46 @@
                 if (dependentFileList != null) {
                     dependentFileList.Add(pathInfo.FullName);
                     _pal.OnOpenInputFileStream = (accessedFile) => {
-                        if (!accessedFile.Contains(".sass-cache"))
+                        lock (dependentFileList) {
                             dependentFileList.Add(accessedFile);
+                        }
                     };
                 }
 
-                string result;
-                try {
-                    result = (string)_sassCompiler.compile(File.ReadAllText(pathInfo.FullName), compilerOptions);
-                } catch (Exception e) {
-                    // Provide more information for SassSyntaxErrors
-                    if (e.Message == "Sass::SyntaxError") {
-                        dynamic error = e;
-                        StringBuilder sb = new StringBuilder();
-                        sb.AppendFormat("{0}\n\n", error.to_s());
-                        sb.AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "");
-                        sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? pathInfo.FullName);
-                        sb.AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "");
-                        sb.AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "");
-                        sb.AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
-                        throw new Exception(sb.ToString(), e);
-                    } else {
-                        throw;
-                    }
-                } finally {
-                    _pal.OnOpenInputFileStream = null;
+                using (var stream = File.Open(pathInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var reader = new StreamReader(stream)) {
+                    var contents = reader.ReadToEnd();
+                    result = (string)_sassCompiler.compile(contents, compilerOptions);
                 }
-                return result;
+            } catch (Exception e) {
+                // Provide more information for SassSyntaxErrors
+                if (e.Message == "Sass::SyntaxError") {
+                    dynamic error = e;
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendFormat("{0}\n\n", error.to_s())
+                      .AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "")
+                      .AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? pathInfo.FullName)
+                      .AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "")
+                      .AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "")
+                      .AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
+                    throw new Exception(sb.ToString(), e);
+                } else {
+                    var rubyEx = RubyExceptionData.GetInstance(e);
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendFormat("{0}\n\n", rubyEx.Message)
+                      .AppendFormat("Backtrace:\n");
+                    foreach (var frame in rubyEx.Backtrace) {
+                        sb.AppendFormat("  {0}\n", frame);
+                    }
+                    throw new Exception(sb.ToString(), e);
+                }
+            } finally {
+                _pal.OnOpenInputFileStream = null;
             }
+            return result;
         }
 
-        private void Initialize() {
+        public void Initialize() {
             if (!_initialized) {
                 _pal = new ResourceRedirectionPlatformAdaptationLayer();
                 var srs = new ScriptRuntimeSetup() {

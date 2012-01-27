@@ -9,7 +9,7 @@
         public const string CompressedStateKey = "Sass_Compressed";
 
         private Pool<ISassCompiler, SassCompilerProxy> _compilerPool =
-            new Pool<ISassCompiler, SassCompilerProxy>(() => new SassCompiler());
+            new Pool<ISassCompiler, SassCompilerProxy>(CreateAndInitializeSassCompiler);
 
         public override void PreExecute(ContentTransformState state) {
             if (state.Path.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase)) {
@@ -43,6 +43,21 @@
                     CacheInvalidationFileList = accessedFiles.ToArray(),
                 });
             }
+        }
+
+        private static object _compilerInitializationLock = new object();
+        private static ISassCompiler CreateAndInitializeSassCompiler() {
+            var compiler = new SassCompiler();
+            bool initialized = false;
+            lock (_compilerInitializationLock) {
+                while(!initialized) {
+                    try {
+                        compiler.Initialize();
+                        initialized = true;
+                    } catch { }
+                }
+            }
+            return compiler;
         }
 
         private string FindFileFromRoot(string fileRoot) {

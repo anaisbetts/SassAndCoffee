@@ -132,9 +132,6 @@
     <EmbeddedResource Include="Sass\lib\ruby\1.9.1\uri.rb" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Sass\lib\sass_in_one.rb" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\SassAndCoffee.Core\SassAndCoffee.Core.csproj">
       <Project>{C919A173-DD9B-46C4-88A2-4B31A63C501C}</Project>
       <Name>SassAndCoffee.Core</Name>
@@ -143,6 +140,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SassAndCoffee.Ruby.nuspec" />
+    <EmbeddedResource Include="Sass\lib\sass_in_one.rb" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
