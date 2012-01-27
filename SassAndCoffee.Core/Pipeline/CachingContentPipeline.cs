@@ -3,6 +3,7 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Threading;
 
     /// <summary>
@@ -10,7 +11,6 @@
     /// </summary>
     public class CachingContentPipeline : IContentPipeline {
         private CacheInvalidationWatcher _watcher = new CacheInvalidationWatcher();
-        private Dictionary<Guid, string> _invalidationKeys = new Dictionary<Guid, string>();
         private IContentPipeline _innerPipeline;
         private IContentCache _cache;
 
@@ -31,7 +31,6 @@
         public CachingContentPipeline(IContentCache cache, IEnumerable<IContentTransform> transformations) {
             _cache = cache;
 
-            // TODO: Ditch this to support deep caching
             _innerPipeline = new ContentPipeline(transformations);
 
             _watcher.Changed += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
@@ -58,24 +57,21 @@
                 _cacheAccountingLock.EnterReadLock();
                 cacheItemLock.EnterReadLock();
 
-                // TODO: Cache 404s too.  Right now the null check deliberately disables this.
+                // TODO: Cache 404s too.
                 if (!_cache.TryGet(resource, out result) || result == null) {
-
-                    // Enter in upgradable mode
+                    // Not found.  Enter in upgradable mode
                     try {
                         cacheItemLock.ExitReadLock();
                         cacheItemLock.EnterUpgradeableReadLock();
 
-                        // TODO: Cache 404s too.  Right now the null check deliberately disables this.
                         if (!_cache.TryGet(resource, out result) || result == null) {
-                            // OK, now we really have to make it.
+                            // Still not found. Now we really have to make it.
                             try {
                                 cacheItemLock.EnterWriteLock();
 
-                                // TODO: Do deep caching of compiled dependencies (for javascript includes, etc)
+                                // TODO: Do deep caching of compiled dependencies (for javascript includes in combine files, etc)
                                 result = _innerPipeline.ProcessRequest(resource);
 
-                                // TODO: Cache 404s too.  This prevents that.
                                 if (result != null) {
                                     SaveCacheItem(resource, result);
                                 }
@@ -129,8 +125,7 @@
         }
 
         private void OnInvalidationError(object sender, ErrorEventArgs e) {
-            // TODO: Logging?
-            var ex = e.GetException();
+            // Interesting for debugging, no useful action to take though.  Maybe clear whole cache if this happens?
         }
 
         private void OnInvalidationRenamed(object sender, RenamedEventArgs e) {
@@ -144,11 +139,15 @@
         /// <summary>
         /// Saves the cache item.
         /// You MUST have a write lock on the cache item before calling this method.
-        /// You MUST have a read lock on the _cacheAccountingLock before calling this method.
+        /// You MUST have a read lock on the cacheAccountingLock before calling this method.
+        /// The method ALWAYS exits with all locks in their pre-call state.
         /// </summary>
         /// <param name="resource">The resource to cache.</param>
         /// <param name="result">The result to cache.</param>
         private void SaveCacheItem(string resource, ContentResult result) {
+            if (!_cacheAccountingLock.IsReadLockHeld)
+                throw new InvalidOperationException("You must hold a read lock on the cacheAccountingLock before calling this method.");
+
             try {
                 _cacheAccountingLock.ExitReadLock();
                 _cacheAccountingLock.EnterWriteLock();
@@ -182,6 +181,7 @@
                 _cacheAccountingLock.EnterReadLock();
             } finally {
                 if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
+                if (!_cacheAccountingLock.IsReadLockHeld) _cacheAccountingLock.EnterReadLock();
             }
         }
 
@@ -194,12 +194,10 @@
                 if (!_cacheDependencies.TryGetValue(dependencyPath, out dependency))
                     return;
 
-                var cacheItemsToInvalidate = dependency.Produces;
-
                 // Invalidate items produced by the altered dependency
-                foreach (var item in cacheItemsToInvalidate) {
+                foreach (var item in dependency.Produces.ToArray()) {
                     // Remove the item from its dependencies
-                    foreach (var dep in item.Dependencies) {
+                    foreach (var dep in item.Dependencies.ToArray()) {
                         dep.Produces.Remove(item);
 
                         // Check if we need to track the dependency at all anymore
@@ -211,7 +209,6 @@
                     // Clear dependency tracking data (new version might be different)
                     _cacheItems.Remove(item.PhysicalPath);
 
-                    // TODO: Locking around cache access?
                     _cache.Invalidate(item.PhysicalPath);
                 }
             } finally {
@@ -242,6 +239,10 @@
                         }
                     }
                     _cacheLocks = null;
+                }
+                if (_cacheAccountingLock != null) {
+                    _cacheAccountingLock.Dispose();
+                    _cacheAccountingLock = null;
                 }
             }
         }
