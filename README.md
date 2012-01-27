@@ -63,7 +63,7 @@ Don't worry, both IIS and SassAndCoffee watch your source files for changes and 
 SassAndCoffee offloads compression to IIS. To enable compression, install IIS's compression features.
 
 ## How does it work?
-SassAndCoffee embeds the original compilers in the DLL (Sass 3.2.0 and CoffeeScript 1.1.3
+SassAndCoffee embeds the original compilers in the DLL (Sass 3.1.12 and CoffeeScript 1.2.0
 as of this writing) and uses IronRuby and JScript respectively to execute the
 compilers against your source.
 

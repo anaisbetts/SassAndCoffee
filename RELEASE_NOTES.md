@@ -2,9 +2,21 @@
 ## v2.1.0
 Bring back in-memory and file-backed caching.  This time with FileSystemWatcher based cache invalidation.
 
+### Breaking Changes
+* New cache invalidation logic requires NTFS to work reliably.
+* Disk caching (enabled by default) requires write access to the App_Data (or otherwise configured) folder.
+* Cache implementations assume that disk paths and URLs are case insensitive.
+* [Breaking Sass changes] [http://sass-lang.com/docs/yardoc/file.SASS_CHANGELOG.html] (3.1.8-3.1.12)
+
+### Core Changes
+* Update Sass to version 3.1.12 (yes, it's newer, previous documentation was incorrect)
+* Update CoffeeScript to version 1.2.0
+
 ### Enhancements
-* In-Memory Caching
-* File backed Caching
+* In-Memory Cache
+* File-Backed Cache
+* Support minification of standard CSS files with .min.css
+
 
 ## v2.0.2
 This minor release fixed NuGet packaging issues.
