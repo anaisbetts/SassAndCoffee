@@ -26,7 +26,6 @@
                 // Prefer Chakra
                 _jsEngine = new ChakraJavaScriptEngine() as IActiveScript;
             } catch {
-                // TODO: Make catch more specific
                 _jsEngine = null;
             }
 
@@ -67,10 +66,6 @@
             }
 
             ThrowError();
-
-            // TODO: This is a hack, but I'm not sure how else to test for invalid statements
-            //if (result == "this;")
-            //    throw new ArgumentException(string.Format("{0}('{1}'); is not valid JavaScript.", function, input));
 
             return result;
         }

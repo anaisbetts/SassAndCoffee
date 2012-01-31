@@ -1,9 +1,9 @@
 ﻿namespace SassAndCoffee.AspNet {
     using System;
+    using System.Configuration;
     using System.IO;
     using System.Web;
     using SassAndCoffee.Core;
-    using System.Configuration;
 
     /// <summary>
     /// An HttpModule that will conditionally handle requests for files with certain extensions.
@@ -35,7 +35,7 @@
         /// <param name="context">An <see cref="T:System.Web.HttpApplication"/> that provides access to
         /// the methods, properties, and events common to all application objects within an ASP.NET application</param>
         public void Init(HttpApplication context) {
-            // TODO: This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
+            // This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
             // TODO: This technically makes two caches if the user enables both CoffeeScript and Sass/SCSS
             _cache = GetCacheFromSettings();
             _cache.Initialize();

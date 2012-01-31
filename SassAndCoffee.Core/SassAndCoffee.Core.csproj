@@ -85,7 +85,6 @@
     <Compile Include="Pipeline\IContentCache.cs" />
     <Compile Include="Pipeline\IContentPipeline.cs" />
     <Compile Include="Pipeline\IContentTransform.cs" />
-    <Compile Include="Legacy\Caching\FileCache.cs" />
     <Compile Include="Legacy\Caching\InMemoryCache.cs" />
     <Compile Include="Legacy\Caching\ICompiledCache.cs" />
     <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />

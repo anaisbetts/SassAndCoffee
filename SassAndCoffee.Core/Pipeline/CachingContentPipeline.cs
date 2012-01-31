@@ -57,7 +57,7 @@
                 _cacheAccountingLock.EnterReadLock();
                 cacheItemLock.EnterReadLock();
 
-                // TODO: Cache 404s too.
+                // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
                 if (!_cache.TryGet(resource, out result) || result == null) {
                     // Not found.  Enter in upgradable mode
                     try {

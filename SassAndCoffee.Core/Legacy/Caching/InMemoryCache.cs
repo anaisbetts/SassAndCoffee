@@ -1,15 +1,12 @@
-namespace SassAndCoffee.Core.Caching
-{
+namespace SassAndCoffee.Core.Caching {
     using System;
     using System.Collections.Generic;
 
-    public class InMemoryCache : ICompiledCache
-    {
+    public class InMemoryCache : ICompiledCache {
         readonly MemoizingMRUCache<string, object> _cache;
         readonly Dictionary<string, Func<string, object>> _delegateIndex = new Dictionary<string, Func<string, object>>();
 
-        public InMemoryCache()
-        {
+        public InMemoryCache() {
             _cache = new MemoizingMRUCache<string, object>((file, _) => {
                 Func<string, object> compiler = null;
                 lock (_delegateIndex) {
@@ -20,8 +17,7 @@ namespace SassAndCoffee.Core.Caching
             }, 50);
         }
 
-        public object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType)
-        {
+        public object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType) {
             lock (_delegateIndex) {
                 _delegateIndex[filename] = compilationDelegate;
             }
@@ -29,9 +25,8 @@ namespace SassAndCoffee.Core.Caching
             return _cache.Get(filename);
         }
 
-        public void Clear()
-        {
-            lock(_delegateIndex) { _delegateIndex.Clear(); }
+        public void Clear() {
+            lock (_delegateIndex) { _delegateIndex.Clear(); }
             _cache.InvalidateAll();
         }
     }
