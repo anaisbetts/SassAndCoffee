@@ -40,15 +40,13 @@
 
         string compileInput(string filename, string input) {
             var fixture = new SassCompiler();
+            fixture.Initialize();
 
             using (var of = File.CreateText(filename)) {
                 of.WriteLine(input);
             }
 
             try {
-
-                // TODO: Fix this
-                //     fixture.Init(TODO);
                 string result = fixture.Compile(filename, true, null);
                 Console.WriteLine(result);
                 return result;
