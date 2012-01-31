@@ -2,6 +2,11 @@
     using System;
     using System.Collections.Concurrent;
 
+    /// <summary>
+    /// A simple pool that scales to always meet demand and retains a single instance when idle.
+    /// </summary>
+    /// <typeparam name="T">The type to pool.</typeparam>
+    /// <typeparam name="TProxy">The type of the proxy.</typeparam>
     public class Pool<T, TProxy> : IInstanceProvider<T>, IDisposable
         where T : IDisposable
         where TProxy : T, IProxy<T>, new() {
@@ -9,7 +14,6 @@
         private Func<T> _createPoolItem;
         private ConcurrentQueue<T> _pool = new ConcurrentQueue<T>();
         private bool _disposed = false;
-        private object _lock = new object();
 
         public Pool(Func<T> createInstance) {
             _createPoolItem = createInstance;
@@ -18,7 +22,7 @@
         public Pool(IInstanceProvider<T> provider)
             : this(provider.GetInstance) { }
 
-        public T GetInstance() {
+        public virtual T GetInstance() {
             T poolItem;
 
             if (!_pool.TryDequeue(out poolItem)) {
@@ -31,14 +35,14 @@
             };
         }
 
-        private bool ReturnToPool(T poolItem) {
+        private bool ReturnToPool(IProxy<T> proxy) {
             // Depopulate a disposed pool
-            if (_disposed)
+            if (_disposed || proxy == null || !proxy.ReturnToPool)
                 return true;
 
             // Repopulate an empty pool
             if (_pool.IsEmpty) {
-                _pool.Enqueue(poolItem);
+                _pool.Enqueue(proxy.WrappedItem);
                 return false;
             }
 
