@@ -7,6 +7,7 @@
     public class SassCompilerContentTransform : ContentTransformBase {
         public const string MimeType = "text/css";
         public const string CompressedStateKey = "Sass_Compressed";
+        public const int MaxCompileAttempts = 5;
 
         private Pool<ISassCompiler, SassCompilerProxy> _compilerPool =
             new Pool<ISassCompiler, SassCompilerProxy>(CreateAndInitializeSassCompiler);
@@ -32,8 +33,23 @@
 
             string result = null;
             var accessedFiles = new List<string>();
-            using (var compiler = _compilerPool.GetInstance()) {
-                result = compiler.Compile(fileSource, state.Items.ContainsKey(CompressedStateKey), accessedFiles);
+            for (int i = 0; i < MaxCompileAttempts; ++i) {
+                using (var compiler = _compilerPool.GetInstance()) {
+                    try {
+                        result = compiler.Compile(fileSource, state.Items.ContainsKey(CompressedStateKey), accessedFiles);
+                        break;
+                    } catch (SassSyntaxException) {
+                        // We want these to bubble up so users can fix them.
+                        throw;
+                    } catch {
+                        /* This really sucks, but the IronRuby engine fails often in multiple ways. There's nothing more specific
+                         * we can catch here. On last try send it up for debugging - can't work around it. Do it this way (rather
+                         * than tracking last exception and throwing outside loop) to preserve context.
+                         */
+                        if (i == MaxCompileAttempts - 1)
+                            throw;
+                    }
+                }
             }
 
             if (result != null) {
@@ -50,7 +66,7 @@
             var compiler = new SassCompiler();
             bool initialized = false;
             lock (_compilerInitializationLock) {
-                while(!initialized) {
+                while (!initialized) {
                     try {
                         compiler.Initialize();
                         initialized = true;
