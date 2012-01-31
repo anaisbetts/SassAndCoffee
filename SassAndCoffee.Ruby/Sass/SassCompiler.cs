@@ -62,26 +62,18 @@
                 }
             } catch (Exception e) {
                 // Provide more information for SassSyntaxErrors
-                if (e.Message == "Sass::SyntaxError") {
-                    dynamic error = e;
-                    StringBuilder sb = new StringBuilder();
-                    sb.AppendFormat("{0}\n\n", error.to_s())
-                      .AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "")
-                      .AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? pathInfo.FullName)
-                      .AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "")
-                      .AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "")
-                      .AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
-                    throw new Exception(sb.ToString(), e);
-                } else {
-                    var rubyEx = RubyExceptionData.GetInstance(e);
-                    StringBuilder sb = new StringBuilder();
-                    sb.AppendFormat("{0}\n\n", rubyEx.Message)
-                      .AppendFormat("Backtrace:\n");
-                    foreach (var frame in rubyEx.Backtrace) {
-                        sb.AppendFormat("  {0}\n", frame);
-                    }
-                    throw new Exception(sb.ToString(), e);
+                if (SassSyntaxException.IsSassSyntaxError(e)) {
+                    throw SassSyntaxException.FromSassSyntaxError(e, pathInfo.FullName);
                 }
+
+                var rubyEx = RubyExceptionData.GetInstance(e);
+                StringBuilder sb = new StringBuilder();
+                sb.AppendFormat("{0}\n\n", rubyEx.Message)
+                  .AppendFormat("Backtrace:\n");
+                foreach (var frame in rubyEx.Backtrace) {
+                    sb.AppendFormat("  {0}\n", frame);
+                }
+                throw new Exception(sb.ToString(), e);
             } finally {
                 _pal.OnOpenInputFileStream = null;
             }
@@ -107,7 +99,7 @@
 
                 var source = _engine.CreateScriptSourceFromString(
                     Utility.ResourceAsString("lib.sass_in_one.rb", typeof(SassCompiler)),
-                    SourceCodeKind.File);
+                    SourceCodeKind.Statements).Compile();
                 _scope = _engine.CreateScope();
                 source.Execute(_scope);
 
