@@ -1,10 +1,11 @@
 ﻿namespace SassAndCoffee.JavaScript {
     using System;
+    using System.Collections.Generic;
     using SassAndCoffee.Core;
 
     public abstract class JavaScriptCompilerBase : IJavaScriptCompiler {
 
-        public abstract string CompilerLibraryResourceName { get; }
+        public abstract IEnumerable<string> CompilerLibraryResourceNames { get; }
         public abstract string CompilationFunctionName { get; }
 
         private IInstanceProvider<IJavaScriptRuntime> _jsRuntimeProvider;
@@ -39,7 +40,9 @@
             if (!_initialized) {
                 _js = _jsRuntimeProvider.GetInstance();
                 _js.Initialize();
-                _js.LoadLibrary(Utility.ResourceAsString(CompilerLibraryResourceName, this.GetType()));
+                foreach (var library in CompilerLibraryResourceNames) {
+                    _js.LoadLibrary(Utility.ResourceAsString(library, this.GetType()));
+                }
                 _initialized = true;
             }
         }

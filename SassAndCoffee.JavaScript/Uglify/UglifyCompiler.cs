@@ -1,9 +1,20 @@
 ﻿namespace SassAndCoffee.JavaScript.Uglify {
+    using System.Collections.Generic;
     using SassAndCoffee.Core;
 
     public class UglifyCompiler : JavaScriptCompilerBase {
-        public override string CompilerLibraryResourceName {
-            get { return "uglify.js"; }
+        private readonly static string[] _libs = new string[] {
+            "lib.underscore.js",
+            "lib.require.js",
+            "lib.parse-js.js",
+            "lib.process.js",
+            "lib.squeeze-more.js",
+            "lib.uglify-js.js",
+            "lib.compile.js",
+        };
+
+        public override IEnumerable<string> CompilerLibraryResourceNames {
+            get { return _libs; }
         }
 
         public override string CompilationFunctionName {

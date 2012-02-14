@@ -1,9 +1,15 @@
 ﻿namespace SassAndCoffee.JavaScript.CoffeeScript {
+    using System.Collections.Generic;
     using SassAndCoffee.Core;
 
     public class CoffeeScriptCompiler : JavaScriptCompilerBase {
-        public override string CompilerLibraryResourceName {
-            get { return "coffee-script.js"; }
+        private readonly static string[] _libs = new string[] {
+            "lib.coffee-script.js",
+            "lib.compile.js",
+        };
+
+        public override IEnumerable<string> CompilerLibraryResourceNames {
+            get { return _libs; }
         }
 
         public override string CompilationFunctionName {

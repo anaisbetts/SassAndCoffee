@@ -93,11 +93,25 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Uglify\uglify.js" />
-    <EmbeddedResource Include="CoffeeScript\coffee-script.js" />
+    <EmbeddedResource Include="CoffeeScript\lib\coffee-script.js" />
     <None Include="JavaScriptEngines\Notes.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SassAndCoffee.JavaScript.nuspec" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Uglify\lib\underscore.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Uglify\lib\parse-js.js" />
+    <EmbeddedResource Include="Uglify\lib\process.js" />
+    <EmbeddedResource Include="Uglify\lib\require.js" />
+    <EmbeddedResource Include="Uglify\lib\squeeze-more.js" />
+    <EmbeddedResource Include="Uglify\lib\uglify-js.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="CoffeeScript\lib\compile.js" />
+    <EmbeddedResource Include="Uglify\lib\compile.js" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
