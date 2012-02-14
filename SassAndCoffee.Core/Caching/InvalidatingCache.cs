@@ -6,33 +6,20 @@
     using System.Linq;
     using System.Threading;
 
-    /// <summary>
-    /// Caches results content results using the provided cache implementation.
-    /// </summary>
-    public class CachingContentPipeline : IContentPipeline {
+    public class InvalidatingCache : IContentCache {
         private CacheInvalidationWatcher _watcher = new CacheInvalidationWatcher();
-        private IContentPipeline _innerPipeline;
-        private IContentCache _cache;
+        private IPersistentMedium _storage;
 
-        private ReaderWriterLockSlim _cacheAccountingLock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim _cacheAccountingLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         private Dictionary<string, CacheItem> _cacheItems =
             new Dictionary<string, CacheItem>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, CacheDependency> _cacheDependencies =
             new Dictionary<string, CacheDependency>(StringComparer.OrdinalIgnoreCase);
-
         private ConcurrentDictionary<string, ReaderWriterLockSlim> _cacheLocks =
             new ConcurrentDictionary<string, ReaderWriterLockSlim>(StringComparer.OrdinalIgnoreCase);
 
-        public IList<IContentTransform> Transformations { get { return _innerPipeline.Transformations; } }
-
-        public CachingContentPipeline(IContentCache cache, params IContentTransform[] transformations)
-            : this(cache, (IEnumerable<IContentTransform>)transformations) { }
-
-        public CachingContentPipeline(IContentCache cache, IEnumerable<IContentTransform> transformations) {
-            _cache = cache;
-
-            _innerPipeline = new ContentPipeline(transformations);
-
+        public InvalidatingCache(IPersistentMedium storage) {
+            _storage = storage;
             _watcher.Changed += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
             _watcher.Created += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
             _watcher.Deleted += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
@@ -40,9 +27,10 @@
             _watcher.Renamed += new RenamedEventHandler(OnInvalidationRenamed);
         }
 
-        public ContentResult ProcessRequest(string physicalPath) {
-            var resource = new FileInfo(physicalPath).FullName;
-            ContentResult result = null;
+        public ContentResult GetOrAdd(string key, Func<string, ContentResult> generator) {
+            // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
+
+            CachedContentResult result = null;
 
             /* Cache implementations are not required to be thread safe for writes.
              * Reads while not writing are safe on a per-item level. Enforcing safe
@@ -51,29 +39,28 @@
              */
 
             // Try to get the lock for this item
-            ReaderWriterLockSlim cacheItemLock = GetCacheLockForResource(resource);
+            ReaderWriterLockSlim cacheItemLock = GetCacheLockForResource(key);
 
             try {
                 _cacheAccountingLock.EnterReadLock();
                 cacheItemLock.EnterReadLock();
-
-                // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
-                if (!_cache.TryGet(resource, out result) || result == null) {
+                result = _storage.TryGet(key);
+                if (result == null) {
                     // Not found.  Enter in upgradable mode
                     try {
                         cacheItemLock.ExitReadLock();
                         cacheItemLock.EnterUpgradeableReadLock();
-
-                        if (!_cache.TryGet(resource, out result) || result == null) {
+                        result = _storage.TryGet(key);
+                        if (result == null) {
                             // Still not found. Now we really have to make it.
                             try {
+                                _cacheAccountingLock.ExitReadLock();
                                 cacheItemLock.EnterWriteLock();
-
-                                // TODO: Do deep caching of compiled dependencies (for javascript includes in combine files, etc)
-                                result = _innerPipeline.ProcessRequest(resource);
-
-                                if (result != null) {
-                                    SaveCacheItem(resource, result);
+                                var content = generator(key);
+                                if (content != null) {
+                                    result = CachedContentResult.FromContentResult(content);
+                                    result.ComputeHashes();
+                                    SaveCacheItem(key, result);
                                 }
                             } finally {
                                 if (cacheItemLock.IsWriteLockHeld) cacheItemLock.ExitWriteLock();
@@ -91,7 +78,7 @@
             // Prevent denial of service by only saving locks for resources that exist (finite)
             if (result == null) {
                 ReaderWriterLockSlim toDispose = null;
-                if (_cacheLocks.TryRemove(resource, out toDispose)) {
+                if (_cacheLocks.TryRemove(key, out toDispose)) {
                     toDispose.Dispose();
                 }
             }
@@ -124,18 +111,6 @@
             return cacheItemLock;
         }
 
-        private void OnInvalidationError(object sender, ErrorEventArgs e) {
-            // Interesting for debugging, no useful action to take though.  Maybe clear whole cache if this happens?
-        }
-
-        private void OnInvalidationRenamed(object sender, RenamedEventArgs e) {
-            EvictCacheItemsByDependency(e.OldFullPath);
-        }
-
-        private void OnInvalidationChangedCreatedRenamedOrDeleted(object sender, FileSystemEventArgs e) {
-            EvictCacheItemsByDependency(e.FullPath);
-        }
-
         /// <summary>
         /// Saves the cache item.
         /// You MUST have a write lock on the cache item before calling this method.
@@ -144,12 +119,11 @@
         /// </summary>
         /// <param name="resource">The resource to cache.</param>
         /// <param name="result">The result to cache.</param>
-        private void SaveCacheItem(string resource, ContentResult result) {
-            if (!_cacheAccountingLock.IsReadLockHeld)
-                throw new InvalidOperationException("You must hold a read lock on the cacheAccountingLock before calling this method.");
+        private void SaveCacheItem(string resource, CachedContentResult result) {
+            if (_cacheAccountingLock.IsReadLockHeld)
+                throw new InvalidOperationException("You must release any read lock on the cacheAccountingLock before calling this method.");
 
             try {
-                _cacheAccountingLock.ExitReadLock();
                 _cacheAccountingLock.EnterWriteLock();
 
                 var cacheItem = new CacheItem(resource);
@@ -175,17 +149,31 @@
                     // Add dependency link
                     cacheItem.Dependencies.UnionWith(new CacheDependency[] { dependency });
                 }
-                _cache.Set(resource, result);
-
-                _cacheAccountingLock.ExitWriteLock();
-                _cacheAccountingLock.EnterReadLock();
             } finally {
                 if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
-                if (!_cacheAccountingLock.IsReadLockHeld) _cacheAccountingLock.EnterReadLock();
             }
+            // Do this under item lock to ensure single writer per item
+            // Do it outside of accounting lock to enable multiple concurrent items to be written simultaneously.
+            _storage.Set(resource, result);
+        }
+
+        private void OnInvalidationError(object sender, ErrorEventArgs e) {
+            // Interesting for debugging, no useful action to take though.  Maybe clear whole cache if this happens?
+        }
+
+        private void OnInvalidationRenamed(object sender, RenamedEventArgs e) {
+            EvictCacheItemsByDependency(e.OldFullPath);
+        }
+
+        private void OnInvalidationChangedCreatedRenamedOrDeleted(object sender, FileSystemEventArgs e) {
+            EvictCacheItemsByDependency(e.FullPath);
         }
 
         private void EvictCacheItemsByDependency(string dependencyPath) {
+            /* TODO: There exists a race condition when a file is changed at the same time it's used in generation.
+             * This can be solved by tracking the absolute timing of file changes and generations.
+             */
+
             try {
                 _cacheAccountingLock.EnterWriteLock();
 
@@ -209,7 +197,7 @@
                     // Clear dependency tracking data (new version might be different)
                     _cacheItems.Remove(item.PhysicalPath);
 
-                    _cache.Invalidate(item.PhysicalPath);
+                    _storage.Remove(item.PhysicalPath);
                 }
             } finally {
                 if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
@@ -223,10 +211,6 @@
 
         protected virtual void Dispose(bool disposing) {
             if (disposing) {
-                if (_innerPipeline != null) {
-                    _innerPipeline.Dispose();
-                    _innerPipeline = null;
-                }
                 if (_watcher != null) {
                     _watcher.Dispose();
                     _watcher = null;
@@ -243,6 +227,10 @@
                 if (_cacheAccountingLock != null) {
                     _cacheAccountingLock.Dispose();
                     _cacheAccountingLock = null;
+                }
+                if (_storage != null) {
+                    _storage.Dispose();
+                    _storage = null;
                 }
             }
         }

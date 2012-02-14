@@ -12,6 +12,7 @@
         public const string SassAndCoffeeCacheTypeKey = "SassAndCoffee.Cache";
         public const string SassAndCoffeeCachePathKey = "SassAndCoffee.Cache.Path";
         public const string AppDataSpecialKey = "%DataDirectory%";
+        public const string HttpApplicationStateCacheKey = "SassAndCoffeeCache";
 
         private IContentCache _cache;
         private IContentPipeline _pipeline;
@@ -36,10 +37,18 @@
         /// the methods, properties, and events common to all application objects within an ASP.NET application</param>
         public void Init(HttpApplication context) {
             // This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
-            // TODO: This technically makes two caches if the user enables both CoffeeScript and Sass/SCSS
-            _cache = GetCacheFromSettings();
-            _cache.Initialize();
-            _pipeline = new CachingContentPipeline(_cache, _transformations);
+
+            IContentCache cache = context.Application[HttpApplicationStateCacheKey] as IContentCache;
+            if (cache == null) {
+                try {
+                    context.Application.Lock();
+                    context.Application[HttpApplicationStateCacheKey] = cache = GetCacheFromSettings();
+                } finally { 
+                    context.Application.UnLock(); 
+                }
+            }
+            _cache = cache;
+            _pipeline = new ContentPipeline(_cache, _transformations);
             _handler = new PipelineHandler(_pipeline);
 
             context.PostResolveRequestCache += ConditionallyRemapHandler;
@@ -68,9 +77,10 @@
         /// </summary>
         protected virtual IContentCache GetCacheFromSettings() {
             var cacheSetting = ConfigurationManager.AppSettings[SassAndCoffeeCacheTypeKey];
-            if (cacheSetting == "Memory") {
-                return new InMemoryCache();
-            } else if (cacheSetting == "File") {
+            IPersistentMedium medium = null;
+            if (cacheSetting.Equals("Memory", StringComparison.OrdinalIgnoreCase)) {
+                medium = new InMemoryMedium();
+            } else if (cacheSetting.Equals("File", StringComparison.OrdinalIgnoreCase)) {
                 var path = ConfigurationManager.AppSettings[SassAndCoffeeCachePathKey];
                 if (path.StartsWith(AppDataSpecialKey)) {
                     path = path.Substring(AppDataSpecialKey.Length);
@@ -79,8 +89,15 @@
                         AppDomain.CurrentDomain.GetData("DataDirectory").ToString(),
                         path);
                 }
-                return new FileCache(path);
-            } else return new NoCache();
+                medium = new FileMedium(path);
+            }
+
+            if(medium == null) {
+                return null;
+            }else {
+                medium.Initialize();
+                return new InvalidatingCache(medium);
+            }
         }
 
         /// <summary>

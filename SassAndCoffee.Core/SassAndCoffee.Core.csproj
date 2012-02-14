@@ -70,19 +70,21 @@
     <Compile Include="..\CommonAssemblyInfo.cs">
       <Link>Properties\CommonAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="Caching\CachedContentResult.cs" />
+    <Compile Include="Caching\InvalidatingCache.cs" />
     <Compile Include="Caching\CacheDependency.cs" />
     <Compile Include="Caching\CacheItem.cs" />
-    <Compile Include="Caching\FileCache.cs" />
+    <Compile Include="Caching\FileMedium.cs" />
     <Compile Include="Caching\CacheInvalidationWatcher.cs" />
-    <Compile Include="Caching\InMemoryCache.cs" />
+    <Compile Include="Caching\InMemoryMedium.cs" />
+    <Compile Include="Caching\IPersistentMedium.cs" />
     <Compile Include="Caching\NoCache.cs" />
-    <Compile Include="Pipeline\CachingContentPipeline.cs" />
     <Compile Include="Pipeline\ContentPipeline.cs" />
     <Compile Include="Pipeline\ContentResult.cs" />
     <Compile Include="Pipeline\ContentTransformBase.cs" />
     <Compile Include="Pipeline\ContentTransformState.cs" />
     <Compile Include="Pipeline\FileSourceContentTransform.cs" />
-    <Compile Include="Pipeline\IContentCache.cs" />
+    <Compile Include="Caching\IContentCache.cs" />
     <Compile Include="Pipeline\IContentPipeline.cs" />
     <Compile Include="Pipeline\IContentTransform.cs" />
     <Compile Include="Legacy\Caching\InMemoryCache.cs" />

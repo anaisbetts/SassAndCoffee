@@ -65,8 +65,9 @@
             }
         }
 
-        public void UnWatch() {
+        public void UnWatch(string path, string filter) {
             // TODO: Support this?
+            throw new NotImplementedException();
         }
 
         private void HandleDisposed(object sender, EventArgs e) {
