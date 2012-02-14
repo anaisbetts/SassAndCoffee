@@ -1,4 +1,4 @@
-﻿#BEGIN ./sass.rb (Included by )
+#BEGIN ./sass.rb (Included by )
 #dir = File.dirname(__FILE__)
 #$LOAD_PATH.unshift dir unless $LOAD_PATH.include?(dir)
 
@@ -16,7 +16,6 @@ SASS_BEGUN_TO_LOAD = true unless defined?(SASS_BEGUN_TO_LOAD)
 require 'set'
 require 'enumerator'
 require 'stringio'
-require 'strscan'
 require 'rbconfig'
 
 #require 'sass/root'
@@ -121,7 +120,7 @@ module Sass
     end
   end
 end
-#END ./sass/util/subset_map.rb(Included by ./sass/util.rb)
+#END ./sass/util/subset_map.rb (Included by ./sass/util.rb)
 
 module Sass
   # A module containing various useful functions.
@@ -332,6 +331,20 @@ module Sass
       y = [nil, *y]
       block ||= proc {|a, b| a == b && a}
       lcs_backtrace(lcs_table(x, y, &block), x, y, x.size-1, y.size-1, &block)
+    end
+
+    # Converts a Hash to an Array. This is usually identical to `Hash#to_a`,
+    # with the following exceptions:
+    #
+    # * In Ruby 1.8, `Hash#to_a` is not deterministically ordered, but this is.
+    # * In Ruby 1.9 when running tests, this is ordered in the same way it would
+    #   be under Ruby 1.8 (sorted key order rather than insertion order).
+    #
+    # @param hash [Hash]
+    # @return [Array]
+    def hash_to_a(hash)
+      return hash.to_a unless ruby1_8? || defined?(Test::Unit)
+      return hash.sort_by {|k, v| k}
     end
 
     # Returns information about the caller of the previous method.
@@ -677,6 +690,24 @@ MSG
       ruby1_8? ? enum.enum_slice(n) : enum.each_slice(n)
     end
 
+    # Destructively removes all elements from an array that match a block, and
+    # returns the removed elements.
+    #
+    # @param array [Array] The array from which to remove elements.
+    # @yield [el] Called for each element.
+    # @yieldparam el [*] The element to test.
+    # @yieldreturn [Boolean] Whether or not to extract the element.
+    # @return [Array] The extracted elements.
+    def extract!(array)
+      out = []
+      array.reject! do |e|
+        next false unless yield e
+        out << e
+        true
+      end
+      out
+    end
+
     # Returns the ASCII code of the given character.
     #
     # @param c [String] All characters but the first are ignored.
@@ -834,7 +865,144 @@ MSG
     end
   end
 end
-#END ./sass/util.rb(Included by ./sass/version.rb)
+
+#BEGIN ./sass/util/multibyte_string_scanner.rb (Included by ./sass/util.rb)
+require 'strscan'
+
+if Sass::Util.ruby1_8?
+  Sass::Util::MultibyteStringScanner = StringScanner
+else
+  # A wrapper of the native StringScanner class that works correctly with
+  # multibyte character encodings. The native class deals only in bytes, not
+  # characters, for methods like [#pos] and [#matched_size]. This class deals
+  # only in characters, instead.
+  class Sass::Util::MultibyteStringScanner < StringScanner
+    def self.new(str)
+      return StringScanner.new(str) if str.ascii_only?
+      super
+    end
+
+    def initialize(str)
+      super
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+    end
+
+    alias_method :byte_pos, :pos
+    alias_method :byte_matched_size, :matched_size
+
+    def check(pattern); _match super; end
+    def check_until(pattern); _matched super; end
+    def getch; _forward _match super; end
+    def match?(pattern); _size check(pattern); end
+    def matched_size; @mb_matched_size; end
+    def peek(len); string[@mb_pos, len]; end
+    alias_method :peep, :peek
+    def pos; @mb_pos; end
+    alias_method :pointer, :pos
+    def rest_size; rest.size; end
+    def scan(pattern); _forward _match super; end
+    def scan_until(pattern); _forward _matched super; end
+    def skip(pattern); _size scan(pattern); end
+    def skip_until(pattern); _matched _size scan_until(pattern); end
+
+    def get_byte
+      raise "MultibyteStringScanner doesn't support #get_byte."
+    end
+
+    def getbyte
+      raise "MultibyteStringScanner doesn't support #getbyte."
+    end
+
+    def pos=(n)
+      @mb_last_pos = nil
+
+      # We set position kind of a lot during parsing, so we want it to be as
+      # efficient as possible. This is complicated by the fact that UTF-8 is a
+      # variable-length encoding, so it's difficult to find the byte length that
+      # corresponds to a given character length.
+      #
+      # Our heuristic here is to try to count the fewest possible characters. So
+      # if the new position is close to the current one, just count the
+      # characters between the two; if the new position is closer to the
+      # beginning of the string, just count the characters from there.
+      if @mb_pos - n < @mb_pos / 2
+        # New position is close to old position
+        byte_delta = @mb_pos > n ? -string[n...@mb_pos].bytesize : string[@mb_pos...n].bytesize
+        super(byte_pos + byte_delta)
+      else
+        # New position is close to BOS
+        super(string[0...n].bytesize)
+      end
+      @mb_pos = n
+    end
+
+    def reset
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+
+    def scan_full(pattern, advance_pointer_p, return_string_p)
+      res = _match super(pattern, advance_pointer_p, true)
+      _forward res if advance_pointer_p
+      return res if return_string_p
+    end
+
+    def search_full(pattern, advance_pointer_p, return_string_p)
+      res = super(pattern, advance_pointer_p, true)
+      _forward res if advance_pointer_p
+      _matched((res if return_string_p))
+    end
+
+    def string=(str)
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+
+    def terminate
+      @mb_pos = string.size
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+    alias_method :clear, :terminate
+
+    def unscan
+      super
+      @mb_pos = @mb_last_pos
+      @mb_last_pos = @mb_matched_size = nil
+    end
+
+    private
+
+    def _size(str)
+      str && str.size
+    end
+
+    def _match(str)
+      @mb_matched_size = str && str.size
+      str
+    end
+
+    def _matched(res)
+      _match matched
+      res
+    end
+
+    def _forward(str)
+      @mb_last_pos = @mb_pos
+      @mb_pos += str.size if str
+      str
+    end
+  end
+end
+#END ./sass/util/multibyte_string_scanner.rb (Included by ./sass/util.rb)
+#END ./sass/util.rb (Included by ./sass/version.rb)
 
 module Sass
   # Handles Sass version-reporting.
@@ -878,7 +1046,7 @@ module Sass
     def version
       return @@version if defined?(@@version)
 
-      numbers = "3.1.12".strip.split('.').
+      numbers = "3.1.15".strip.split('.').
         map {|n| n =~ /^[0-9]+$/ ? n.to_i : n}
       name = "Brainy Betty".strip
       @@version = {
@@ -943,7 +1111,7 @@ module Sass
   # @api public
   VERSION = version[:string] unless defined?(Sass::VERSION)
 end
-#END ./sass/version.rb(Included by ./sass.rb)
+#END ./sass/version.rb (Included by ./sass.rb)
 
 # The module that contains everything Sass-related:
 #
@@ -1057,7 +1225,7 @@ module Sass
     end
   end
 end
-#END ./sass/logger/log_level.rb(Included by ./sass/logger.rb)
+#END ./sass/logger/log_level.rb (Included by ./sass/logger.rb)
 #BEGIN ./sass/logger/base.rb (Included by ./sass/logger.rb)
 
 class Sass::Logger::Base
@@ -1090,7 +1258,7 @@ class Sass::Logger::Base
   end
 
 end
-#END ./sass/logger/base.rb(Included by ./sass/logger.rb)
+#END ./sass/logger/base.rb (Included by ./sass/logger.rb)
 
 module Sass
 
@@ -1100,7 +1268,7 @@ module Sass
 
   self.logger = Sass::Logger::Base.new
 end
-#END ./sass/logger.rb(Included by ./sass.rb)
+#END ./sass/logger.rb (Included by ./sass.rb)
 
 #BEGIN ./sass/engine.rb (Included by ./sass.rb)
 require 'digest/sha1'
@@ -1202,7 +1370,7 @@ module Sass
     end
   end
 end
-#END ./sass/cache_stores/base.rb(Included by ./sass/cache_stores.rb)
+#END ./sass/cache_stores/base.rb (Included by ./sass/cache_stores.rb)
 #BEGIN ./sass/cache_stores/filesystem.rb (Included by ./sass/cache_stores.rb)
 require 'fileutils'
 
@@ -1259,12 +1427,13 @@ module Sass
       # @param key [String]
       # @return [String] The path to the cache file.
       def path_to(key)
+        key = key.gsub(/[<>:\\|?*%]/) {|c| "%%%03d" % Sass::Util.ord(c)}
         File.join(cache_location, key)
       end
     end
   end
 end
-#END ./sass/cache_stores/filesystem.rb(Included by ./sass/cache_stores.rb)
+#END ./sass/cache_stores/filesystem.rb (Included by ./sass/cache_stores.rb)
 #BEGIN ./sass/cache_stores/memory.rb (Included by ./sass/cache_stores.rb)
 module Sass
   module CacheStores
@@ -1313,7 +1482,7 @@ module Sass
     end
   end
 end
-#END ./sass/cache_stores/memory.rb(Included by ./sass/cache_stores.rb)
+#END ./sass/cache_stores/memory.rb (Included by ./sass/cache_stores.rb)
 #BEGIN ./sass/cache_stores/chain.rb (Included by ./sass/cache_stores.rb)
 module Sass
   module CacheStores
@@ -1348,8 +1517,8 @@ module Sass
     end
   end
 end
-#END ./sass/cache_stores/chain.rb(Included by ./sass/cache_stores.rb)
-#END ./sass/cache_stores.rb(Included by ./sass/engine.rb)
+#END ./sass/cache_stores/chain.rb (Included by ./sass/cache_stores.rb)
+#END ./sass/cache_stores.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/node.rb (Included by ./sass/engine.rb)
 module Sass
   # A namespace for nodes in the Sass parse tree.
@@ -1552,7 +1721,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/root_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -1582,7 +1751,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/root_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/root_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/rule_node.rb (Included by ./sass/engine.rb)
 require 'pathname'
 require 'uri'
@@ -1720,7 +1889,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/rule_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/rule_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/comment_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -1811,7 +1980,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/comment_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/comment_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/prop_node.rb (Included by ./sass/engine.rb)
 module Sass::Tree
   # A static node reprenting a CSS property.
@@ -1961,7 +2130,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/prop_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/prop_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/directive_node.rb (Included by ./sass/engine.rb)
 module Sass::Tree
   # A static node representing an unproccessed Sass `@`-directive.
@@ -1986,7 +2155,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/directive_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/directive_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/media_node.rb (Included by ./sass/engine.rb)
 module Sass::Tree
   # A static node representing a `@media` rule.
@@ -2020,7 +2189,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/media_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/media_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/variable_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2052,7 +2221,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/variable_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/variable_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/mixin_def_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2081,7 +2250,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/mixin_def_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/mixin_def_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/mixin_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2114,7 +2283,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/mixin_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/mixin_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/function_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2143,7 +2312,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/function_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/function_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/return_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2163,7 +2332,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/return_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/return_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/extend_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2193,7 +2362,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/extend_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/extend_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/if_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2246,7 +2415,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/if_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/if_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/while_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2265,7 +2434,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/while_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/while_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/for_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2302,7 +2471,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/for_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/for_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/each_node.rb (Included by ./sass/engine.rb)
 
 module Sass::Tree
@@ -2327,7 +2496,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/each_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/each_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/debug_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2347,7 +2516,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/debug_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/debug_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/warn_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2367,7 +2536,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/warn_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/warn_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/import_node.rb (Included by ./sass/engine.rb)
 module Sass
   module Tree
@@ -2437,7 +2606,7 @@ module Sass
     end
   end
 end
-#END ./sass/tree/import_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/import_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/charset_node.rb (Included by ./sass/engine.rb)
 module Sass::Tree
   # A static node representing an unproccessed Sass `@charset` directive.
@@ -2461,7 +2630,7 @@ module Sass::Tree
     end
   end
 end
-#END ./sass/tree/charset_node.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/charset_node.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/base.rb (Included by ./sass/engine.rb)
 # Visitors are used to traverse the Sass parse tree.
 # Visitors should extend {Visitors::Base},
@@ -2538,7 +2707,7 @@ module Sass::Tree::Visitors
     end
   end
 end
-#END ./sass/tree/visitors/base.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/base.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/perform.rb (Included by ./sass/engine.rb)
 # A visitor for converting a dynamic Sass tree into a static Sass tree.
 class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
@@ -2768,6 +2937,8 @@ END
   # Runs SassScript interpolation in the selector,
   # and then parses the result into a {Sass::Selector::CommaSequence}.
   def visit_rule(node)
+    rule = node.rule
+    rule = rule.map {|e| e.is_a?(String) && e != ' ' ? e.strip : e} if node.style == :compressed
     parser = Sass::SCSS::StaticParser.new(run_interp(node.rule), node.filename, node.line)
     node.parsed_rules ||= parser.parse_selector
     if node.options[:trace_selectors]
@@ -2812,6 +2983,15 @@ END
 
   def visit_directive(node)
     if node.value['#{']
+      if node.value =~ /^@import (?!url\()/
+        Sass::Util.sass_warn <<WARNING
+DEPRECATION WARNING on line #{node.line}#{" of #{node.filename}" if node.filename}:
+@import directives using \#{} interpolation will need to use url() in Sass 3.2.
+For example:
+
+  @import url("http://\#{$url}/style.css");
+WARNING
+      end
       node.value = run_interp(Sass::Engine.parse_interp(node.value, node.line, 0, node.options))
     end
     yield
@@ -2849,7 +3029,9 @@ END
   def handle_import_loop!(node)
     msg = "An @import loop has been found:"
     files = @environment.stack.map {|s| s[:filename]}.compact
-    raise Sass::SyntaxError.new("#{msg} #{node.filename} imports itself") if files.size == 1
+    if node.filename == node.imported_file.options[:filename]
+      raise Sass::SyntaxError.new("#{msg} #{node.filename} imports itself")
+    end
 
     files << node.filename << node.imported_file.options[:filename]
     msg << "\n" << Sass::Util.enum_cons(files, 2).map do |m1, m2|
@@ -2884,7 +3066,7 @@ MESSAGE
     end
   end
 end
-#END ./sass/tree/visitors/perform.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/perform.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/cssize.rb (Included by ./sass/engine.rb)
 # A visitor for converting a static Sass tree into a static CSS tree.
 class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
@@ -2940,12 +3122,26 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   def visit_root(node)
     yield
 
-    # In Ruby 1.9 we can make all @charset nodes invisible
-    # and infer the final @charset from the encoding of the final string.
-    if Sass::Util.ruby1_8? && parent.nil?
-      charset = node.children.find {|c| c.is_a?(Sass::Tree::CharsetNode)}
-      node.children.reject! {|c| c.is_a?(Sass::Tree::CharsetNode)}
-      node.children.unshift charset if charset
+    if parent.nil?
+      # In Ruby 1.9 we can make all @charset nodes invisible
+      # and infer the final @charset from the encoding of the final string.
+      if Sass::Util.ruby1_8?
+        charset = node.children.find {|c| c.is_a?(Sass::Tree::CharsetNode)}
+        node.children.reject! {|c| c.is_a?(Sass::Tree::CharsetNode)}
+        node.children.unshift charset if charset
+      end
+
+      imports = Sass::Util.extract!(node.children) do |c|
+        c.is_a?(Sass::Tree::DirectiveNode) && c.value =~ /^@import /i
+      end
+      charset_and_index = Sass::Util.ruby1_8? &&
+        node.children.each_with_index.find {|c, _| c.is_a?(Sass::Tree::CharsetNode)}
+      if charset_and_index
+        index = charset_and_index.last
+        node.children = node.children[0..index] + imports + node.children[index+1..-1]
+      else
+        node.children = imports + node.children
+      end
     end
 
     return node, @extends
@@ -3063,7 +3259,7 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
     rules
   end
 end
-#END ./sass/tree/visitors/cssize.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/cssize.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/convert.rb (Included by ./sass/engine.rb)
 # A visitor for converting a Sass tree into a source string.
 class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
@@ -3244,7 +3440,8 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   def visit_mixin(node)
     unless node.args.empty? && node.keywords.empty?
       args = node.args.map {|a| a.to_sass(@options)}.join(", ")
-      keywords = node.keywords.map {|k, v| "$#{dasherize(k)}: #{v.to_sass(@options)}"}.join(', ')
+      keywords = Sass::Util.hash_to_a(node.keywords).
+        map {|k, v| "$#{dasherize(k)}: #{v.to_sass(@options)}"}.join(', ')
       arglist = "(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
     end
     "#{tab_str}#{@format == :sass ? '+' : '@include '}#{dasherize(node.name)}#{arglist}#{semi}\n"
@@ -3325,7 +3522,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
     end
   end
 end
-#END ./sass/tree/visitors/convert.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/convert.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/to_css.rb (Included by ./sass/engine.rb)
 # A visitor for converting a Sass tree into CSS.
 class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
@@ -3396,8 +3593,10 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
   end
 
   def visit_directive(node)
+    was_in_directive = @in_directive
     return node.value + ";" unless node.has_children
     return node.value + " {}" if node.children.empty?
+    @in_directive = @in_directive || !node.is_a?(Sass::Tree::MediaNode)
     result = if node.style == :compressed
                "#{node.value}{"
              else
@@ -3430,6 +3629,8 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
                     else
                       (node.style == :expanded ? "\n" : " ") + "}\n"
                     end
+  ensure
+    @in_directive = was_in_directive
   end
 
   def visit_media(node)
@@ -3461,7 +3662,11 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
 
       joined_rules = node.resolved_rules.members.map do |seq|
         rule_part = seq.to_a.join
-        rule_part.gsub!(/\s*([^,])\s*\n\s*/m, '\1 ') if node.style == :compressed
+        if node.style == :compressed
+          rule_part.gsub!(/([^,])\s*\n\s*/m, '\1 ')
+          rule_part.gsub!(/\s*([,+>])\s*/m, '\1')
+          rule_part.strip!
+        end
         rule_part
       end.join(rule_separator)
 
@@ -3473,7 +3678,7 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
       old_spaces = '  ' * @tabs
       spaces = '  ' * (@tabs + 1)
       if node.style != :compressed
-        if node.options[:debug_info]
+        if node.options[:debug_info] && !@in_directive
           to_return << visit(debug_info_rule(node.debug_info, node.options)) << "\n"
         elsif node.options[:trace_selectors]
           to_return << "#{old_spaces}/* "
@@ -3519,7 +3724,7 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
 
   def debug_info_rule(debug_info, options)
     node = Sass::Tree::DirectiveNode.new("@media -sass-debug-info")
-    debug_info.map {|k, v| [k.to_s, v.to_s]}.sort.each do |k, v|
+    Sass::Util.hash_to_a(debug_info.map {|k, v| [k.to_s, v.to_s]}).each do |k, v|
       rule = Sass::Tree::RuleNode.new([""])
       rule.resolved_rules = Sass::Selector::CommaSequence.new(
         [Sass::Selector::Sequence.new(
@@ -3537,7 +3742,7 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
     node
   end
 end
-#END ./sass/tree/visitors/to_css.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/to_css.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/deep_copy.rb (Included by ./sass/engine.rb)
 # A visitor for copying the full structure of a Sass tree.
 class Sass::Tree::Visitors::DeepCopy < Sass::Tree::Visitors::Base
@@ -3626,7 +3831,7 @@ class Sass::Tree::Visitors::DeepCopy < Sass::Tree::Visitors::Base
     yield
   end
 end
-#END ./sass/tree/visitors/deep_copy.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/deep_copy.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/set_options.rb (Included by ./sass/engine.rb)
 # A visitor for setting options on the Sass tree
 class Sass::Tree::Visitors::SetOptions < Sass::Tree::Visitors::Base
@@ -3725,7 +3930,7 @@ class Sass::Tree::Visitors::SetOptions < Sass::Tree::Visitors::Base
     yield
   end
 end
-#END ./sass/tree/visitors/set_options.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/set_options.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/tree/visitors/check_nesting.rb (Included by ./sass/engine.rb)
 # A visitor for checking that all nodes are properly nested.
 class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
@@ -3860,7 +4065,7 @@ class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
   end
 end
 
-#END ./sass/tree/visitors/check_nesting.rb(Included by ./sass/engine.rb)
+#END ./sass/tree/visitors/check_nesting.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/selector.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/selector/simple.rb (Included by ./sass/selector.rb)
 module Sass
@@ -3944,7 +4149,7 @@ module Sass
         sels_with_ix = Sass::Util.enum_with_index(sels)
         _, i =
           if self.is_a?(Pseudo) || self.is_a?(SelectorPseudoClass)
-            sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) && sels.last.type == :element}
+            sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) && (sels.last.final? || sels.last.type == :element)}
           else
             sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) || sel.is_a?(SelectorPseudoClass)}
           end
@@ -3976,7 +4181,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector/simple.rb(Included by ./sass/selector.rb)
+#END ./sass/selector/simple.rb (Included by ./sass/selector.rb)
 #BEGIN ./sass/selector/abstract_sequence.rb (Included by ./sass/selector.rb)
 module Sass
   module Selector
@@ -4040,7 +4245,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector/abstract_sequence.rb(Included by ./sass/selector.rb)
+#END ./sass/selector/abstract_sequence.rb (Included by ./sass/selector.rb)
 #BEGIN ./sass/selector/comma_sequence.rb (Included by ./sass/selector.rb)
 module Sass
   module Selector
@@ -4123,7 +4328,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector/comma_sequence.rb(Included by ./sass/selector.rb)
+#END ./sass/selector/comma_sequence.rb (Included by ./sass/selector.rb)
 #BEGIN ./sass/selector/sequence.rb (Included by ./sass/selector.rb)
 module Sass
   module Selector
@@ -4261,10 +4466,11 @@ module Sass
             last_current.unshift(current.pop)
           end
           befores = Sass::Util.flatten(befores.map do |before|
-              subweave(before, current).map {|seqs| seqs + last_current}
+              next [] unless sub = subweave(before, current)
+              sub.map {|seqs| seqs + last_current}
             end, 1)
-          return befores if afters.empty?
         end
+        return befores
       end
 
       # This interweaves two lists of selectors,
@@ -4276,14 +4482,14 @@ module Sass
       # `.foo .baz .bar .bang`, `.foo .baz .bar.bang`, `.foo .baz .bang .bar`,
       # and so on until `.baz .bang .foo .bar`.
       #
-      # @overload def subweave(seq1, seq2)
       # @param seq1 [Array<SimpleSequence or String>]
       # @param seq2 [Array<SimpleSequence or String>]
       # @return [Array<Array<SimpleSequence or String>>]
-      def subweave(seq1, seq2, cache = {})
+      def subweave(seq1, seq2)
         return [seq2] if seq1.empty?
         return [seq1] if seq2.empty?
 
+        return unless init = merge_initial_ops(seq1, seq2)
         seq1 = group_selectors(seq1)
         seq2 = group_selectors(seq2)
         lcs = Sass::Util.lcs(seq2, seq1) do |s1, s2|
@@ -4293,7 +4499,7 @@ module Sass
           next s1 if subweave_superselector?(s2, s1)
         end
 
-        diff = []
+        diff = [[init]]
         until lcs.empty?
           diff << chunks(seq1, seq2) {|s| subweave_superselector?(s.first, lcs.first)} << [lcs.shift]
           seq1.shift
@@ -4305,6 +4511,50 @@ module Sass
         Sass::Util.paths(diff).map {|p| p.flatten}
       end
 
+      # Extracts initial selector operators (`"+"`, `">"`, `"~"`, and `"\n"`)
+      # from two sequences and merges them together into a single array of
+      # selector operators.
+      #
+      # @param seq1 [Array<SimpleSequence or String>]
+      # @param seq2 [Array<SimpleSequence or String>]
+      # @return [Array<String>, nil] If there are no operators in the merged
+      #   sequence, this will be the empty array. If the operators cannot be
+      #   merged, this will be nil.
+      def merge_initial_ops(seq1, seq2)
+        ops1, ops2 = [], []
+        ops1 << seq1.shift while seq1.first.is_a?(String)
+        ops2 << seq2.shift while seq2.first.is_a?(String)
+
+        newline = false
+        newline ||= !!ops1.shift if ops1.first == "\n"
+        newline ||= !!ops2.shift if ops2.first == "\n"
+
+        # If neither sequence is a subsequence of the other, they cannot be
+        # merged successfully
+        lcs = Sass::Util.lcs(ops1, ops2)
+        return unless lcs == ops1 || lcs == ops2
+        return (newline ? ["\n"] : []) + (ops1.size > ops2.size ? ops1 : ops2)
+      end
+
+      # Takes initial subsequences of `seq1` and `seq2` and returns all
+      # orderings of those subsequences. The initial subsequences are determined
+      # by a block.
+      #
+      # Destructively removes the initial subsequences of `seq1` and `seq2`.
+      #
+      # For example, given `(A B C | D E)` and `(1 2 | 3 4 5)` (with `|`
+      # denoting the boundary of the initial subsequence), this would return
+      # `[(A B C 1 2), (1 2 A B C)]`. The sequences would then be `(D E)` and
+      # `(3 4 5)`.
+      #
+      # @param seq1 [Array]
+      # @param seq2 [Array]
+      # @yield [a] Used to determine when to cut off the initial subsequences.
+      #   Called repeatedly for each sequence until it returns true.
+      # @yieldparam a [Array] A final subsequence of one input sequence after
+      #   cutting off some initial subsequence.
+      # @yieldreturn [Boolean] Whether or not to cut off the initial subsequence
+      #   here.
       def chunks(seq1, seq2)
         chunk1 = []
         chunk1 << seq1.shift until yield seq1
@@ -4316,6 +4566,15 @@ module Sass
         [chunk1 + chunk2, chunk2 + chunk1]
       end
 
+      # Groups a sequence into subsequences. The subsequences are determined by
+      # strings; adjacent non-string elements will be put into separate groups,
+      # but any element adjacent to a string will be grouped with that string.
+      #
+      # For example, `(A B "C" D E "F" G "H" "I" J)` will become `[(A) (B "C" D)
+      # (E "F" G "H" "I" J)]`.
+      #
+      # @param seq [Array]
+      # @return [Array<Array>]
       def group_selectors(seq)
         newseq = []
         tail = seq.dup
@@ -4329,6 +4588,12 @@ module Sass
         return newseq
       end
 
+      # Given two sequences of simple selectors, returns whether `sseq1` is a
+      # superselector of `sseq2`.
+      #
+      # @param sseq1 [Array<SimpleSelector or String>]
+      # @param sseq2 [Array<SimpleSelector or String>]
+      # @return [Boolean]
       def subweave_superselector?(sseq1, sseq2)
         if sseq1.size > 1
           # More complex selectors are never superselectors of less complex ones
@@ -4358,7 +4623,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector/sequence.rb(Included by ./sass/selector.rb)
+#END ./sass/selector/sequence.rb (Included by ./sass/selector.rb)
 #BEGIN ./sass/selector/simple_sequence.rb (Included by ./sass/selector.rb)
 module Sass
   module Selector
@@ -4494,7 +4759,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector/simple_sequence.rb(Included by ./sass/selector.rb)
+#END ./sass/selector/simple_sequence.rb (Included by ./sass/selector.rb)
 
 module Sass
   # A namespace for nodes in the parse tree for selectors.
@@ -4779,6 +5044,13 @@ module Sass
       # @return [Symbol]
       attr_reader :type
 
+      # Some psuedo-class-syntax selectors (`:after` and `:before)
+      # are actually considered pseudo-elements
+      # and must be at the end of the selector to function properly.
+      #
+      # @return [Array<String>]
+      FINAL_SELECTORS = %w[after before]
+
       # The name of the selector.
       #
       # @return [Array<String, Sass::Script::Node>]
@@ -4804,6 +5076,10 @@ module Sass
         @arg = arg
       end
 
+      def final?
+        type == :class && FINAL_SELECTORS.include?(name.first)
+      end
+
       # @see Selector#to_a
       def to_a
         res = [@type == :class ? ":" : "::"] + @name
@@ -4811,8 +5087,8 @@ module Sass
         res
       end
 
-      # Returns `nil` if this is a pseudoclass selector
-      # and `sels` contains a pseudoclass selector different than this one.
+      # Returns `nil` if this is a pseudoelement selector
+      # and `sels` contains a pseudoelement selector different than this one.
       #
       # @see Selector#unify
       def unify(sels)
@@ -4820,6 +5096,7 @@ module Sass
           sel.is_a?(Pseudo) && sel.type == :element &&
             (sel.name != self.name || sel.arg != self.arg)
         end
+        return sels + [self] if final?
         super
       end
     end
@@ -4838,7 +5115,7 @@ module Sass
       attr_reader :selector
 
       # @param [String] The name of the pseudoclass
-      # @param [Selector::Sequence] The selector argument
+      # @param [Selector::CommaSequence] The selector argument
       def initialize(name, selector)
         @name = name
         @selector = selector
@@ -4851,7 +5128,7 @@ module Sass
     end
   end
 end
-#END ./sass/selector.rb(Included by ./sass/engine.rb)
+#END ./sass/selector.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/environment.rb (Included by ./sass/engine.rb)
 
 module Sass
@@ -5032,7 +5309,7 @@ RUBY
     inherited_hash :function
   end
 end
-#END ./sass/environment.rb(Included by ./sass/engine.rb)
+#END ./sass/environment.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/script.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/script/node.rb (Included by ./sass/script.rb)
 module Sass::Script
@@ -5134,7 +5411,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/node.rb(Included by ./sass/script.rb)
+#END ./sass/script/node.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/variable.rb (Included by ./sass/script.rb)
 module Sass
   module Script
@@ -5194,7 +5471,7 @@ module Sass
     end
   end
 end
-#END ./sass/script/variable.rb(Included by ./sass/script.rb)
+#END ./sass/script/variable.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/funcall.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/functions.rb (Included by ./sass/script/funcall.rb)
 module Sass::Script
@@ -6181,14 +6458,23 @@ module Sass::Script
     declare :mix, [:color_1, :color_2]
     declare :mix, [:color_1, :color_2, :weight]
 
-    # Converts a color to grayscale.
-    # This is identical to `desaturate(color, 100%)`.
+    # @overload grayscale(color)
+    #   Converts a color to grayscale.
+    #   This is identical to `desaturate(color, 100%)`.
     #
-    # @param color [Color]
-    # @return [Color]
-    # @raise [ArgumentError] if `color` isn't a color
-    # @see #desaturate
+    #   @param color [Color]
+    #   @return [Color]
+    #   @raise [ArgumentError] if `color` isn't a color
+    #   @see #desaturate
+    # @overload grayscale(number)
+    #   Returns an unquoted string `grayscale(number)`, as though the function
+    #   were not defined. This is for the `grayscale` function used in
+    #   `-webkit-filter`.
+    #
+    #   @param number [Number]
+    #   @return [Sass::Script::String]
     def grayscale(color)
+      return Sass::Script::String.new("grayscale(#{color})") if color.is_a?(Sass::Script::Number)
       desaturate color, Number.new(100)
     end
     declare :grayscale, [:color]
@@ -6583,7 +6869,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/functions.rb(Included by ./sass/script/funcall.rb)
+#END ./sass/script/functions.rb (Included by ./sass/script/funcall.rb)
 
 module Sass
   module Script
@@ -6621,7 +6907,7 @@ module Sass
       # @return [String] A string representation of the function call
       def inspect
         args = @args.map {|a| a.inspect}.join(', ')
-        keywords = @keywords.sort_by {|k, v| k}.
+        keywords = Sass::Util.hash_to_a(@keywords).
             map {|k, v| "$#{k}: #{v.inspect}"}.join(', ')
         "#{name}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
       end
@@ -6629,7 +6915,7 @@ module Sass
       # @see Node#to_sass
       def to_sass(opts = {})
         args = @args.map {|a| a.to_sass(opts)}.join(', ')
-        keywords = @keywords.sort_by {|k, v| k}.
+        keywords = Sass::Util.hash_to_a(@keywords).
           map {|k, v| "$#{dasherize(k, opts)}: #{v.to_sass(opts)}"}.join(', ')
         "#{dasherize(name, opts)}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
       end
@@ -6758,7 +7044,7 @@ module Sass
     end
   end
 end
-#END ./sass/script/funcall.rb(Included by ./sass/script.rb)
+#END ./sass/script/funcall.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/operation.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/string.rb (Included by ./sass/script/operation.rb)
 #BEGIN ./sass/script/literal.rb (Included by ./sass/script/string.rb)
@@ -6817,26 +7103,6 @@ The #options attribute is not set on this #{self.class}.
   on this literal within a custom Sass function without first
   setting the #option attribute.
 MSG
-    end
-
-    # The SassScript `and` operation.
-    #
-    # @param other [Literal] The right-hand side of the operator
-    # @return [Literal] The result of a logical and:
-    #   `other` if this literal isn't a false {Bool},
-    #   and this literal otherwise
-    def and(other)
-      to_bool ? other : self
-    end
-
-    # The SassScript `or` operation.
-    #
-    # @param other [Literal] The right-hand side of the operator
-    # @return [Literal] The result of the logical or:
-    #   this literal if it isn't a false {Bool},
-    #   and `other` otherwise
-    def or(other)
-      to_bool ? self : other
     end
 
     # The SassScript `==` operation.
@@ -7465,7 +7731,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/number.rb(Included by ./sass/script/literal.rb)
+#END ./sass/script/number.rb (Included by ./sass/script/literal.rb)
 #BEGIN ./sass/script/color.rb (Included by ./sass/script/literal.rb)
 
 module Sass::Script
@@ -7946,7 +8212,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/color.rb(Included by ./sass/script/literal.rb)
+#END ./sass/script/color.rb (Included by ./sass/script/literal.rb)
 #BEGIN ./sass/script/bool.rb (Included by ./sass/script/literal.rb)
 
 module Sass::Script
@@ -7965,7 +8231,7 @@ module Sass::Script
     alias_method :to_sass, :to_s
   end
 end
-#END ./sass/script/bool.rb(Included by ./sass/script/literal.rb)
+#END ./sass/script/bool.rb (Included by ./sass/script/literal.rb)
 #BEGIN ./sass/script/list.rb (Included by ./sass/script/literal.rb)
 module Sass::Script
   # A SassScript object representing a CSS list.
@@ -8050,8 +8316,8 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/list.rb(Included by ./sass/script/literal.rb)
-#END ./sass/script/literal.rb(Included by ./sass/script/string.rb)
+#END ./sass/script/list.rb (Included by ./sass/script/literal.rb)
+#END ./sass/script/literal.rb (Included by ./sass/script/string.rb)
 
 module Sass::Script
   # A SassScript object representing a CSS string *or* a CSS identifier.
@@ -8102,7 +8368,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/string.rb(Included by ./sass/script/operation.rb)
+#END ./sass/script/string.rb (Included by ./sass/script/operation.rb)
 #BEGIN ./sass/script/unary_operation.rb (Included by ./sass/script/operation.rb)
 module Sass::Script
   # A SassScript parse node representing a unary operation,
@@ -8168,7 +8434,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/unary_operation.rb(Included by ./sass/script/operation.rb)
+#END ./sass/script/unary_operation.rb (Included by ./sass/script/operation.rb)
 #BEGIN ./sass/script/interpolation.rb (Included by ./sass/script/operation.rb)
 module Sass::Script
   # A SassScript object representing `#{}` interpolation outside a string.
@@ -8249,7 +8515,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/interpolation.rb(Included by ./sass/script/operation.rb)
+#END ./sass/script/interpolation.rb (Included by ./sass/script/operation.rb)
 #BEGIN ./sass/script/string_interpolation.rb (Included by ./sass/script/operation.rb)
 module Sass::Script
   # A SassScript object representing `#{}` interpolation within a string.
@@ -8354,7 +8620,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/string_interpolation.rb(Included by ./sass/script/operation.rb)
+#END ./sass/script/string_interpolation.rb (Included by ./sass/script/operation.rb)
 
 module Sass::Script
   # A SassScript parse node representing a binary operation,
@@ -8421,6 +8687,14 @@ module Sass::Script
     # @raise [Sass::SyntaxError] if the operation is undefined for the operands
     def _perform(environment)
       literal1 = @operand1.perform(environment)
+
+      # Special-case :and and :or to support short-circuiting.
+      if @operator == :and
+        return literal1.to_bool ? @operand2.perform(environment) : literal1
+      elsif @operator == :or
+        return literal1.to_bool ? literal1 : @operand2.perform(environment)
+      end
+
       literal2 = @operand2.perform(environment)
 
       begin
@@ -8446,7 +8720,7 @@ module Sass::Script
     end
   end
 end
-#END ./sass/script/operation.rb(Included by ./sass/script.rb)
+#END ./sass/script/operation.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/parser.rb (Included by ./sass/script.rb)
 #BEGIN ./sass/script/lexer.rb (Included by ./sass/script/parser.rb)
 #BEGIN ./sass/scss/rx.rb (Included by ./sass/script/lexer.rb)
@@ -8577,8 +8851,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/rx.rb(Included by ./sass/script/lexer.rb)
-
+#END ./sass/scss/rx.rb (Included by ./sass/script/lexer.rb)
 
 module Sass
   module Script
@@ -8704,7 +8977,7 @@ module Sass
       # @param options [{Symbol => Object}] An options hash;
       #   see {file:SASS_REFERENCE.md#sass_options the Sass options documentation}
       def initialize(str, line, offset, options)
-        @scanner = str.is_a?(StringScanner) ? str : StringScanner.new(str)
+        @scanner = str.is_a?(StringScanner) ? str : Sass::Util::MultibyteStringScanner.new(str)
         @line = line
         @offset = offset
         @options = options
@@ -8915,7 +9188,7 @@ MESSAGE
     end
   end
 end
-#END ./sass/script/lexer.rb(Included by ./sass/script/parser.rb)
+#END ./sass/script/lexer.rb (Included by ./sass/script/parser.rb)
 
 module Sass
   module Script
@@ -9389,7 +9662,7 @@ RUBY
     end
   end
 end
-#END ./sass/script/parser.rb(Included by ./sass/script.rb)
+#END ./sass/script/parser.rb (Included by ./sass/script.rb)
 
 module Sass
   # SassScript is code that's embedded in Sass documents
@@ -9423,7 +9696,7 @@ module Sass
 
   end
 end
-#END ./sass/script.rb(Included by ./sass/engine.rb)
+#END ./sass/script.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/scss.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/scss/script_lexer.rb (Included by ./sass/scss.rb)
 module Sass
@@ -9441,7 +9714,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/script_lexer.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/script_lexer.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/scss/script_parser.rb (Included by ./sass/scss.rb)
 module Sass
   module SCSS
@@ -9468,7 +9741,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/script_parser.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/script_parser.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/scss/parser.rb (Included by ./sass/scss.rb)
 
 module Sass
@@ -9520,7 +9793,7 @@ module Sass
           if @template.is_a?(StringScanner)
             @template
           else
-            StringScanner.new(@template.gsub("\r", ""))
+            Sass::Util::MultibyteStringScanner.new(@template.gsub("\r", ""))
           end
       end
 
@@ -9726,7 +9999,7 @@ module Sass
       end
 
       def extend_directive
-        node(Sass::Tree::ExtendNode.new(expr!(:selector)))
+        node(Sass::Tree::ExtendNode.new(expr!(:selector_sequence)))
       end
 
       def import_directive
@@ -10376,7 +10649,7 @@ MESSAGE
         if @throw_err
           throw :_sass_parser_error, err
         else
-          @scanner = StringScanner.new(@scanner.string)
+          @scanner = Sass::Util::MultibyteStringScanner.new(@scanner.string)
           @scanner.pos = err[:pos]
           @line = err[:line]
           @expected = err[:expected]
@@ -10393,8 +10666,8 @@ MESSAGE
         # Also get rid of stuff after the next newline
         was.gsub!(/\n.*/, '')
         was = was[0...15] + "..." if was.size > 18
-    
-    evil = caller(0)
+		
+		evil = caller(0)
         evilString = evil.join("\n")
 
         raise Sass::SyntaxError.new(
@@ -10434,7 +10707,7 @@ MESSAGE
     end
   end
 end
-#END ./sass/scss/parser.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/parser.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/scss/sass_parser.rb (Included by ./sass/scss.rb)
 module Sass
   module SCSS
@@ -10447,7 +10720,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/sass_parser.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/sass_parser.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/scss/static_parser.rb (Included by ./sass/scss.rb)
 module Sass
   module SCSS
@@ -10489,7 +10762,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/static_parser.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/static_parser.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/scss/css_parser.rb (Included by ./sass/scss.rb)
 #BEGIN ./sass/script/css_parser.rb (Included by ./sass/scss/css_parser.rb)
 #BEGIN ./sass/script/css_lexer.rb (Included by ./sass/script/css_parser.rb)
@@ -10522,7 +10795,7 @@ module Sass
     end
   end
 end
-#END ./sass/script/css_lexer.rb(Included by ./sass/script/css_parser.rb)
+#END ./sass/script/css_lexer.rb (Included by ./sass/script/css_parser.rb)
 
 module Sass
   module Script
@@ -10552,7 +10825,7 @@ module Sass
     end
   end
 end
-#END ./sass/script/css_parser.rb(Included by ./sass/scss/css_parser.rb)
+#END ./sass/script/css_parser.rb (Included by ./sass/scss/css_parser.rb)
 
 module Sass
   module SCSS
@@ -10598,7 +10871,7 @@ module Sass
     end
   end
 end
-#END ./sass/scss/css_parser.rb(Included by ./sass/scss.rb)
+#END ./sass/scss/css_parser.rb (Included by ./sass/scss.rb)
 
 module Sass
   # SCSS is the CSS syntax for Sass.
@@ -10609,7 +10882,7 @@ module Sass
   # The evaluation is handled by the broader {Sass} module.
   module SCSS; end
 end
-#END ./sass/scss.rb(Included by ./sass/engine.rb)
+#END ./sass/scss.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/error.rb (Included by ./sass/engine.rb)
 module Sass
   # An exception class that keeps track of
@@ -10812,7 +11085,7 @@ END
   # in SassScript.
   class UnitConversionError < SyntaxError; end
 end
-#END ./sass/error.rb(Included by ./sass/engine.rb)
+#END ./sass/error.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/importers.rb (Included by ./sass/engine.rb)
 module Sass
   # Sass importers are in charge of taking paths passed to `@import`
@@ -10974,7 +11247,7 @@ module Sass
 end
 
       
-#END ./sass/importers/base.rb(Included by ./sass/importers.rb)
+#END ./sass/importers/base.rb (Included by ./sass/importers.rb)
 #BEGIN ./sass/importers/filesystem.rb (Included by ./sass/importers.rb)
 
 module Sass
@@ -11124,10 +11397,9 @@ module Sass
     end
   end
 end
-#END ./sass/importers/filesystem.rb(Included by ./sass/importers.rb)
-#END ./sass/importers.rb(Included by ./sass/engine.rb)
+#END ./sass/importers/filesystem.rb (Included by ./sass/importers.rb)
+#END ./sass/importers.rb (Included by ./sass/engine.rb)
 #BEGIN ./sass/shared.rb (Included by ./sass/engine.rb)
-
 module Sass
   # This module contains functionality that's shared between Haml and Sass.
   module Shared
@@ -11144,7 +11416,7 @@ module Sass
     # @yieldparam scan [StringScanner] The scanner scanning through the string
     # @return [String] The text remaining in the scanner after all `#{`s have been processed
     def handle_interpolation(str)
-      scan = StringScanner.new(str)
+      scan = Sass::Util::MultibyteStringScanner.new(str)
       yield scan while scan.scan(/(.*?)(\\*)\#\{/m)
       scan.rest
     end
@@ -11168,7 +11440,7 @@ module Sass
     #   `["Foo (Bar (Baz bang) bop)", " (Bang (bop bip))"]` in the example above.
     def balance(scanner, start, finish, count = 0)
       str = ''
-      scanner = StringScanner.new(scanner) unless scanner.is_a? StringScanner
+      scanner = Sass::Util::MultibyteStringScanner.new(scanner) unless scanner.is_a? StringScanner
       regexp = Regexp.new("(.*?)[\\#{start.chr}\\#{finish.chr}]", Regexp::MULTILINE)
       while scanner.scan(regexp)
         str << scanner.matched
@@ -11204,7 +11476,7 @@ module Sass
     end
   end
 end
-#END ./sass/shared.rb(Included by ./sass/engine.rb)
+#END ./sass/shared.rb (Included by ./sass/engine.rb)
 
 module Sass
 
@@ -11386,7 +11658,7 @@ module Sass
     # If you're compiling a single Sass file from the filesystem,
     # use \{Sass::Engine.for\_file}.
     # If you're compiling multiple files from the filesystem,
-    # use {Sass::Plugin.
+    # use {Sass::Plugin}.
     #
     # @param template [String] The Sass template.
     #   This template can be encoded using any encoding
@@ -11732,7 +12004,7 @@ WARNING
     end
 
     def parse_property_or_rule(line)
-      scanner = StringScanner.new(line.text)
+      scanner = Sass::Util::MultibyteStringScanner.new(line.text)
       hack_char = scanner.scan(/[:\*\.]|\#(?!\{)/)
       parser = Sass::SCSS::SassParser.new(scanner, @options[:filename], @line)
 
@@ -11789,7 +12061,7 @@ WARNING
         end
         Tree::CommentNode.new(value, silent, loud)
       else
-        Tree::RuleNode.new(parse_interp(line))
+        Tree::RuleNode.new(parse_interp(line.text))
       end
     end
 
@@ -11916,7 +12188,7 @@ WARNING
       raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath import directives.",
         :line => @line + 1) unless line.children.empty?
 
-      scanner = StringScanner.new(value)
+      scanner = Sass::Util::MultibyteStringScanner.new(value)
       values = []
 
       loop do
@@ -11950,7 +12222,7 @@ WARNING
       elsif uri
         Tree::DirectiveNode.new("@import #{uri}")
       elsif val =~ /^http:\/\//
-        Tree::DirectiveNode.new("@import url(#{val})")
+        Tree::DirectiveNode.new("@import #{str}")
       else
         Tree::ImportNode.new(val)
       end
@@ -12043,7 +12315,7 @@ WARNING
     end
   end
 end
-#END ./sass/engine.rb(Included by ./sass.rb)
+#END ./sass/engine.rb (Included by ./sass.rb)
 #require 'sass/plugin' if defined?(Merb::Plugins)
 #require 'sass/railtie'
-#END ./sass.rb(Included by )
+#END ./sass.rb (Included by )
