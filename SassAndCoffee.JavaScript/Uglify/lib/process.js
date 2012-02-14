@@ -1352,7 +1352,7 @@ function ast_squeeze(ast, options) {
                         rvalue = walk(rvalue);
                         var okOps = [ '+', '-', '/', '*', '%', '>>', '<<', '>>>', '|', '^', '&' ];
                         if (op === true && lvalue[0] === "name" && rvalue[0] === "binary" &&
-                            ~okOps.indexOf(rvalue[1]) && rvalue[2][0] === "name" &&
+                            ~(_.indexOf(okOps, rvalue[1])) && rvalue[2][0] === "name" &&
                             rvalue[2][1] === lvalue[1]) {
                                 return [ this[0], rvalue[1], lvalue, rvalue[3] ]
                         }

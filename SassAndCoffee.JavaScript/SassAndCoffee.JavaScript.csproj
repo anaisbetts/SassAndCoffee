@@ -92,7 +92,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Uglify\uglify.js" />
     <EmbeddedResource Include="CoffeeScript\lib\coffee-script.js" />
     <None Include="JavaScriptEngines\Notes.txt" />
   </ItemGroup>
