@@ -88,10 +88,6 @@
                         item.Dispose();
                     _transformations = null;
                 }
-                if (_cache != null) {
-                    _cache.Dispose();
-                    _cache = null;
-                }
             }
         }
     }
