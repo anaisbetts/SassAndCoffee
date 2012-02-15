@@ -15,7 +15,7 @@
                 if (_disposed)
                     throw new ObjectDisposedException("This proxy wrapper has been disposed and cannot be used again.");
                 if (_wrappedItem != null)
-                    throw new InvalidOperationException("WrappedItem can only be set once.");
+                    throw new InvalidOperationException("The wrapped item can only be set once.");
                 _wrappedItem = value;
             }
         }
@@ -33,15 +33,17 @@
         }
 
         public void Dispose() {
-            if ((OnDisposed == null || OnDisposed(this)) && WrappedItem != null) {
-                var disposable = WrappedItem as IDisposable;
-                if(disposable != null) disposable.Dispose();
-            }
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing) {
+            if (disposing && !_disposed) {
+                if ((OnDisposed == null || OnDisposed(this)) && WrappedItem != null) {
+                    var disposable = WrappedItem as IDisposable;
+                    if (disposable != null) disposable.Dispose();
+                }
+            }
             // Whether or not we disposed of the wrapped item, it's no longer ours to use.
             _wrappedItem = null;
             _disposed = true;

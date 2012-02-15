@@ -13,7 +13,7 @@
         /// </summary>
         /// <param name="key">The unique key for the resource requested.</param>
         /// <returns>The cached result, or null on cache miss.</returns>
-        CachedContentResult TryGet(string key);
+        CachedContentResult TryGetValue(string key);
 
         /// <summary>
         /// Sets the cached content for the specified key.
@@ -21,7 +21,7 @@
         /// </summary>
         /// <param name="key">The unique key for the resource requested.</param>
         /// <param name="result">The result to cache.</param>
-        void Set(string key, CachedContentResult result);
+        void SetValue(string key, CachedContentResult result);
 
         /// <summary>
         /// Removes the cached content for the specified resource.

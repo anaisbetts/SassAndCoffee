@@ -1,8 +1,8 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
     using System.IO;
-    using System.Linq;
     using System.Runtime.Remoting.Metadata.W3cXsd2001;
+    using System.Runtime.Serialization;
     using System.Runtime.Serialization.Formatters.Binary;
     using System.Security.Cryptography;
     using System.Text;
@@ -32,8 +32,8 @@
             }
             // Normalize Path
             cachePath = new DirectoryInfo(cachePath).FullName;
-            if (!cachePath.EndsWith("" + Path.DirectorySeparatorChar)
-                && !cachePath.EndsWith("" + Path.AltDirectorySeparatorChar)) {
+            if (!cachePath.EndsWith("" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                && !cachePath.EndsWith("" + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) {
                 cachePath += Path.DirectorySeparatorChar;
             }
             _cachePath = cachePath;
@@ -56,7 +56,7 @@
                     using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
                         fileData = formatter.Deserialize(stream) as CachedContentResult;
                     }
-                } catch { }
+                } catch (SerializationException) { }
 
                 if (fileData == null || !fileData.ValidateHashes()) {
                     file.Delete();
@@ -70,7 +70,7 @@
         /// </summary>
         /// <param name="key">The unique key for the resource requested.</param>
         /// <returns>The cached result, or null on cache miss.</returns>
-        public CachedContentResult TryGet(string key) {
+        public CachedContentResult TryGetValue(string key) {
             var file = new FileInfo(GetCacheForKey(key));
             if (file.Exists) {
                 var formatter = new BinaryFormatter();
@@ -87,7 +87,7 @@
         /// </summary>
         /// <param name="key">The unique key for the resource requested.</param>
         /// <param name="result">The result to cache.</param>
-        public void Set(string key, CachedContentResult result) {
+        public void SetValue(string key, CachedContentResult result) {
             var file = new FileInfo(GetCacheForKey(key));
             var formatter = new BinaryFormatter();
             using (var stream = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.Delete)) {

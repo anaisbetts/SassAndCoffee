@@ -1,6 +1,7 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Text;
@@ -35,14 +36,15 @@
             if (append == null)
                 throw new ArgumentNullException("append", "append cannot be null.");
             if (append.Content == null)
-                throw new ArgumentNullException("append.Content", "append.Content cannot be null.");
+                throw new ArgumentNullException("append", "append.Content cannot be null.");
 
             if (_content.Length != 0
                 && append.MimeType != null
                 && MimeType != null
                 && MimeType != append.MimeType) {
                 throw new InvalidOperationException(string.Format(
-                    "Invalid attempt to combine content with different MimeType {0} and {1}",
+                    CultureInfo.InvariantCulture,
+                    "Invalid attempt to combine content with different types: {0} and {1}",
                     MimeType,
                     append.MimeType));
             }
@@ -79,7 +81,7 @@
             }
         }
 
-        private string GetRootPath(string physicalPath) {
+        private static string GetRootPath(string physicalPath) {
             var lastDot = physicalPath.LastIndexOf('.');
             if (lastDot < 0)
                 return null;

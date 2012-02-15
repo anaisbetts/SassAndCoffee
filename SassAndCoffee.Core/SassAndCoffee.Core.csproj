@@ -24,7 +24,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <RunCodeAnalysis>false</RunCodeAnalysis>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -82,6 +82,7 @@
     <Compile Include="Caching\InMemoryMedium.cs" />
     <Compile Include="Caching\IPersistentMedium.cs" />
     <Compile Include="Caching\NoCache.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="Pipeline\ContentPipeline.cs" />
     <Compile Include="Pipeline\ContentResult.cs" />
     <Compile Include="Pipeline\ContentTransformState.cs" />
@@ -89,9 +90,6 @@
     <Compile Include="Caching\IContentCache.cs" />
     <Compile Include="Pipeline\IContentPipeline.cs" />
     <Compile Include="Pipeline\IContentTransform.cs" />
-    <Compile Include="Legacy\Caching\InMemoryCache.cs" />
-    <Compile Include="Legacy\Caching\ICompiledCache.cs" />
-    <Compile Include="Legacy\Caching\MemoizingMRUCache.cs" />
     <Compile Include="Pooling\IInstanceProviderOfT.cs" />
     <Compile Include="Pooling\InstanceProviderOfT.cs" />
     <Compile Include="Pooling\IProxyOfT.cs" />

@@ -1,4 +1,4 @@
-namespace SassAndCoffee.Core.Caching {
+namespace SassAndCoffee.Core {
     using System;
     using System.Collections.Generic;
 
@@ -17,12 +17,12 @@ namespace SassAndCoffee.Core.Caching {
             }, 50);
         }
 
-        public object GetOrAdd(string filename, Func<string, object> compilationDelegate, string mimeType) {
+        public object GetOrAdd(string fileName, Func<string, object> compilationDelegate, string mimeType) {
             lock (_delegateIndex) {
-                _delegateIndex[filename] = compilationDelegate;
+                _delegateIndex[fileName] = compilationDelegate;
             }
 
-            return _cache.Get(filename);
+            return _cache.Get(fileName);
         }
 
         public void Clear() {

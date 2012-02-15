@@ -1,10 +1,16 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
+    using System.Diagnostics.CodeAnalysis;
 
     [Serializable]
     public class ContentResult {
-        public string Content { get; set; }
-        public string MimeType { get; set; }
-        public string[] CacheInvalidationFileList { get; set; }
+        [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "Simplify serialization.")]
+        public string Content;
+
+        [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "Simplify serialization.")]
+        public string MimeType;
+
+        [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "Simplify serialization.")]
+        public string[] CacheInvalidationFileList;
     }
 }

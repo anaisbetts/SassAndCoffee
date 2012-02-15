@@ -1,8 +1,10 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
+    using System.Security;
 
     /// <summary>
     /// Hides the fact that mutiple watchers are needed to watch multiple
@@ -18,7 +20,10 @@
         public event ErrorEventHandler Error;
         public event RenamedEventHandler Renamed;
 
-        public void Watch(string path, string filter) {
+        [SecurityCritical]
+        [SuppressMessage("Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification = "Marked as security critical.")]
+        [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "We need to keep it around to use it.")]
+        public void BeginWatch(string path, string filter) {
             // Perform some normalization
             var pathInfo = new DirectoryInfo(path);
             if (!pathInfo.Exists)
@@ -48,6 +53,7 @@
                 newWatcher.Changed += OnChanged;
                 newWatcher.Created += OnCreated;
                 newWatcher.Deleted += OnDeleted;
+                newWatcher.Disposed += HandleDisposed;
                 newWatcher.Error += OnError;
                 newWatcher.Renamed += OnRenamed;
                 newWatcher.EnableRaisingEvents = true;
@@ -65,10 +71,10 @@
             }
         }
 
-        public void UnWatch(string path, string filter) {
-            // TODO: Support this?
-            throw new NotImplementedException();
-        }
+        //public void EndWatch(string path, string filter) {
+        //    // TODO: Support this?
+        //    throw new NotImplementedException();
+        //}
 
         private void HandleDisposed(object sender, EventArgs e) {
             _watchers.Remove(sender as FileSystemWatcher);
@@ -116,6 +122,7 @@
             }
         }
 
+        [SuppressMessage("Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification = "Disabling events is hardly a security risk.")]
         public void Dispose() {
             foreach (var watcher in _watchers) {
                 watcher.EnableRaisingEvents = false;

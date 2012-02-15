@@ -56,7 +56,7 @@
             GC.SuppressFinalize(this);
         }
 
-        public virtual void Dispose(bool disposing) {
+        protected virtual void Dispose(bool disposing) {
             if (disposing) {
                 if (_pool != null) {
                     foreach (var item in _pool) {

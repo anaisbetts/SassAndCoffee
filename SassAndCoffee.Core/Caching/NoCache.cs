@@ -1,10 +1,12 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
+    using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
     /// Doesn't cache.
     /// </summary>
     public class NoCache : IContentCache {
+        [SuppressMessage("Microsoft.Security", "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes", Justification = "NoCache is immutable.")]
         public static readonly NoCache Instance = new NoCache();
 
         /// <summary>

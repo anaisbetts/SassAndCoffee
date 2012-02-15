@@ -1,13 +1,17 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
 
     [Serializable]
     public class CachedContentResult : ContentResult {
-        public byte[][] Hashes { get; set; }
-        public bool HashesInitialized { get; set; }
+        [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "Simplify serialization.")]
+        public byte[][] Hashes;
+
+        [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "Simplify serialization.")]
+        public bool HashesInitialized;
 
         public void ComputeHashes() {
             var numFiles = CacheInvalidationFileList.Length;
@@ -36,6 +40,9 @@
         }
 
         public static CachedContentResult FromContentResult(ContentResult contentResult) {
+            if (contentResult == null)
+                throw new ArgumentNullException("contentResult");
+
             return new CachedContentResult() {
                 CacheInvalidationFileList = contentResult.CacheInvalidationFileList,
                 Content = contentResult.Content,
@@ -43,7 +50,7 @@
             };
         }
 
-        private byte[] ComputeHash(string fileName) {
+        private static byte[] ComputeHash(string fileName) {
             using (var fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
             using (var sha1 = SHA1.Create()) {
                 return sha1.ComputeHash(fileStream);

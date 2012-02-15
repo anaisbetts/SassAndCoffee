@@ -1,4 +1,5 @@
 ﻿namespace SassAndCoffee.Core {
+    using System;
     using System.IO;
 
     public class FileSourceContentTransform : IContentTransform {
@@ -11,6 +12,9 @@
         }
 
         public void Execute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             // We're a content provider.  If content is already set, do nothing.
             if (state.Content != null)
                 return;

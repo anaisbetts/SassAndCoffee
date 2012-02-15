@@ -2,11 +2,12 @@
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
     using System.Threading;
 
-    public class InvalidatingCache : IContentCache {
+    public class InvalidatingCache : IContentCache, IDisposable {
         private CacheInvalidationWatcher _watcher = new CacheInvalidationWatcher();
         private IPersistentMedium _storage;
 
@@ -28,8 +29,12 @@
         }
 
         public ContentResult GetOrAdd(string key, Func<string, ContentResult> generator) {
-            // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
+            if (key == null)
+                throw new ArgumentNullException("key");
+            if (generator == null)
+                throw new ArgumentNullException("generator");
 
+            // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
             CachedContentResult result = null;
 
             /* Cache implementations are not required to be thread safe for writes.
@@ -44,13 +49,13 @@
             try {
                 _cacheAccountingLock.EnterReadLock();
                 cacheItemLock.EnterReadLock();
-                result = _storage.TryGet(key);
+                result = _storage.TryGetValue(key);
                 if (result == null) {
                     // Not found.  Enter in upgradable mode
                     try {
                         cacheItemLock.ExitReadLock();
                         cacheItemLock.EnterUpgradeableReadLock();
-                        result = _storage.TryGet(key);
+                        result = _storage.TryGetValue(key);
                         if (result == null) {
                             // Still not found. Now we really have to make it.
                             try {
@@ -91,6 +96,7 @@
         /// No locks required to call this.
         /// </summary>
         /// <param name="resource">The resource.</param>
+        [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "We need to use it later.")]
         private ReaderWriterLockSlim GetCacheLockForResource(string resource) {
             ReaderWriterLockSlim cacheItemLock = null;
             do {
@@ -121,7 +127,7 @@
         /// <param name="result">The result to cache.</param>
         private void SaveCacheItem(string resource, CachedContentResult result) {
             if (_cacheAccountingLock.IsReadLockHeld)
-                throw new InvalidOperationException("You must release any read lock on the cacheAccountingLock before calling this method.");
+                throw new InvalidOperationException("You must release any read lock on the Cache Accounting Lock before calling this method.");
 
             try {
                 _cacheAccountingLock.EnterWriteLock();
@@ -142,7 +148,7 @@
                         if (!string.IsNullOrWhiteSpace(depInfo.Extension)) {
                             filter = "*" + depInfo.Extension;
                         }
-                        _watcher.Watch(depInfo.DirectoryName, filter);
+                        _watcher.BeginWatch(depInfo.DirectoryName, filter);
                     }
                     // Add production link
                     dependency.Produces.UnionWith(new CacheItem[] { cacheItem });
@@ -154,7 +160,7 @@
             }
             // Do this under item lock to ensure single writer per item
             // Do it outside of accounting lock to enable multiple concurrent items to be written simultaneously.
-            _storage.Set(resource, result);
+            _storage.SetValue(resource, result);
         }
 
         private void OnInvalidationError(object sender, ErrorEventArgs e) {

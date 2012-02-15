@@ -4,7 +4,10 @@
 
     public static class Utility {
         public static string ResourceAsString(string resource, Type scope) {
-            using (var resourceStream = scope.Assembly.GetManifestResourceStream(scope, resource))
+            if (scope == null)
+                throw new ArgumentNullException("scope");
+
+            var resourceStream = scope.Assembly.GetManifestResourceStream(scope, resource);
             using (var reader = new StreamReader(resourceStream))
                 return reader.ReadToEnd();
         }

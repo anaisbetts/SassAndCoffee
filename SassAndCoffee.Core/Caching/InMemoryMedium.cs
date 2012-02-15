@@ -46,7 +46,7 @@
         /// <returns>
         /// The cached result, or null on cache miss.
         /// </returns>
-        public CachedContentResult TryGet(string key) {
+        public CachedContentResult TryGetValue(string key) {
             CachedContentResult result = null;
             if (_items.TryGetValue(key, out result)) {
                 return result;
@@ -61,7 +61,7 @@
         /// </summary>
         /// <param name="key">The unique key for the resource requested.</param>
         /// <param name="result">The result to cache.</param>
-        public void Set(string key, CachedContentResult result) {
+        public void SetValue(string key, CachedContentResult result) {
             throw new NotImplementedException();
         }
 
