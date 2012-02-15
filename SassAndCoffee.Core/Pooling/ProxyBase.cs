@@ -2,7 +2,7 @@
     using System;
 
     public class ProxyBase<T> : IProxy<T>
-        where T : class, IDisposable {
+        where T : class {
         public Func<IProxy<T>, bool> OnDisposed { get; set; }
         public bool ReturnToPool { get; protected set; }
         public T WrappedItem {
@@ -33,8 +33,10 @@
         }
 
         public void Dispose() {
-            if ((OnDisposed == null || OnDisposed(this)) && WrappedItem != null)
-                WrappedItem.Dispose();
+            if ((OnDisposed == null || OnDisposed(this)) && WrappedItem != null) {
+                var disposable = WrappedItem as IDisposable;
+                if(disposable != null) disposable.Dispose();
+            }
             Dispose(true);
             GC.SuppressFinalize(this);
         }

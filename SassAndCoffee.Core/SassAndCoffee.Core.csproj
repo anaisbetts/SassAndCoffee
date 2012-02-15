@@ -24,6 +24,8 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -32,6 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -81,7 +84,6 @@
     <Compile Include="Caching\NoCache.cs" />
     <Compile Include="Pipeline\ContentPipeline.cs" />
     <Compile Include="Pipeline\ContentResult.cs" />
-    <Compile Include="Pipeline\ContentTransformBase.cs" />
     <Compile Include="Pipeline\ContentTransformState.cs" />
     <Compile Include="Pipeline\FileSourceContentTransform.cs" />
     <Compile Include="Caching\IContentCache.cs" />

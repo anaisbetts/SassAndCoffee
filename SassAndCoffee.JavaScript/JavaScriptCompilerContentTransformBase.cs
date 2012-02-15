@@ -1,23 +1,23 @@
 ﻿namespace SassAndCoffee.JavaScript {
     using SassAndCoffee.Core;
 
-    public abstract class JavaScriptCompilerContentTransformBase : ContentTransformBase {
-
-        private IInstanceProvider<IJavaScriptRuntime> _jsRuntimeProvider;
+    public abstract class JavaScriptCompilerContentTransformBase : IContentTransform {
         private IInstanceProvider<IJavaScriptCompiler> _jsCompilerProvider;
 
-        public abstract string InputMimeType { get; }
-        public abstract string OutputMimeType { get; }
+        public string InputMimeType { get; private set; }
+        public string OutputMimeType { get; private set; }
 
-        public JavaScriptCompilerContentTransformBase() {
-            _jsRuntimeProvider = new InstanceProvider<IJavaScriptRuntime>(
-                () => new IEJavaScriptRuntime());
-            _jsCompilerProvider = CreateCompilerProvider(_jsRuntimeProvider);
+        public JavaScriptCompilerContentTransformBase(
+            string inputMimeType,
+            string outputMimeType,
+            IInstanceProvider<IJavaScriptCompiler> jsCompilerProvider) {
+            InputMimeType = inputMimeType;
+            OutputMimeType = outputMimeType;
+            _jsCompilerProvider = jsCompilerProvider;
         }
 
-        public override void Execute(ContentTransformState state) {
-            Execute(state);
-        }
+        public abstract void PreExecute(ContentTransformState state);
+        public abstract void Execute(ContentTransformState state);
 
         protected virtual void Execute(ContentTransformState state, params object[] args) {
             // If input is empty or the wrong type, do nothing
@@ -36,9 +36,5 @@
                 });
             }
         }
-
-
-        protected abstract IInstanceProvider<IJavaScriptCompiler> CreateCompilerProvider(
-            IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider);
     }
 }

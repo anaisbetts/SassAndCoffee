@@ -1,8 +1,7 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
 
-    public interface IInstanceProvider<T>
-        where T : IDisposable {
+    public interface IInstanceProvider<T> {
         T GetInstance();
     }
 }

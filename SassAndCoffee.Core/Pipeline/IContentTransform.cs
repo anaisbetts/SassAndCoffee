@@ -1,7 +1,6 @@
 ﻿namespace SassAndCoffee.Core {
-    using System;
 
-    public interface IContentTransform : IDisposable {
+    public interface IContentTransform {
         void PreExecute(ContentTransformState state);
         void Execute(ContentTransformState state);
     }

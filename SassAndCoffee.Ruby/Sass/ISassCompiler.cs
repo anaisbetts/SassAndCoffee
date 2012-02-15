@@ -2,7 +2,7 @@
     using System;
     using System.Collections.Generic;
 
-    public interface ISassCompiler : IDisposable {
+    public interface ISassCompiler {
         void Initialize();
         string Compile(string path, bool compressed, IList<string> dependentFileList);
     }

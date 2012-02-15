@@ -228,10 +228,6 @@
                     _cacheAccountingLock.Dispose();
                     _cacheAccountingLock = null;
                 }
-                if (_storage != null) {
-                    _storage.Dispose();
-                    _storage = null;
-                }
             }
         }
     }

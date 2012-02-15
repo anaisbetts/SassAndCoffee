@@ -5,13 +5,15 @@
     public class UglifyCompilerContentTransform : JavaScriptCompilerContentTransformBase {
         public const string StateKey = "Uglify";
 
-        public override string InputMimeType {
-            get { return "text/javascript"; }
-        }
+        [Obsolete("This constructor is present for backwards compatibility with existing libraries. Do not use for new development.", true)]
+        public UglifyCompilerContentTransform()
+            : this(new InstanceProvider<IJavaScriptRuntime>(() => new IEJavaScriptRuntime())) { }
 
-        public override string OutputMimeType {
-            get { return "text/javascript"; }
-        }
+        public UglifyCompilerContentTransform(IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider)
+            : base(
+                "text/javascript",
+                "text/javascript",
+                new InstanceProvider<IJavaScriptCompiler>(() => new UglifyCompiler(jsRuntimeProvider))) { }
 
         public override void PreExecute(ContentTransformState state) {
             if (state.Path.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase)) {
@@ -21,20 +23,12 @@
                     .Replace(".min.js", ".js");
                 state.RemapPath(newPath);
             }
-            base.PreExecute(state);
         }
 
         public override void Execute(ContentTransformState state) {
             if (!state.Items.ContainsKey(StateKey))
                 return;
-
-            base.Execute(state);
-        }
-
-        protected override IInstanceProvider<IJavaScriptCompiler> CreateCompilerProvider(
-            IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider) {
-            return new InstanceProvider<IJavaScriptCompiler>(
-                () => new UglifyCompiler(jsRuntimeProvider));
+            base.Execute(state, null);
         }
     }
 }

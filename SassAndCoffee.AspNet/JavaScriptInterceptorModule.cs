@@ -9,13 +9,16 @@
     /// </summary>
     public class JavaScriptInterceptorModule : PathBasedHandlerRemapper {
         public JavaScriptInterceptorModule()
+            : this(new InstanceProvider<IJavaScriptRuntime>(() => new IEJavaScriptRuntime())) { }
+
+        public JavaScriptInterceptorModule(IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider)
             : base(
                 ".js",
                 new FileSourceContentTransform("text/javascript", ".js"),
                 new JavaScriptCombineContentTransform(),
                 new FileSourceContentTransform("text/coffeescript", ".coffee"),
-                new CoffeeScriptCompilerContentTransform(),
-                new UglifyCompilerContentTransform()) {
+                new CoffeeScriptCompilerContentTransform(jsRuntimeProvider),
+                new UglifyCompilerContentTransform(jsRuntimeProvider)) {
         }
     }
 }

@@ -75,20 +75,5 @@
                 MimeType = state.MimeType,
             };
         }
-
-        public void Dispose() {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing) {
-            if (disposing) {
-                if (_transformations != null) {
-                    foreach (var item in _transformations)
-                        item.Dispose();
-                    _transformations = null;
-                }
-            }
-        }
     }
 }

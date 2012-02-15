@@ -7,8 +7,8 @@
     /// </summary>
     /// <typeparam name="T">The type to pool.</typeparam>
     /// <typeparam name="TProxy">The type of the proxy.</typeparam>
-    public class Pool<T, TProxy> : IInstanceProvider<T>, IDisposable
-        where T : IDisposable
+    public class Pool<T, TProxy> : IInstanceProvider<TProxy>, IDisposable
+        where T : class
         where TProxy : T, IProxy<T>, new() {
 
         private Func<T> _createPoolItem;
@@ -22,7 +22,7 @@
         public Pool(IInstanceProvider<T> provider)
             : this(provider.GetInstance) { }
 
-        public virtual T GetInstance() {
+        public virtual TProxy GetInstance() {
             T poolItem;
 
             if (!_pool.TryDequeue(out poolItem)) {
@@ -60,7 +60,8 @@
             if (disposing) {
                 if (_pool != null) {
                     foreach (var item in _pool) {
-                        item.Dispose();
+                        var disposable = item as IDisposable;
+                        if (disposable != null) disposable.Dispose();
                     }
                     _pool = null;
                 }

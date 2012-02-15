@@ -8,7 +8,7 @@
     /// <summary>
     /// An HttpModule that will conditionally handle requests for files with certain extensions.
     /// </summary>
-    public class PathBasedHandlerRemapper : IHttpModule, IDisposable {
+    public class PathBasedHandlerRemapper : IHttpModule {
         public const string SassAndCoffeeCacheTypeKey = "SassAndCoffee.Cache";
         public const string SassAndCoffeeCachePathKey = "SassAndCoffee.Cache.Path";
         public const string AppDataSpecialKey = "%DataDirectory%";
@@ -43,8 +43,8 @@
                 try {
                     context.Application.Lock();
                     context.Application[HttpApplicationStateCacheKey] = cache = GetCacheFromSettings();
-                } finally { 
-                    context.Application.UnLock(); 
+                } finally {
+                    context.Application.UnLock();
                 }
             }
             _cache = cache;
@@ -92,9 +92,9 @@
                 medium = new FileMedium(path);
             }
 
-            if(medium == null) {
+            if (medium == null) {
                 return null;
-            }else {
+            } else {
                 medium.Initialize();
                 return new InvalidatingCache(medium);
             }
@@ -104,22 +104,7 @@
         /// Disposes of the resources (other than memory) used by the module that implements <see cref="T:System.Web.IHttpModule"/>.
         /// </summary>
         public void Dispose() {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Releases unmanaged and - optionally - managed resources
-        /// </summary>
-        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c>
-        /// to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing) {
-            if (disposing) {
-                if (_pipeline != null) {
-                    _pipeline.Dispose();
-                    _pipeline = null;
-                }
-            }
+            /* Do Nothing */
         }
     }
 }

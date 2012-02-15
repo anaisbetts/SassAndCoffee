@@ -4,7 +4,7 @@
     /// <summary>
     /// The interface implemented by all content cache implementations.
     /// </summary>
-    public interface IContentCache : IDisposable {
+    public interface IContentCache {
         /// <summary>
         /// If available, returns the cached content for the requested resource.
         /// If the item is not found and the generator function is not null, calls the

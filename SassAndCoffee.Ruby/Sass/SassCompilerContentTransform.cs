@@ -4,7 +4,7 @@
     using System.IO;
     using SassAndCoffee.Core;
 
-    public class SassCompilerContentTransform : ContentTransformBase {
+    public class SassCompilerContentTransform : IContentTransform, IDisposable {
         public const string MimeType = "text/css";
         public const string CompressedStateKey = "Sass_Compressed";
         public const int MaxCompileAttempts = 5;
@@ -12,7 +12,7 @@
         private Pool<ISassCompiler, SassCompilerProxy> _compilerPool =
             new Pool<ISassCompiler, SassCompilerProxy>(CreateAndInitializeSassCompiler);
 
-        public override void PreExecute(ContentTransformState state) {
+        public void PreExecute(ContentTransformState state) {
             if (state.Path.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase)) {
                 state.Items.Add(CompressedStateKey, true);
                 var newPath = state.Path
@@ -20,10 +20,9 @@
                     .Replace(".min.css", ".css");
                 state.RemapPath(newPath);
             }
-            base.PreExecute(state);
         }
 
-        public override void Execute(ContentTransformState state) {
+        public void Execute(ContentTransformState state) {
             // Support 404, not just 500
             if (state.RootPath == null)
                 return;
@@ -95,7 +94,19 @@
             return null;
         }
 
-        protected override void Dispose(bool disposing) {
+        /// <summary>
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
+        public void Dispose() {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources
+        /// </summary>
+        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing) {
             if (disposing) {
                 if (_compilerPool != null) {
                     _compilerPool.Dispose();

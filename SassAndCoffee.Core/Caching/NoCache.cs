@@ -23,12 +23,5 @@
                 return null;
             else return generator(key);
         }
-
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
-        public void Dispose() {
-            /* Do nothing */
-        }
     }
 }

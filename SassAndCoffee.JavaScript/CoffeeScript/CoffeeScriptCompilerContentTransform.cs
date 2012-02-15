@@ -1,46 +1,40 @@
 ﻿namespace SassAndCoffee.JavaScript.CoffeeScript {
+    using System;
     using System.Text.RegularExpressions;
     using SassAndCoffee.Core;
 
     public class CoffeeScriptCompilerContentTransform : JavaScriptCompilerContentTransformBase {
-        public const string StateKey = "CoffeeScript_Bare";
+        public const string StateKeyBare = "CoffeeScript_Bare";
 
         public static readonly Regex BareModeDetection = new Regex(
             @"\.bare(\.min)?\.js$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-        public override string InputMimeType {
-            get { return "text/coffeescript"; }
-        }
+        [Obsolete("This constructor is present for backwards compatibility with existing libraries. Do not use for new development.", true)]
+        public CoffeeScriptCompilerContentTransform()
+            : this(new InstanceProvider<IJavaScriptRuntime>(() => new IEJavaScriptRuntime())) { }
 
-        public override string OutputMimeType {
-            get { return "text/javascript"; }
-        }
+        public CoffeeScriptCompilerContentTransform(IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider)
+            : base(
+                "text/coffeescript",
+                "text/javascript",
+                new InstanceProvider<IJavaScriptCompiler>(() => new CoffeeScriptCompiler(jsRuntimeProvider))) { }
 
         public override void PreExecute(ContentTransformState state) {
             if (BareModeDetection.IsMatch(state.Path)) {
-                state.Items.Add(StateKey, true);
+                state.Items.Add(StateKeyBare, true);
                 var newPath = state.Path
                     .ToLowerInvariant()
                     .Replace(".bare.js", ".js")
                     .Replace(".bare.min.js", ".min.js");
                 state.RemapPath(newPath);
             }
-            base.PreExecute(state);
         }
 
         public override void Execute(ContentTransformState state) {
-            bool bare = false;  // Default to non-bare mode like CoffeeScript compiler
-            if (state.Items.ContainsKey(StateKey))
-                bare = true;
-
-            base.Execute(state, bare);
-        }
-
-        protected override IInstanceProvider<IJavaScriptCompiler> CreateCompilerProvider(
-            IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider) {
-            return new InstanceProvider<IJavaScriptCompiler>(
-                () => new CoffeeScriptCompiler(jsRuntimeProvider));
+            // Default to wrapped mode like CoffeeScript compiler
+            bool bare = state.Items.ContainsKey(StateKeyBare);
+            Execute(state, bare);
         }
     }
 }

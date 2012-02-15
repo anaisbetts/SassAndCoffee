@@ -3,7 +3,7 @@
     using System.IO;
     using SassAndCoffee.Core;
 
-    public class JavaScriptCombineContentTransform : ContentTransformBase {
+    public class JavaScriptCombineContentTransform : IContentTransform {
         private readonly string _appRootPath;
 
         public JavaScriptCombineContentTransform() {
@@ -13,7 +13,11 @@
             _appRootPath = tempPath;
         }
 
-        public override void Execute(ContentTransformState state) {
+        public void PreExecute(ContentTransformState state) {
+            /* Do Nothing */
+        }
+
+        public void Execute(ContentTransformState state) {
             // We're a content provider.  If content is already set, do nothing.
             if (state.Content != null)
                 return;

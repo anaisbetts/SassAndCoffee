@@ -1,7 +1,7 @@
 ﻿namespace SassAndCoffee.Core {
     using System;
 
-    public interface IPersistentMedium : IDisposable {
+    public interface IPersistentMedium {
         /// <summary>
         /// Initializes this instance.  Must be called before using the cache.
         /// </summary>

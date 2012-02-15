@@ -1,7 +1,7 @@
 ﻿namespace SassAndCoffee.Core {
     using System.IO;
 
-    public class FileSourceContentTransform : ContentTransformBase {
+    public class FileSourceContentTransform : IContentTransform {
         private string _mimeType;
         private string[] _extensions;
 
@@ -10,7 +10,7 @@
             _extensions = extensions;
         }
 
-        public override void Execute(ContentTransformState state) {
+        public void Execute(ContentTransformState state) {
             // We're a content provider.  If content is already set, do nothing.
             if (state.Content != null)
                 return;
@@ -37,6 +37,10 @@
                     CacheInvalidationFileList = new string[] { fileName },
                 });
             }
+        }
+
+        public void PreExecute(ContentTransformState state) {
+            /* Do Nothing */
         }
     }
 }
