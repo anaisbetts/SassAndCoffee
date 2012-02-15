@@ -8,7 +8,7 @@
     /// </summary>
     [Serializable]
     public class SassSyntaxException : Exception {
-        public string RubyBacktrace { get; protected set; }
+        public string RubyBackTrace { get; protected set; }
         public string FileName { get; protected set; }
         public string MixIn { get; protected set; }
         public string LineNumber { get; protected set; }
@@ -35,7 +35,7 @@
         /// <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0). </exception>
         protected SassSyntaxException(SerializationInfo info, StreamingContext context)
             : base(info, context) {
-            RubyBacktrace = info.GetString("RubyBacktrace");
+            RubyBackTrace = info.GetString("RubyBacktrace");
             FileName = info.GetString("FileName");
             MixIn = info.GetString("MixIn");
             LineNumber = info.GetString("LineNumber");
@@ -63,7 +63,10 @@
         ///   <IPermission class="System.Security.Permissions.SecurityPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" Flags="SerializationFormatter"/>
         ///   </PermissionSet>
         public override void GetObjectData(SerializationInfo info, StreamingContext context) {
-            info.AddValue("RubyBacktrace", RubyBacktrace);
+            if (info == null)
+                throw new ArgumentNullException("info");
+
+            info.AddValue("RubyBacktrace", RubyBackTrace);
             info.AddValue("FileName", FileName);
             info.AddValue("MixIn", MixIn);
             info.AddValue("LineNumber", LineNumber);
@@ -84,7 +87,7 @@
         public override string ToString() {
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("{0}\n\n", Message)
-              .AppendFormat("Backtrace:\n{0}\n\n", RubyBacktrace)
+              .AppendFormat("Backtrace:\n{0}\n\n", RubyBackTrace)
               .AppendFormat("FileName: {0}\n\n", FileName)
               .AppendFormat("MixIn: {0}\n\n", MixIn)
               .AppendFormat("Line Number: {0}\n\n", LineNumber)
@@ -92,17 +95,21 @@
             return sb.ToString();
         }
 
-        public static bool IsSassSyntaxError(Exception e) {
-            return e.Message == "Sass::SyntaxError";
+        public static bool IsSassSyntaxError(Exception exception) {
+            return exception != null && exception.Message == "Sass::SyntaxError";
         }
 
-        public static SassSyntaxException FromSassSyntaxError(Exception sassSyntaxError, string filePath = "") {
+        public static SassSyntaxException FromSassSyntaxError(Exception sassSyntaxError) {
+            return FromSassSyntaxError(sassSyntaxError, "");
+        }
+
+        public static SassSyntaxException FromSassSyntaxError(Exception sassSyntaxError, string filePath) {
             if (!IsSassSyntaxError(sassSyntaxError))
                 return null;
 
             dynamic error = sassSyntaxError;
             return new SassSyntaxException(error.to_s(), sassSyntaxError) {
-                RubyBacktrace = error.sass_backtrace_str(filePath) ?? "",
+                RubyBackTrace = error.sass_backtrace_str(filePath) ?? "",
                 FileName = string.IsNullOrWhiteSpace(error.sass_filename()) ? filePath : error.sass_filename(),
                 MixIn = error.sass_mixin() ?? "",
                 LineNumber = error.sass_line() ?? "",

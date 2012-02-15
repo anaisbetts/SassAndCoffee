@@ -1,6 +1,7 @@
 ﻿namespace SassAndCoffee.Ruby.Sass {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using SassAndCoffee.Core;
 
@@ -12,7 +13,11 @@
         private Pool<ISassCompiler, SassCompilerProxy> _compilerPool =
             new Pool<ISassCompiler, SassCompilerProxy>(CreateAndInitializeSassCompiler);
 
+        [SuppressMessage("Microsoft.Globalization", "CA1308:NormalizeStringsToUppercase")]
         public void PreExecute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             if (state.Path.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase)) {
                 state.Items.Add(CompressedStateKey, true);
                 var newPath = state.Path
@@ -23,6 +28,9 @@
         }
 
         public void Execute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             // Support 404, not just 500
             if (state.RootPath == null)
                 return;
@@ -61,6 +69,7 @@
         }
 
         private static object _compilerInitializationLock = new object();
+        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "Don't care why or how.")]
         private static ISassCompiler CreateAndInitializeSassCompiler() {
             var compiler = new SassCompiler();
             bool initialized = false;
@@ -75,7 +84,7 @@
             return compiler;
         }
 
-        private string FindFileFromRoot(string fileRoot) {
+        private static string FindFileFromRoot(string fileRoot) {
             if (fileRoot == null)
                 return null;
 

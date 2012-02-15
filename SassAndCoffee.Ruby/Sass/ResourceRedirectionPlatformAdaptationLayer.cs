@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.Ruby.Sass {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Reflection;
     using Microsoft.Scripting;
@@ -8,6 +9,7 @@
 
         public Action<string> OnOpenInputFileStream { get; set; }
 
+        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "The reason for failure is irrelevant.")]
         public override bool FileExists(string path) {
             var assembly = Assembly.GetExecutingAssembly();
             var type = typeof(ResourceRedirectionPlatformAdaptationLayer);
@@ -22,6 +24,7 @@
             return base.FileExists(path);
         }
 
+        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "The reason for failure is irrelevant.")]
         public override Stream OpenInputFileStream(string path) {
             var assembly = Assembly.GetExecutingAssembly();
             var type = typeof(ResourceRedirectionPlatformAdaptationLayer);
@@ -48,7 +51,7 @@
             return base.OpenInputFileStream(path, mode, access, share, bufferSize);
         }
 
-        private string PathToResourceName(string path) {
+        private static string PathToResourceName(string path) {
             // This is kind of a hack, but I couldn't think of anything better worth the effort.
             return path
                 .Replace("1.9.1", "_1._9._1")

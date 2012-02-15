@@ -1,6 +1,8 @@
 ﻿namespace SassAndCoffee.Ruby.Sass {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Globalization;
     using System.IO;
     using System.Text;
     using IronRuby;
@@ -20,9 +22,11 @@
         private dynamic _scssOptionCompressed;
         private bool _initialized = false;
 
+        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "Don't care. It's harmless.")]
+        [SuppressMessage("Microsoft.Usage", "CA2201:DoNotRaiseReservedExceptionTypes", Justification = "Not worth the effort. Custom exceptions suck.")]
         public string Compile(string path, bool compressed, IList<string> dependentFileList) {
             if (path == null)
-                throw new ArgumentException("source cannot be null.", "source");
+                throw new ArgumentException("source cannot be null.", "path");
 
             if (!_initialized)
                 throw new InvalidOperationException("Compiler must be initialized first.");
@@ -42,7 +46,7 @@
 
                 var directoryPath = pathInfo.DirectoryName;
                 if (!directoryPath.Contains("\'")) {
-                    var statement = String.Format("Dir.chdir '{0}'", directoryPath);
+                    var statement = String.Format(CultureInfo.InvariantCulture, "Dir.chdir '{0}'", directoryPath);
                     _engine.Execute(statement, _scope);
                 }
 
@@ -68,10 +72,10 @@
 
                 var rubyEx = RubyExceptionData.GetInstance(e);
                 StringBuilder sb = new StringBuilder();
-                sb.AppendFormat("{0}\n\n", rubyEx.Message)
-                  .AppendFormat("Backtrace:\n");
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{0}\n\n", rubyEx.Message)
+                  .AppendFormat(CultureInfo.InvariantCulture, "Backtrace:\n");
                 foreach (var frame in rubyEx.Backtrace) {
-                    sb.AppendFormat("  {0}\n", frame);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "  {0}\n", frame);
                 }
                 throw new Exception(sb.ToString(), e);
             } finally {
