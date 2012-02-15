@@ -1,6 +1,7 @@
 ﻿namespace SassAndCoffee.AspNet {
     using System;
     using System.Configuration;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Web;
     using SassAndCoffee.Core;
@@ -8,7 +9,8 @@
     /// <summary>
     /// An HttpModule that will conditionally handle requests for files with certain extensions.
     /// </summary>
-    public class PathBasedHandlerRemapper : IHttpModule {
+    [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Remapper")]
+    public class PathBasedHandlerRemapper : IHttpModule, IDisposable {
         public const string SassAndCoffeeCacheTypeKey = "SassAndCoffee.Cache";
         public const string SassAndCoffeeCachePathKey = "SassAndCoffee.Cache.Path";
         public const string AppDataSpecialKey = "%DataDirectory%";
@@ -36,6 +38,9 @@
         /// <param name="context">An <see cref="T:System.Web.HttpApplication"/> that provides access to
         /// the methods, properties, and events common to all application objects within an ASP.NET application</param>
         public void Init(HttpApplication context) {
+            if (context == null)
+                throw new ArgumentNullException("context");
+
             // This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
 
             IContentCache cache = context.Application[HttpApplicationStateCacheKey] as IContentCache;
@@ -75,6 +80,8 @@
         /// <summary>
         /// Gets the correct IContentCache implementation from the application settings.
         /// </summary>
+        [SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate", Justification = "It has side effects.")]
+        [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "We need to use it later.")]
         protected virtual IContentCache GetCacheFromSettings() {
             var cacheSetting = ConfigurationManager.AppSettings[SassAndCoffeeCacheTypeKey];
             IPersistentMedium medium = null;
@@ -82,7 +89,7 @@
                 medium = new InMemoryMedium();
             } else if (cacheSetting.Equals("File", StringComparison.OrdinalIgnoreCase)) {
                 var path = ConfigurationManager.AppSettings[SassAndCoffeeCachePathKey];
-                if (path.StartsWith(AppDataSpecialKey)) {
+                if (path.StartsWith(AppDataSpecialKey, StringComparison.OrdinalIgnoreCase)) {
                     path = path.Substring(AppDataSpecialKey.Length);
                     path = path.TrimStart(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
                     path = Path.Combine(
@@ -104,7 +111,23 @@
         /// Disposes of the resources (other than memory) used by the module that implements <see cref="T:System.Web.IHttpModule"/>.
         /// </summary>
         public void Dispose() {
-            /* Do Nothing */
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Releases unmanaged and - optionally - managed resources
+        /// </summary>
+        /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing) {
+            if (disposing) {
+                if (_transformations != null) {
+                    foreach (var transformation in _transformations) {
+                        var disposable = transformation as IDisposable;
+                        if (disposable != null) disposable.Dispose();
+                    }
+                }
+            }
         }
     }
 }

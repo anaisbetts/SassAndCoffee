@@ -26,9 +26,11 @@
         }
 
         public void ProcessRequest(HttpContext context) {
+            if (context == null)
+                throw new ArgumentNullException("context");
+
             var request = context.Request;
             var response = context.Response;
-
             var result = _pipeline.ProcessRequest(request.PhysicalPath);
 
             if (result == null) {
@@ -77,7 +79,7 @@
             response.Write(result.Content);
         }
 
-        private void SetVaryBy(string list, Action<string> action) {
+        private static void SetVaryBy(string list, Action<string> action) {
             if (string.IsNullOrWhiteSpace(list))
                 return;
 
