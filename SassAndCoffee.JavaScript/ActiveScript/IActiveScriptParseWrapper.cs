@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
 
     /// <summary>
@@ -68,6 +69,9 @@
         /// order of preference: a name explicitly specified in the scriptlet text, the
         /// default name provided in pstrDefaultName, or a unique name synthesized by the
         /// scripting engine.</returns>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "flags")]
+        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Scriptlet")]
+        [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "subItem")]
         string AddScriptlet(
             string defaultName,
             string code,
@@ -108,6 +112,7 @@
         /// <param name="flags">Flags associated with the scriptlet.</param>
         /// <returns>The results of scriptlet processing, or NULL if the caller
         /// expects no result (that is, the SCRIPTTEXT_ISEXPRESSION value is not set).</returns>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "flags")]
         object ParseScriptText(
             string code,
             string itemName,

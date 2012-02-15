@@ -1,8 +1,10 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
+    using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
     /// Contains named constant values that specify the state of a scripting engine
     /// </summary>
+    [SuppressMessage("Microsoft.Design", "CA1028:EnumStorageShouldBeInt32")]
     public enum ScriptState : uint {
         /// <summary>
         /// Script has just been created, but has not yet been initialized using an IPersist*

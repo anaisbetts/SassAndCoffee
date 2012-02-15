@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
     using ComTypes = System.Runtime.InteropServices.ComTypes;
 
@@ -72,6 +73,11 @@
         /// scripting engine.</param>
         /// <param name="exceptionInfo">Exception information. This structure should be
         /// filled in if DISP_E_EXCEPTION is returned.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "flags")]
+        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Scriptlet")]
+        [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "subItem")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "9#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "10#")]
         void AddScriptlet(
             [MarshalAs(UnmanagedType.LPWStr)] string defaultName,
             [MarshalAs(UnmanagedType.LPWStr)] string code,
@@ -116,6 +122,10 @@
         /// expects no result (that is, the SCRIPTTEXT_ISEXPRESSION value is not set).</param>
         /// <param name="exceptionInfo">The exception information. This structure is filled
         /// if IActiveScriptParse::ParseScriptText returns DISP_E_EXCEPTION.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "flags")]
+        [SuppressMessage("Microsoft.Design", "CA1007:UseGenericsWhereAppropriate")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "8#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "7#")]
         void ParseScriptText(
             [MarshalAs(UnmanagedType.LPWStr)] string code,
             [MarshalAs(UnmanagedType.LPWStr)] string itemName,

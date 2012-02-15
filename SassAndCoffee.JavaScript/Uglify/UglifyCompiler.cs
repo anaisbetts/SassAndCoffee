@@ -1,7 +1,9 @@
 ﻿namespace SassAndCoffee.JavaScript.Uglify {
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using SassAndCoffee.Core;
 
+    [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Uglify")]
     public class UglifyCompiler : JavaScriptCompilerBase {
         private readonly static string[] _libs = new string[] {
             "lib.underscore.js",

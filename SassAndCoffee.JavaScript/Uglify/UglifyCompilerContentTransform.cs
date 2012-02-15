@@ -1,7 +1,9 @@
 ﻿namespace SassAndCoffee.JavaScript.Uglify {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using SassAndCoffee.Core;
 
+    [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Uglify")]
     public class UglifyCompilerContentTransform : JavaScriptCompilerContentTransformBase {
         public const string StateKey = "Uglify";
 
@@ -15,7 +17,11 @@
                 "text/javascript",
                 new InstanceProvider<IJavaScriptCompiler>(() => new UglifyCompiler(jsRuntimeProvider))) { }
 
+        [SuppressMessage("Microsoft.Globalization", "CA1308:NormalizeStringsToUppercase")]
         public override void PreExecute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             if (state.Path.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase)) {
                 state.Items.Add(StateKey, true);
                 var newPath = state.Path
@@ -26,6 +32,9 @@
         }
 
         public override void Execute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             if (!state.Items.ContainsKey(StateKey))
                 return;
             base.Execute(state, null);

@@ -1,6 +1,9 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
 
+    [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags")]
+    [SuppressMessage("Microsoft.Design", "CA1028:EnumStorageShouldBeInt32")]
     [Flags]
     public enum ScriptTypeLibFlags : uint {
         /// <summary>

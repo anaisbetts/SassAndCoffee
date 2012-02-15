@@ -1,10 +1,12 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
     /// Thread interruption options.
     /// </summary>
-    [Flags]
+    [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags")]
+    [SuppressMessage("Microsoft.Design", "CA1028:EnumStorageShouldBeInt32"), Flags]
     public enum ScriptInterruptFlags : uint {
         /// <summary>
         /// No flags.

@@ -13,7 +13,7 @@
         private bool _initialized = false;
         private object _lock = new object();
 
-        public JavaScriptCompilerBase(IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider) {
+        protected JavaScriptCompilerBase(IInstanceProvider<IJavaScriptRuntime> jsRuntimeProvider) {
             _jsRuntimeProvider = jsRuntimeProvider;
         }
 

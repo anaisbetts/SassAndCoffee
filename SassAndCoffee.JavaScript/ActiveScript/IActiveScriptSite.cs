@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
 
     /// <summary>
@@ -20,6 +21,8 @@
         /// </summary>
         /// <param name="lcid">A variable that receives the locale identifier for user-interface
         /// elements displayed by the scripting engine.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "LCID")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
         void GetLCID(out int lcid);
 
         /// <summary>
@@ -48,6 +51,9 @@
         /// multiple interfaces and event interfaces. If the item supports the IProvideMultipleTypeInfo
         /// interface, the ITypeInfo interface retrieved is the same as the index zero ITypeInfo that
         /// would be obtained using the IProvideMultipleTypeInfo.GetInfoOfIndex method.</param>
+        [SuppressMessage("Microsoft.Design", "CA1007:UseGenericsWhereAppropriate")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "3#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "2#")]
         void GetItemInfo(
             [MarshalAs(UnmanagedType.LPWStr)] string name,
             ScriptInfoFlags returnMask,
@@ -61,6 +67,7 @@
         /// persisted state, forcing a recompile the next time the script is loaded.
         /// </summary>
         /// <param name="versionString">The host-defined document version string.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
         void GetDocVersionString([MarshalAs(UnmanagedType.BStr)] out string versionString);
 
         /// <summary>

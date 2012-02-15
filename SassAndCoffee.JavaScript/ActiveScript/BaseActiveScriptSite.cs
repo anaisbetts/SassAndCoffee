@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Runtime.InteropServices;
     using ComTypes = System.Runtime.InteropServices.ComTypes;
@@ -18,14 +19,14 @@
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseActiveScriptSite"/> class.
         /// </summary>
-        public BaseActiveScriptSite()
-            : this(DateTime.UtcNow.ToString("o")) { }
+        protected BaseActiveScriptSite()
+            : this(DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseActiveScriptSite"/> class.
         /// </summary>
         /// <param name="documentVersion">The host-defined document version string.</param>
-        public BaseActiveScriptSite(string documentVersion) {
+        protected BaseActiveScriptSite(string documentVersion) {
             DocumentVersion = documentVersion;
         }
 
@@ -66,17 +67,22 @@
         /// multiple interfaces and event interfaces. If the item supports the IProvideMultipleTypeInfo
         /// interface, the ITypeInfo interface retrieved is the same as the index zero ITypeInfo that
         /// would be obtained using the IProvideMultipleTypeInfo.GetInfoOfIndex method.</param>
+        [SuppressMessage("Microsoft.Usage", "CA2201:DoNotRaiseReservedExceptionTypes", Justification = "Expected by callers of interface.")]
         public void GetItemInfo(string name, ScriptInfoFlags returnMask, out object item, out IntPtr typeInfo) {
             if ((returnMask & ScriptInfoFlags.IUnknown) > 0) {
                 item = GetItem(name);
-                if (item == null) throw new COMException(string.Format("{0} not found.", name), TYPE_E_ELEMENTNOTFOUND);
+                if (item == null) throw new COMException(
+                    string.Format(CultureInfo.InvariantCulture, "{0} not found.", name),
+                    TYPE_E_ELEMENTNOTFOUND);
             } else {
                 item = null;
             }
 
             if ((returnMask & ScriptInfoFlags.ITypeInfo) > 0) {
                 typeInfo = GetTypeInfo(name);
-                if (typeInfo == null) throw new COMException(string.Format("{0} not found.", name), TYPE_E_ELEMENTNOTFOUND);
+                if (typeInfo == null) throw new COMException(
+                    string.Format(CultureInfo.InvariantCulture, "{0} not found.", name),
+                    TYPE_E_ELEMENTNOTFOUND);
             } else {
                 typeInfo = IntPtr.Zero;
             }
@@ -139,6 +145,7 @@
         /// <summary>
         /// Gets and resets the last exception.  Returns null for none.
         /// </summary>
+        [SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate", Justification = "It has side effects.")]
         protected ActiveScriptException GetAndResetLastException() {
             var temp = _lastException;
             _lastException = null;

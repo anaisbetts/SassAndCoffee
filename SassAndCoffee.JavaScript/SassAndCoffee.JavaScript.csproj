@@ -24,6 +24,8 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -68,6 +70,7 @@
     <Compile Include="ActiveScript\ScriptTypeLibFlags.cs" />
     <Compile Include="CoffeeScript\CoffeeScriptCompiler.cs" />
     <Compile Include="CoffeeScript\CoffeeScriptCompilerContentTransform.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="IEJavaScriptRuntime.cs" />
     <Compile Include="IJavaScriptCompiler.cs" />
     <Compile Include="IJavaScriptRuntime.cs" />

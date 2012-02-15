@@ -1,10 +1,12 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
 
     /// <summary>
     /// Enables the caller to provide an object that handles a specified event handler.
     /// </summary>
+    [SuppressMessage("Microsoft.Naming", "CA1711:IdentifiersShouldNotHaveIncorrectSuffix")]
     [Guid("63CDBCB0-C1B1-11d0-9336-00A0C90DCAA9")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     public interface IBindEventHandler {

@@ -8,7 +8,7 @@
 
         public JavaScriptCombineContentTransform() {
             var tempPath = AppDomain.CurrentDomain.BaseDirectory;
-            if (!tempPath.EndsWith(@"\"))
+            if (!tempPath.EndsWith(@"\", StringComparison.OrdinalIgnoreCase))
                 tempPath += @"\";
             _appRootPath = tempPath;
         }
@@ -18,6 +18,9 @@
         }
 
         public void Execute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             // We're a content provider.  If content is already set, do nothing.
             if (state.Content != null)
                 return;
@@ -33,10 +36,12 @@
                 var lines = File.ReadLines(fileInfo.FullName);
                 foreach (var line in lines) {
                     var trimmed = line.Trim();
-                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
+                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#", StringComparison.OrdinalIgnoreCase))
                         continue;
                     string newPath = null;
-                    if (trimmed.StartsWith("~/") && trimmed.Length > 2 && _appRootPath != null) {
+                    if (trimmed.StartsWith("~/", StringComparison.OrdinalIgnoreCase)
+                        && trimmed.Length > 2
+                        && _appRootPath != null) {
                         // ASP.Net absolute path
                         newPath = _appRootPath + trimmed.Substring(2);
                     } else {

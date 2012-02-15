@@ -1,4 +1,5 @@
 ﻿namespace SassAndCoffee.JavaScript {
+    using System;
     using SassAndCoffee.Core;
 
     public abstract class JavaScriptCompilerContentTransformBase : IContentTransform {
@@ -7,7 +8,7 @@
         public string InputMimeType { get; private set; }
         public string OutputMimeType { get; private set; }
 
-        public JavaScriptCompilerContentTransformBase(
+        protected JavaScriptCompilerContentTransformBase(
             string inputMimeType,
             string outputMimeType,
             IInstanceProvider<IJavaScriptCompiler> jsCompilerProvider) {
@@ -20,6 +21,9 @@
         public abstract void Execute(ContentTransformState state);
 
         protected virtual void Execute(ContentTransformState state, params object[] args) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             // If input is empty or the wrong type, do nothing
             if (state.Content == null || state.MimeType != InputMimeType)
                 return;

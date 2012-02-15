@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
     using ComTypes = System.Runtime.InteropServices.ComTypes;
 
@@ -24,6 +25,8 @@
         /// </summary>
         /// <param name="iid">Identifier of the requested interface.</param>
         /// <param name="siteObject">The host's site object.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "iid")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetScriptSite(Guid iid, out IActiveScriptSite siteObject);
 
         /// <summary>
@@ -41,6 +44,7 @@
         /// </summary>
         /// <param name="scriptState">The value indicates the current state of the scripting engine
         /// associated with the calling thread.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
         void GetScriptState(out ScriptState scriptState);
 
         /// <summary>
@@ -60,6 +64,7 @@
         /// <param name="name">The name of the item as viewed from the script. The name must be unique
         /// and persistable.</param>
         /// <param name="itemFlags">Flags associated with an item.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags", Justification = "Required by interface.")]
         void AddNamedItem([MarshalAs(UnmanagedType.LPWStr)] string name, ScriptItemFlags itemFlags);
 
         /// <summary>
@@ -71,6 +76,8 @@
         /// <param name="majorVersion">Major version number.</param>
         /// <param name="minorVersion">Minor version number.</param>
         /// <param name="typeLibFlags">Option flags.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags", Justification = "Required by interface.")]
+        [SuppressMessage("Microsoft.Naming", "CA1702:CompoundWordsShouldBeCasedCorrectly", MessageId = "clsId", Justification = "Required by interface.")]
         void AddTypeLib(Guid clsId, uint majorVersion, uint minorVersion, ScriptTypeLibFlags typeLibFlags);
 
         /// <summary>
@@ -84,6 +91,8 @@
         /// or view and modify script variables.</param>
         /// <param name="dispatch">The object associated with the script's global methods and
         /// properties. If the scripting engine does not support such an object, NULL is returned.</param>
+        [SuppressMessage("Microsoft.Design", "CA1007:UseGenericsWhereAppropriate")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#", Justification = "Required by interface.")]
         void GetScriptDispatch(
             [MarshalAs(UnmanagedType.LPWStr)] string itemName,
             [MarshalAs(UnmanagedType.IDispatch)] out object dispatch);
@@ -97,6 +106,8 @@
         /// The interpretation of this identifier is left to the scripting engine, but it can be
         /// just a copy of the Windows thread identifier. If the Win32 thread terminates, this
         /// identifier becomes unassigned and can subsequently be assigned to another thread.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "ID", Justification = "Required by interface.")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#", Justification = "Required by interface.")]
         void GetCurrentScriptThreadID(out uint threadId);
 
         /// <summary>
@@ -111,6 +122,8 @@
         /// but it can be just a copy of the Windows thread identifier. Note that if the Win32
         /// thread terminates, this identifier becomes unassigned and may subsequently be
         /// assigned to another thread.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "ID")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetScriptThreadID(uint win32ThreadId, out uint scriptThreadId);
 
         /// <summary>
@@ -118,6 +131,7 @@
         /// </summary>
         /// <param name="scriptThreadId">Identifier of the thread for which the state is desired.</param>
         /// <param name="threadState"></param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetScriptThreadState(uint scriptThreadId, out ScriptThreadState threadState);
 
         /// <summary>
@@ -130,6 +144,7 @@
         /// special thread identifier values.</param>
         /// <param name="exceptionInfo">The error information that should be reported to the aborted script.</param>
         /// <param name="interruptFlags">Option flags associated with the interruption.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags")]
         void InterruptScriptThread(uint scriptThreadId, ComTypes.EXCEPINFO exceptionInfo, ScriptInterruptFlags interruptFlags);
 
         /// <summary>
@@ -141,6 +156,7 @@
         /// <param name="script">The cloned scripting engine. The host must create a site and
         /// call the IActiveScript.SetScriptSite method on the new scripting engine before it
         /// will be in the initialized state and, therefore, usable.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#", Justification = "Required by interface.")]
         void Clone(out IActiveScript script);
     }
 }

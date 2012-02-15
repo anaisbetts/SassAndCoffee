@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
 
     /// <summary>
@@ -15,6 +16,9 @@
         /// <param name="statId">Specifies which statistic to return.</param>
         /// <param name="valueHi">The high 32 bits of a 64-bit unsigned integer representing the statistic.</param>
         /// <param name="valueLow">The low 32 bits of a 64-bit unsigned integer representing the statistic.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Hi")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "2#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetStat(ScriptStatistic statId, out uint valueHi, out uint valueLow);
 
         /// <summary>
@@ -23,6 +27,10 @@
         /// <param name="statId">Specifies which statistic to return.</param>
         /// <param name="valueHi">The high 32 bits of a 64-bit unsigned integer representing the statistic.</param>
         /// <param name="valueLow">The low 32 bits of a 64-bit unsigned integer representing the statistic.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1711:IdentifiersShouldNotHaveIncorrectSuffix")]
+        [SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Hi")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "2#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetStatEx(Guid statId, out uint valueHi, out uint valueLow);
 
         /// <summary>

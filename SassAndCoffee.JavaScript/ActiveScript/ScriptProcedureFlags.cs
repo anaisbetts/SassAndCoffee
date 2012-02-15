@@ -1,7 +1,9 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
 
-    [Flags]
+    [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flags")]
+    [SuppressMessage("Microsoft.Design", "CA1028:EnumStorageShouldBeInt32"), Flags]
     public enum ScriptProcedureFlags : uint {
         /// <summary>
         /// Indicates that the code in pstrCode is an expression that represents the return value of the procedure.

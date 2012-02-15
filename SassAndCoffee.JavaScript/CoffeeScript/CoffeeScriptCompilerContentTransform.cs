@@ -2,6 +2,7 @@
     using System;
     using System.Text.RegularExpressions;
     using SassAndCoffee.Core;
+    using System.Diagnostics.CodeAnalysis;
 
     public class CoffeeScriptCompilerContentTransform : JavaScriptCompilerContentTransformBase {
         public const string StateKeyBare = "CoffeeScript_Bare";
@@ -20,7 +21,11 @@
                 "text/javascript",
                 new InstanceProvider<IJavaScriptCompiler>(() => new CoffeeScriptCompiler(jsRuntimeProvider))) { }
 
+        [SuppressMessage("Microsoft.Globalization", "CA1308:NormalizeStringsToUppercase")]
         public override void PreExecute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             if (BareModeDetection.IsMatch(state.Path)) {
                 state.Items.Add(StateKeyBare, true);
                 var newPath = state.Path
@@ -32,6 +37,9 @@
         }
 
         public override void Execute(ContentTransformState state) {
+            if (state == null)
+                throw new ArgumentNullException("state");
+
             // Default to wrapped mode like CoffeeScript compiler
             bool bare = state.Items.ContainsKey(StateKeyBare);
             Execute(state, bare);

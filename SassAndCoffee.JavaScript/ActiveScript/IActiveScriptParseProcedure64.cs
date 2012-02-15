@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
 
     /// <summary>
@@ -38,6 +39,10 @@
         /// <param name="flags">Flags associated with the procedure.</param>
         /// <param name="dispatch">The object containing the script's global methods and properties. If the
         /// scripting engine does not support such an object, NULL is returned.</param>
+        [SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "flags")]
+        [SuppressMessage("Microsoft.Design", "CA1007:UseGenericsWhereAppropriate")]
+        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "delimeter")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "9#")]
         void ParseProcedureText(
             [MarshalAs(UnmanagedType.LPWStr)] string code,
             [MarshalAs(UnmanagedType.LPWStr)] string formalParameters,

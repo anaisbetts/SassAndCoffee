@@ -1,6 +1,8 @@
 ﻿namespace SassAndCoffee.JavaScript {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Globalization;
     using System.Reflection;
     using System.Runtime.InteropServices;
     using SassAndCoffee.JavaScript.ActiveScript;
@@ -21,6 +23,7 @@
             }
         }
 
+        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "Don't know what the exception would be.")]
         public void Initialize() {
             try {
                 // Prefer Chakra
@@ -59,7 +62,7 @@
         public T ExecuteFunction<T>(string functionName, params object[] args) {
             T result;
             try {
-                result = (T)_jsDispatchType.InvokeMember(functionName, BindingFlags.InvokeMethod, null, _jsDispatch, args);
+                result = (T)_jsDispatchType.InvokeMember(functionName, BindingFlags.InvokeMethod, null, _jsDispatch, args, CultureInfo.InvariantCulture);
             } catch {
                 ThrowError();
                 throw;
@@ -110,7 +113,7 @@
             GC.SuppressFinalize(this);
         }
 
-        public virtual void Dispose(bool disposing) {
+        protected virtual void Dispose(bool disposing) {
             ComRelease(ref _jsDispatch, !disposing);
 
             // For now these next two actually reference the same object, but it doesn't hurt to be explicit.
@@ -118,7 +121,7 @@
             ComRelease(ref _jsEngine, !disposing);
         }
 
-        private void ComRelease<T>(ref T o, bool final = false)
+        private static void ComRelease<T>(ref T o, bool final = false)
             where T : class {
             if (o != null && Marshal.IsComObject(o)) {
                 if (final)

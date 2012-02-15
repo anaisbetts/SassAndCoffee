@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
     using ComTypes = System.Runtime.InteropServices.ComTypes;
 
@@ -16,6 +17,7 @@
         /// a script.
         /// </summary>
         /// <param name="exceptionInfo">An EXCEPINFO structure that receives error information.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
         void GetExceptionInfo(out ComTypes.EXCEPINFO exceptionInfo);
 
         /// <summary>
@@ -26,6 +28,9 @@
         /// this parameter depends on the host application.</param>
         /// <param name="lineNumber">The line number in the source file where the error occurred.</param>
         /// <param name="characterPosition">The character position in the line where the error occurred.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "2#")]
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#")]
         void GetSourcePosition(out uint sourceContext, out uint lineNumber, out int characterPosition);
 
         /// <summary>
@@ -33,6 +38,7 @@
         /// was running a script.
         /// </summary>
         /// <param name="sourceLine">The line of source code in which the error occurred.</param>
+        [SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "0#")]
         void GetSourceLineText([MarshalAs(UnmanagedType.BStr)] out string sourceLine);
     }
 }
