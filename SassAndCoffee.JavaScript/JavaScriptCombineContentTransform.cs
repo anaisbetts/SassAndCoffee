@@ -31,14 +31,14 @@
 
             var fileInfo = new FileInfo(state.RootPath + ".combine");
             if (fileInfo.Exists) {
-                state.AddCacheInvalidationFiles(new string[] { fileInfo.FullName });
+                state.AddCacheInvalidationFiles(new[] { fileInfo.FullName });
 
                 var lines = File.ReadLines(fileInfo.FullName);
                 foreach (var line in lines) {
                     var trimmed = line.Trim();
                     if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#", StringComparison.OrdinalIgnoreCase))
                         continue;
-                    string newPath = null;
+                    string newPath;
                     if (trimmed.StartsWith("~/", StringComparison.OrdinalIgnoreCase)
                         && trimmed.Length > 2
                         && _appRootPath != null) {

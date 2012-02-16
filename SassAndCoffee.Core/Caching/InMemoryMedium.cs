@@ -13,7 +13,7 @@
     /// </summary>
     public class InMemoryMedium : IPersistentMedium {
         private ConcurrentDictionary<string, CachedContentResult> _items;
-        private IEqualityComparer<string> _comparer;
+        private readonly IEqualityComparer<string> _comparer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="InMemoryMedium"/> class.
@@ -28,7 +28,7 @@
         /// </summary>
         /// <param name="pathComparer">The comparer to use for resources. Defaults to StringComparer.OrdinalIgnoreCase</param>
         public InMemoryMedium(IEqualityComparer<string> pathComparer) {
-            _comparer = pathComparer == null ? StringComparer.OrdinalIgnoreCase : pathComparer;
+            _comparer = pathComparer ?? StringComparer.OrdinalIgnoreCase;
         }
 
         /// <summary>
@@ -47,7 +47,7 @@
         /// The cached result, or null on cache miss.
         /// </returns>
         public CachedContentResult TryGetValue(string key) {
-            CachedContentResult result = null;
+            CachedContentResult result;
             if (_items.TryGetValue(key, out result)) {
                 return result;
             } else {
@@ -71,7 +71,7 @@
         /// </summary>
         /// <param name="key">The unique key of the cached resource to remove.</param>
         public void Remove(string key) {
-            CachedContentResult result = null;
+            CachedContentResult result;
             _items.TryRemove(key, out result);
         }
     }

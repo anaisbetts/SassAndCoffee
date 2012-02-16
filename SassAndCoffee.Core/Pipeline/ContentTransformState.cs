@@ -7,9 +7,9 @@
     using System.Text;
 
     public class ContentTransformState {
-        private StringBuilder _content = new StringBuilder();
-        private List<string> _cacheInvalidationFileList = new List<string>();
-        private Dictionary<string, object> _items = new Dictionary<string, object>();
+        private readonly StringBuilder _content = new StringBuilder();
+        private readonly List<string> _cacheInvalidationFileList = new List<string>();
+        private readonly Dictionary<string, object> _items = new Dictionary<string, object>();
 
         public string Content { get { return (_content.Length == 0) ? null : _content.ToString(); } }
         public IDictionary<string, object> Items { get { return _items; } }
@@ -69,9 +69,9 @@
         }
 
         private void MergeCacheInvalidationFileList(IEnumerable<string> cacheInvalidationFileList) {
-            if (cacheInvalidationFileList != null && cacheInvalidationFileList.Any()) {
+            if (cacheInvalidationFileList != null) {
                 var newFiles = cacheInvalidationFileList
-                    .Where(f => File.Exists(f)) // Skip directories and failures
+                    .Where(File.Exists) // Skip directories and failures
                     .Except(_cacheInvalidationFileList, StringComparer.OrdinalIgnoreCase)
                     .ToArray();
 

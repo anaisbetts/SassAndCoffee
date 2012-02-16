@@ -1,5 +1,4 @@
 ﻿namespace SassAndCoffee.JavaScript.JavaScriptEngines {
-    using System;
     using System.Runtime.InteropServices;
 
     // ProgId: JScript

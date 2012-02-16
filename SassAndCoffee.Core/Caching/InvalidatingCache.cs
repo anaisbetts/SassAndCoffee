@@ -9,23 +9,23 @@
 
     public class InvalidatingCache : IContentCache, IDisposable {
         private CacheInvalidationWatcher _watcher = new CacheInvalidationWatcher();
-        private IPersistentMedium _storage;
+        private readonly IPersistentMedium _storage;
 
         private ReaderWriterLockSlim _cacheAccountingLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
-        private Dictionary<string, CacheItem> _cacheItems =
+        private readonly Dictionary<string, CacheItem> _cacheItems =
             new Dictionary<string, CacheItem>(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<string, CacheDependency> _cacheDependencies =
+        private readonly Dictionary<string, CacheDependency> _cacheDependencies =
             new Dictionary<string, CacheDependency>(StringComparer.OrdinalIgnoreCase);
         private ConcurrentDictionary<string, ReaderWriterLockSlim> _cacheLocks =
             new ConcurrentDictionary<string, ReaderWriterLockSlim>(StringComparer.OrdinalIgnoreCase);
 
         public InvalidatingCache(IPersistentMedium storage) {
             _storage = storage;
-            _watcher.Changed += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
-            _watcher.Created += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
-            _watcher.Deleted += new FileSystemEventHandler(OnInvalidationChangedCreatedRenamedOrDeleted);
-            _watcher.Error += new ErrorEventHandler(OnInvalidationError);
-            _watcher.Renamed += new RenamedEventHandler(OnInvalidationRenamed);
+            _watcher.Changed += OnInvalidationChangedCreatedRenamedOrDeleted;
+            _watcher.Created += OnInvalidationChangedCreatedRenamedOrDeleted;
+            _watcher.Deleted += OnInvalidationChangedCreatedRenamedOrDeleted;
+            _watcher.Error += OnInvalidationError;
+            _watcher.Renamed += OnInvalidationRenamed;
         }
 
         public ContentResult GetOrAdd(string key, Func<string, ContentResult> generator) {
@@ -35,7 +35,7 @@
                 throw new ArgumentNullException("generator");
 
             // NB: We don't cahe 404s since they're potentially unlimited and could become a DDOS vector
-            CachedContentResult result = null;
+            CachedContentResult result;
 
             /* Cache implementations are not required to be thread safe for writes.
              * Reads while not writing are safe on a per-item level. Enforcing safe
@@ -82,7 +82,7 @@
 
             // Prevent denial of service by only saving locks for resources that exist (finite)
             if (result == null) {
-                ReaderWriterLockSlim toDispose = null;
+                ReaderWriterLockSlim toDispose;
                 if (_cacheLocks.TryRemove(key, out toDispose)) {
                     toDispose.Dispose();
                 }
@@ -98,7 +98,7 @@
         /// <param name="resource">The resource.</param>
         [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "We need to use it later.")]
         private ReaderWriterLockSlim GetCacheLockForResource(string resource) {
-            ReaderWriterLockSlim cacheItemLock = null;
+            ReaderWriterLockSlim cacheItemLock;
             do {
                 if (!_cacheLocks.TryGetValue(resource, out cacheItemLock)) {
                     ReaderWriterLockSlim newLock = null;
@@ -135,7 +135,7 @@
                 var cacheItem = new CacheItem(resource);
                 _cacheItems.Add(cacheItem.PhysicalPath, cacheItem);
                 foreach (var requiredFile in result.CacheInvalidationFileList) {
-                    CacheDependency dependency = null;
+                    CacheDependency dependency;
                     // Find existing
                     if (!_cacheDependencies.TryGetValue(requiredFile, out dependency)) {
                         // It's a new one!
@@ -151,9 +151,9 @@
                         _watcher.BeginWatch(depInfo.DirectoryName, filter);
                     }
                     // Add production link
-                    dependency.Produces.UnionWith(new CacheItem[] { cacheItem });
+                    dependency.Produces.UnionWith(new[] { cacheItem });
                     // Add dependency link
-                    cacheItem.Dependencies.UnionWith(new CacheDependency[] { dependency });
+                    cacheItem.Dependencies.UnionWith(new[] { dependency });
                 }
             } finally {
                 if (_cacheAccountingLock.IsWriteLockHeld) _cacheAccountingLock.ExitWriteLock();
@@ -184,7 +184,7 @@
                 _cacheAccountingLock.EnterWriteLock();
 
                 // Find CacheDependency
-                CacheDependency dependency = null;
+                CacheDependency dependency;
                 if (!_cacheDependencies.TryGetValue(dependencyPath, out dependency))
                     return;
 

@@ -5,7 +5,7 @@
 
     [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Uglify")]
     public class UglifyCompiler : JavaScriptCompilerBase {
-        private readonly static string[] _libs = new string[] {
+        private readonly static string[] Libs = new[] {
             "lib.underscore.js",
             "lib.require.js",
             "lib.parse-js.js",
@@ -16,7 +16,7 @@
         };
 
         public override IEnumerable<string> CompilerLibraryResourceNames {
-            get { return _libs; }
+            get { return Libs; }
         }
 
         public override string CompilationFunctionName {

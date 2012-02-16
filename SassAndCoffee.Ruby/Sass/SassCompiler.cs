@@ -71,7 +71,7 @@
                 }
 
                 var rubyEx = RubyExceptionData.GetInstance(e);
-                StringBuilder sb = new StringBuilder();
+                var sb = new StringBuilder();
                 sb.AppendFormat(CultureInfo.InvariantCulture, "{0}\n\n", rubyEx.Message)
                   .AppendFormat(CultureInfo.InvariantCulture, "Backtrace:\n");
                 foreach (var frame in rubyEx.Backtrace) {
@@ -87,9 +87,9 @@
         public void Initialize() {
             if (!_initialized) {
                 _pal = new ResourceRedirectionPlatformAdaptationLayer();
-                var srs = new ScriptRuntimeSetup() {
+                var srs = new ScriptRuntimeSetup {
                     HostType = typeof(SassCompilerScriptHost),
-                    HostArguments = new List<object>() { _pal },
+                    HostArguments = new List<object> { _pal },
                 };
                 srs.AddRubySetup();
                 var runtime = Ruby.CreateRuntime(srs);
@@ -97,7 +97,7 @@
 
                 // NB: 'R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}' is a garbage path that the PAL override will 
                 // detect and attempt to find via an embedded Resource file
-                _engine.SetSearchPaths(new List<string>() { 
+                _engine.SetSearchPaths(new List<string> { 
                     @"R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}\lib\ironruby",
                     @"R:\{345ED29D-C275-4C64-8372-65B06E54F5A7}\lib\ruby\1.9.1" });
 

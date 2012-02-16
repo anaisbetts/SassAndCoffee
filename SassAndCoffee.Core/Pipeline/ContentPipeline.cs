@@ -7,8 +7,8 @@
     /// Caches results content results using the provided cache implementation.
     /// </summary>
     public class ContentPipeline : IContentPipeline {
-        private List<IContentTransform> _transformations = new List<IContentTransform>();
-        private IContentCache _cache;
+        private readonly List<IContentTransform> _transformations = new List<IContentTransform>();
+        private readonly IContentCache _cache;
 
         public IList<IContentTransform> Transformations { get { return _transformations; } }
 
@@ -68,7 +68,7 @@
                 return null;
             }
 
-            return new ContentResult() {
+            return new ContentResult {
                 CacheInvalidationFileList = state.CacheInvalidationFileList.ToArray(),
                 Content = state.Content,
                 MimeType = state.MimeType,

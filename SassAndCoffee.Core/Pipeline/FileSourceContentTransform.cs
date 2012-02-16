@@ -3,8 +3,8 @@
     using System.IO;
 
     public class FileSourceContentTransform : IContentTransform {
-        private string _mimeType;
-        private string[] _extensions;
+        private readonly string _mimeType;
+        private readonly string[] _extensions;
 
         public FileSourceContentTransform(string mimeType, params string[] extensions) {
             _mimeType = mimeType;
@@ -35,10 +35,10 @@
             }
 
             if (content != null) {
-                state.AppendContent(new ContentResult() {
+                state.AppendContent(new ContentResult {
                     Content = content,
                     MimeType = _mimeType,
-                    CacheInvalidationFileList = new string[] { fileName },
+                    CacheInvalidationFileList = new[] { fileName },
                 });
             }
         }

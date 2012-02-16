@@ -35,19 +35,19 @@
             } catch { }
 
             if (OnOpenInputFileStream != null)
-                OnOpenInputFileStream(this.GetFullPath(path));
+                OnOpenInputFileStream(GetFullPath(path));
             return base.OpenInputFileStream(path);
         }
 
         public override Stream OpenInputFileStream(string path, FileMode mode, FileAccess access, FileShare share) {
             if (OnOpenInputFileStream != null)
-                OnOpenInputFileStream(this.GetFullPath(path));
+                OnOpenInputFileStream(GetFullPath(path));
             return base.OpenInputFileStream(path, mode, access, share);
         }
 
         public override Stream OpenInputFileStream(string path, FileMode mode, FileAccess access, FileShare share, int bufferSize) {
             if (OnOpenInputFileStream != null)
-                OnOpenInputFileStream(this.GetFullPath(path));
+                OnOpenInputFileStream(GetFullPath(path));
             return base.OpenInputFileStream(path, mode, access, share, bufferSize);
         }
 

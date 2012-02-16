@@ -42,7 +42,7 @@
 
             // Default to wrapped mode like CoffeeScript compiler
             bool bare = state.Items.ContainsKey(StateKeyBare);
-            Execute(state, bare);
+            ExecuteWithArguments(state, bare);
         }
     }
 }

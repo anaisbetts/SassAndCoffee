@@ -1,5 +1,4 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
-    using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Runtime.InteropServices;
     using ComTypes = System.Runtime.InteropServices.ComTypes;

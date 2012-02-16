@@ -11,8 +11,8 @@
     public class PipelineHandler : IHttpHandler {
         public const string CacheProfileName = "SassAndCoffeeCacheSettings";
 
-        private IContentPipeline _pipeline;
-        private OutputCacheProfile _cacheProfile;
+        private readonly IContentPipeline _pipeline;
+        private readonly OutputCacheProfile _cacheProfile;
 
         public bool IsReusable { get { return true; } }
 
@@ -22,7 +22,11 @@
             var settings = WebConfigurationManager.GetWebApplicationSection(
                 "system.web/caching/outputCacheSettings") as OutputCacheSettingsSection;
 
-            _cacheProfile = settings.OutputCacheProfiles[CacheProfileName] ?? CreateDefaultCacheProfile();
+            if (settings == null) {
+                _cacheProfile = CreateDefaultCacheProfile();
+            } else {
+                _cacheProfile = settings.OutputCacheProfiles[CacheProfileName] ?? CreateDefaultCacheProfile();
+            }
         }
 
         public void ProcessRequest(HttpContext context) {
@@ -84,7 +88,7 @@
                 return;
 
             var trimmedItems = list
-                .Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(x => x.Trim());
 
             foreach (var item in trimmedItems) {

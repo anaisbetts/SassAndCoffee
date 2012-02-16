@@ -3,13 +3,13 @@
     using SassAndCoffee.Core;
 
     public class CoffeeScriptCompiler : JavaScriptCompilerBase {
-        private readonly static string[] _libs = new string[] {
+        private readonly static string[] Libs = new[] {
             "lib.coffee-script.js",
             "lib.compile.js",
         };
 
         public override IEnumerable<string> CompilerLibraryResourceNames {
-            get { return _libs; }
+            get { return Libs; }
         }
 
         public override string CompilationFunctionName {

@@ -11,7 +11,7 @@
         where T : class
         where TProxy : T, IProxy<T>, new() {
 
-        private Func<T> _createPoolItem;
+        private readonly Func<T> _createPoolItem;
         private ConcurrentQueue<T> _pool = new ConcurrentQueue<T>();
         private bool _disposed = false;
 
@@ -29,7 +29,7 @@
                 poolItem = _createPoolItem();
             }
 
-            return new TProxy() {
+            return new TProxy {
                 WrappedItem = poolItem,
                 OnDisposed = ReturnToPool,
             };

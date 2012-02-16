@@ -60,7 +60,7 @@
             }
 
             if (result != null) {
-                state.ReplaceContent(new ContentResult() {
+                state.ReplaceContent(new ContentResult {
                     Content = result,
                     MimeType = MimeType,
                     CacheInvalidationFileList = accessedFiles.ToArray(),
@@ -68,7 +68,7 @@
             }
         }
 
-        private static object _compilerInitializationLock = new object();
+        private static readonly object _compilerInitializationLock = new object();
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "Don't care why or how.")]
         private static ISassCompiler CreateAndInitializeSassCompiler() {
             var compiler = new SassCompiler();

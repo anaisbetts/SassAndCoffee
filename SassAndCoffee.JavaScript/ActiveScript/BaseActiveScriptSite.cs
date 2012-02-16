@@ -9,7 +9,7 @@
 
         private const int TYPE_E_ELEMENTNOTFOUND = unchecked((int)(0x8002802B));
 
-        private ActiveScriptException _lastException = null;
+        private ActiveScriptException _lastException;
 
         /// <summary>
         /// Gets or sets the host-defined document version string.
@@ -80,7 +80,7 @@
 
             if ((returnMask & ScriptInfoFlags.ITypeInfo) > 0) {
                 typeInfo = GetTypeInfo(name);
-                if (typeInfo == null) throw new COMException(
+                if (typeInfo == IntPtr.Zero) throw new COMException(
                     string.Format(CultureInfo.InvariantCulture, "{0} not found.", name),
                     TYPE_E_ELEMENTNOTFOUND);
             } else {

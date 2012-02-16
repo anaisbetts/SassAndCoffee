@@ -19,7 +19,7 @@
         private IContentCache _cache;
         private IContentPipeline _pipeline;
         private PipelineHandler _handler;
-        private string _handledExtension;
+        private readonly string _handledExtension;
         private IContentTransform[] _transformations;
 
         /// <summary>
@@ -43,7 +43,7 @@
 
             // This feels dirty, and isn't extensible.  Web.config module registrations are so limiting!
 
-            IContentCache cache = context.Application[HttpApplicationStateCacheKey] as IContentCache;
+            var cache = context.Application[HttpApplicationStateCacheKey] as IContentCache;
             if (cache == null) {
                 try {
                     context.Application.Lock();
@@ -126,6 +126,7 @@
                         var disposable = transformation as IDisposable;
                         if (disposable != null) disposable.Dispose();
                     }
+                    _transformations = null;
                 }
             }
         }

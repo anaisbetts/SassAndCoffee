@@ -31,24 +31,23 @@
 
             path = pathInfo.FullName;
             path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-            path = path.TrimEnd(new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
+            path = path.TrimEnd(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
             path += Path.DirectorySeparatorChar;
 
             lock (_watchers) {
 
                 // Check if this watch is covered by an existing watcher
-                if (_watchers
-                    .Where(w => w.Filter.Equals(filter, StringComparison.OrdinalIgnoreCase))
-                    .Where(w => path.StartsWith(w.Path, StringComparison.OrdinalIgnoreCase))
-                    .Any()) {
+                if (_watchers.Any(w => w.Filter.Equals(filter, StringComparison.OrdinalIgnoreCase)
+                    && path.StartsWith(w.Path, StringComparison.OrdinalIgnoreCase))) {
                     return;
                 }
 
                 // Path not watched yet
-                var newWatcher = new FileSystemWatcher(path, filter);
-                newWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size;
-                newWatcher.IncludeSubdirectories = true;
-                newWatcher.InternalBufferSize = 65536;  // 64kB
+                var newWatcher = new FileSystemWatcher(path, filter) {
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                    IncludeSubdirectories = true,
+                    InternalBufferSize = 65536 // 64kB
+                };
 
                 newWatcher.Changed += OnChanged;
                 newWatcher.Created += OnCreated;
@@ -124,12 +123,14 @@
 
         [SuppressMessage("Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification = "Disabling events is hardly a security risk.")]
         public void Dispose() {
-            foreach (var watcher in _watchers) {
-                watcher.EnableRaisingEvents = false;
-                watcher.Dispose();
+            if (_watchers != null) {
+                foreach (var watcher in _watchers) {
+                    watcher.EnableRaisingEvents = false;
+                    watcher.Dispose();
+                }
+                _watchers = null;
             }
             FireDisposed();
-            GC.SuppressFinalize(this);
         }
     }
 }

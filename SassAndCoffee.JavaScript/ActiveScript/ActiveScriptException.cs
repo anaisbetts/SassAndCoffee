@@ -88,7 +88,6 @@
             uint sourceContext = 0;
             uint lineNumber = 0;
             int characterPosition = 0;
-            ComTypes.EXCEPINFO excepInfo;
 
             string message = "";
 
@@ -103,6 +102,7 @@
             } catch { }
 
             try {
+                ComTypes.EXCEPINFO excepInfo;
                 error.GetExceptionInfo(out excepInfo);
                 message = string.Format(
                     CultureInfo.InvariantCulture,

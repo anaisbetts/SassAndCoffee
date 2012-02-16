@@ -3,8 +3,7 @@
     using Microsoft.Scripting.Hosting;
 
     public class SassCompilerScriptHost : ScriptHost {
-
-        private PlatformAdaptationLayer _pal;
+        private readonly PlatformAdaptationLayer _pal;
 
         public SassCompilerScriptHost(PlatformAdaptationLayer pal) {
             _pal = pal;

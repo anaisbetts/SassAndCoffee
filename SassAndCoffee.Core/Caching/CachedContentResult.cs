@@ -43,7 +43,7 @@
             if (contentResult == null)
                 throw new ArgumentNullException("contentResult");
 
-            return new CachedContentResult() {
+            return new CachedContentResult {
                 CacheInvalidationFileList = contentResult.CacheInvalidationFileList,
                 Content = contentResult.Content,
                 MimeType = contentResult.MimeType,

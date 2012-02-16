@@ -6,8 +6,8 @@
 
         private const string NeitherValidMessage = "The parser you passed implements neither IActiveScriptParse32 nor IActiveScriptParse64";
 
-        private IActiveScriptParse32 _parse32;
-        private IActiveScriptParse64 _parse64;
+        private readonly IActiveScriptParse32 _parse32;
+        private readonly IActiveScriptParse64 _parse64;
 
         private ComTypes.EXCEPINFO _exceptionInfo;
 

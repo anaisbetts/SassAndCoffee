@@ -37,7 +37,7 @@
 
             if (!state.Items.ContainsKey(StateKey))
                 return;
-            base.Execute(state, null);
+            base.ExecuteWithArguments(state);
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿namespace SassAndCoffee.JavaScript.ActiveScript {
-    using System;
     using System.Runtime.InteropServices;
 
     /// <summary>

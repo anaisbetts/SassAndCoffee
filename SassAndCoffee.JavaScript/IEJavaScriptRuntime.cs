@@ -8,13 +8,13 @@
     using SassAndCoffee.JavaScript.ActiveScript;
     using SassAndCoffee.JavaScript.JavaScriptEngines;
 
-    public class IEJavaScriptRuntime : BaseActiveScriptSite, IJavaScriptRuntime, IDisposable {
+    public class IEJavaScriptRuntime : BaseActiveScriptSite, IJavaScriptRuntime {
         private IActiveScript _jsEngine;
         private IActiveScriptParseWrapper _jsParse;
         private object _jsDispatch;
         private Type _jsDispatchType;
 
-        private Dictionary<string, object> _siteItems = new Dictionary<string, object>();
+        private readonly Dictionary<string, object> _siteItems = new Dictionary<string, object>();
 
         private const string JavaScriptProgId = "JScript";
         public static bool IsSupported {
@@ -91,7 +91,7 @@
 
         public override object GetItem(string name) {
             lock (_siteItems) {
-                object result = null;
+                object result;
                 return _siteItems.TryGetValue(name, out result) ? result : null;
             }
         }

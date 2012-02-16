@@ -85,7 +85,7 @@
         ///   <IPermission class="System.Security.Permissions.FileIOPermission, mscorlib, Version=2.0.3600.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" version="1" PathDiscovery="*AllFiles*"/>
         ///   </PermissionSet>
         public override string ToString() {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             sb.AppendFormat("{0}\n\n", Message)
               .AppendFormat("Backtrace:\n{0}\n\n", RubyBackTrace)
               .AppendFormat("FileName: {0}\n\n", FileName)
@@ -119,7 +119,7 @@
 
         private string GetSassTemplateWithLineNumbers() {
             var sb = new StringBuilder();
-            var lines = SassTemplate.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = SassTemplate.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 1; i <= lines.Length; ++i) {
                 sb.AppendFormat("{0,4}: {1}", i, lines[i]);
             }
