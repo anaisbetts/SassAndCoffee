@@ -1,8 +1,8 @@
 ﻿namespace SassAndCoffee.JavaScript.CoffeeScript {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Text.RegularExpressions;
     using SassAndCoffee.Core;
-    using System.Diagnostics.CodeAnalysis;
 
     public class CoffeeScriptCompilerContentTransform : JavaScriptCompilerContentTransformBase {
         public const string StateKeyBare = "CoffeeScript_Bare";

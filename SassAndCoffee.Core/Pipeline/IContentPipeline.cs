@@ -1,5 +1,4 @@
 ﻿namespace SassAndCoffee.Core {
-    using System;
     using System.Collections.Generic;
 
     public interface IContentPipeline {

@@ -1,5 +1,4 @@
 ﻿namespace SassAndCoffee.Core {
-    using System;
 
     public interface IPersistentMedium {
         /// <summary>
