@@ -1,5 +1,6 @@
 ﻿namespace SassAndCoffee.JavaScript {
     using System;
+    using System.Globalization;
     using System.IO;
     using SassAndCoffee.Core;
 
@@ -52,6 +53,10 @@
                     if (newContent != null) {
                         newContent.Content += ";";
                         state.AppendContent(newContent);
+                    } else {
+                        throw new FileNotFoundException(
+                            string.Format(CultureInfo.InvariantCulture, @"Unable to locate ""{0}"" referenced in ""{1}"".", newPath, fileInfo.FullName),
+                            newPath);
                     }
                 }
             }
