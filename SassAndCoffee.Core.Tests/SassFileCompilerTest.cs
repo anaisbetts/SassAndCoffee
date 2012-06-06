@@ -5,9 +5,8 @@
     using Xunit;
 
     public class SassFileCompilerTest {
-        [Fact]
-        public void ScssSmokeTest() {
-            var input = @"
+        private readonly ISassCompiler _fixture;
+        private const string GOOD_SCSS_INPUT = @"
 // SCSS
 
 .error {
@@ -24,23 +23,44 @@
   border-width: 3px;
 }
 ";
-            var actual = compileInput("test.scss", input);
+
+        private const string BAD_SASS_INPUT = ".foo bar[val=\"//\"] { baz: bang; }";
+
+        public SassFileCompilerTest() {
+            _fixture = new SassCompiler();
+        }
+
+        [Fact]
+        public void ScssSmokeTest() {
+            var actual = compileInput("test.scss", GOOD_SCSS_INPUT);
             Assert.False(string.IsNullOrWhiteSpace(actual));
         }
 
         [Fact]
         public void SassNegativeSmokeTest() {
-            var input = ".foo bar[val=\"//\"] { baz: bang; }";
             try {
-                compileInput("test.sass", input);
+                compileInput("test.sass", BAD_SASS_INPUT);
+            } catch (Exception e) {
+                Assert.True(e.ToString().Contains("Syntax"));
+            }
+        }
+
+        [Fact]
+        public void ScssCompileAsStringTest() {
+            var actual = _fixture.CompileScss(GOOD_SCSS_INPUT, true);
+            Assert.False(string.IsNullOrWhiteSpace(actual));
+        }
+
+        [Fact]
+        public void SassNegativeCompileAsStringTest() {
+            try {
+                _fixture.CompileSass(BAD_SASS_INPUT, true);
             } catch (Exception e) {
                 Assert.True(e.ToString().Contains("Syntax"));
             }
         }
 
         string compileInput(string filename, string input) {
-            var fixture = new SassCompiler();
-
             using (var of = File.CreateText(filename)) {
                 of.WriteLine(input);
             }
@@ -49,7 +69,7 @@
 
                 // TODO: Fix this
                 //     fixture.Init(TODO);
-                string result = fixture.Compile(filename, true, null);
+                string result = _fixture.Compile(filename, true, null);
                 Console.WriteLine(result);
                 return result;
             } finally {
