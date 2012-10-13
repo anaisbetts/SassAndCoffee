@@ -1,12 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core", "SassAndCoffee.Core\SassAndCoffee.Core.csproj", "{C919A173-DD9B-46C4-88A2-4B31A63C501C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core.Tests", "SassAndCoffee.Core.Tests\SassAndCoffee.Core.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.AspNet", "SassAndCoffee.AspNet\SassAndCoffee.AspNet.csproj", "{00756046-CCFE-4265-BBDF-7F5FD22E1504}"
-EndProject
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C572E5DE-7197-4AF9-8D04-5F489C130485}"
 	ProjectSection(SolutionItems) = preProject
 		AUTHORS = AUTHORS
@@ -23,6 +17,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{6E62EF
 		.nuget\NuGet.exe = .nuget\NuGet.exe
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core", "SassAndCoffee.Core\SassAndCoffee.Core.csproj", "{C919A173-DD9B-46C4-88A2-4B31A63C501C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.Core.Tests", "SassAndCoffee.Core.Tests\SassAndCoffee.Core.Tests.csproj", "{1CA44023-95FB-471E-ACD8-3ECAFAF37211}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.AspNet", "SassAndCoffee.AspNet\SassAndCoffee.AspNet.csproj", "{00756046-CCFE-4265-BBDF-7F5FD22E1504}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SassAndCoffee.JavaScript", "SassAndCoffee.JavaScript\SassAndCoffee.JavaScript.csproj", "{86D2D468-71B2-4CB5-86B5-DFE16B4E3A71}"
 EndProject
