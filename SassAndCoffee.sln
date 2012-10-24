@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2012
+# Visual Studio 2010
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C572E5DE-7197-4AF9-8D04-5F489C130485}"
 	ProjectSection(SolutionItems) = preProject
 		AUTHORS = AUTHORS
