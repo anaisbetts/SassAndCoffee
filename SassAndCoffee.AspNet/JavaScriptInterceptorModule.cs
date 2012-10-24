@@ -1,4 +1,6 @@
-﻿namespace SassAndCoffee.AspNet {
+﻿using SassAndCoffee.JavaScript.TypeScript;
+
+namespace SassAndCoffee.AspNet {
     using SassAndCoffee.Core;
     using SassAndCoffee.JavaScript;
     using SassAndCoffee.JavaScript.CoffeeScript;
@@ -15,6 +17,8 @@
                 new JavaScriptCombineContentTransform(),
                 new FileSourceContentTransform("text/coffeescript", ".coffee"),
                 new CoffeeScriptCompilerContentTransform(),
+                new FileSourceContentTransform("text/typescript", ".ts"),
+                new TypeScriptCompilerContentTransform(),
                 new UglifyCompilerContentTransform()) {
         }
     }

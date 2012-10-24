@@ -152,7 +152,7 @@
     <None Include="Content\_rounded.scss" />
     <Content Include="Global.asax" />
     <Content Include="Content\Site.css" />
-    <Content Include="Scripts\Class.coffee">
+    <Content Include="Scripts\ClassFromCoffee.coffee">
       <LastGenOutput>Class.js</LastGenOutput>
     </Content>
     <Content Include="Scripts\jquery-1.7.1-vsdoc.js" />
@@ -163,7 +163,11 @@
     <Content Include="Scripts\jquery.validate-vsdoc.js" />
     <Content Include="Scripts\jquery.validate.js" />
     <Content Include="Scripts\jquery.validate.min.js" />
-    <None Include="Scripts\Main.coffee" />
+    <Content Include="Scripts\MainFromTS.ts" />
+    <Content Include="Scripts\ClassFromTS.ts">
+      <LastGenOutput>Class.js</LastGenOutput>
+    </Content>
+    <None Include="Scripts\MainFromCoffee.coffee" />
     <Content Include="Scripts\modernizr-2.0.6-development-only.js" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
