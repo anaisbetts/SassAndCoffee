@@ -20961,7 +20961,7 @@ function compilify_ts(code) {
     var error = new Buffer();
     var compiler = new TypeScript.TypeScriptCompiler(output, error);
     compiler.addUnit(code, "dummy.ts");
-    //compiler.typeCheck(); // Commented out on purpose since these are more warnings
+    compiler.typeCheck();
     compiler.emit();
     return output.toString();
 }

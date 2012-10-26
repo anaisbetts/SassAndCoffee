@@ -16,6 +16,10 @@ class Snake extends Animal {
 }
 
 class Horse extends Animal {
+    constructor (private name: string) {
+        super("HORSE: " + name);
+    }
+
     move() {
         alert("Galloping...");
         super.move(45);
