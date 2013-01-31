@@ -38,6 +38,17 @@
             }
         }
 
+        [Fact]
+        public void SassFeaturesSmokeTest()
+        {
+            var fixture = new SassCompiler();
+            string result = fixture.Compile( "features.scss", false, null );
+            Assert.False( string.IsNullOrWhiteSpace( result ) );
+            using ( var file = File.CreateText( "features.css" ) ) {
+                file.WriteLine( result );
+            }
+        }
+
         string compileInput(string filename, string input) {
             var fixture = new SassCompiler();
 
