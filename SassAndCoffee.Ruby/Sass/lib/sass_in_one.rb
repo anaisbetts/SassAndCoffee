@@ -795,8 +795,14 @@ MSG
     #
     # @param enum [Enumerable] The enumerable to get the enumerator for
     # @return [Enumerator] The with-index enumerator
-    def enum_with_index(enum)
-      ruby1_8? ? enum.enum_with_index : enum.each_with_index
+    def enum_with_index(enum)		
+	  #RG find applied to the iterator doesn't get the proper index in IronRuby??
+      #RG: ruby1_8? ? enum.enum_with_index : enum.each_with_index
+	  #RG So instead we convert it to array of the pairs, this can be possibly done differently
+	  #RG but seems to work
+	  enum.each_with_index.map do |el,i|
+		[el,i]
+	  end
     end
 
     # A version of `Enumerable#enum_cons` that works in Ruby 1.8 and 1.9.

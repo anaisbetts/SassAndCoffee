@@ -52,3 +52,26 @@ $value: 1.5;
 .foo /attr/ .bar {
 	font-size:20px
 }
+
+
+
+
+%clearfix {
+	zoom: 1;
+	&:before,
+	&:after {
+	  content: '\0020';
+	  display: block;
+	  overflow: hidden;
+	  visibility: hidden;
+	  width: 0;
+	  height: 0;
+	}
+	&:after {
+	  clear: both;
+	}
+}
+.container {
+  @extend %clearfix;
+  text-align: left;
+}
