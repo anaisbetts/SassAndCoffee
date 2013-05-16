@@ -1,0 +1,77 @@
+﻿// test of bunch of features implemented since 3.2.0.alpha
+
+// @content
+@mixin iphone {
+  @media only screen and (max-width: 480px) {
+    @content;
+  }
+}
+
+@include iphone {
+  body { color: red }
+}
+
+// placeholders
+#context a%extreme {
+  color: blue;
+  font-weight: bold;
+  font-size: 2em;
+}
+
+.notice { @extend %extreme; }
+
+// variable arguments
+@mixin box-shadow($shadows...) {
+  // $shadows is a list of all arguments passed to box-shadow
+  -moz-box-shadow: $shadows;
+  -webkit-box-shadow: $shadows;
+  box-shadow: $shadows;      
+}
+
+// This is the same as "@include spacing(1, 2, 3);"
+$values: 1px, 2px, 3px;
+div.fancybox {
+	@include box-shadow($values...);
+}	
+
+
+// improved directive interpolation
+$media: screen;
+$feature: -webkit-min-device-pixel-ratio;
+$value: 1.5;
+
+@media #{$media} and ($feature: $value) {
+  color: red;
+  // in hex str
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#{ie_hex_str(red)}', endColorstr='#{ie_hex_str(#00ffff)}',GradientType=0 ); 
+  font-size: max($value*10px, 20px);
+  font-size: min($value*10px, 20px);
+}
+
+// css4 selectors
+.foo /attr/ .bar {
+	font-size:20px
+}
+
+
+
+
+%clearfix {
+	zoom: 1;
+	&:before,
+	&:after {
+	  content: '\0020';
+	  display: block;
+	  overflow: hidden;
+	  visibility: hidden;
+	  width: 0;
+	  height: 0;
+	}
+	&:after {
+	  clear: both;
+	}
+}
+.container {
+  @extend %clearfix;
+  text-align: left;
+}

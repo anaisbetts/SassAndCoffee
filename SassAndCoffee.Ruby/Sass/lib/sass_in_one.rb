@@ -1,15 +1,20 @@
+dir = File.dirname(__FILE__)
+$LOAD_PATH.unshift dir unless $LOAD_PATH.include?(dir)
+
 # This is necessary to set so that the Haml code that tries to load Sass
 # knows that Sass is indeed loading,
 # even if there's some crazy autoload stuff going on.
 SASS_BEGUN_TO_LOAD = true unless defined?(SASS_BEGUN_TO_LOAD)
 
+require 'date'
+
 # This is necessary for loading Sass when Haml is required in Rails 3.
 # Once the split is complete, we can remove it.
-#require 'erb'
+#RG require File.dirname(__FILE__) + '/../sass'
+#RG require 'erb'
 require 'set'
 require 'enumerator'
 require 'stringio'
-require 'strscan'
 require 'rbconfig'
 
 module Sass
@@ -19,7 +24,6 @@ module Sass
   # @api public
   ROOT_DIR = File.expand_path(File.join(__FILE__, "../../.."))
 end
-require 'set'
 
 module Sass
   module Util
@@ -117,6 +121,14 @@ module Sass
       def [](set)
         get(set).map {|v, _| v}
       end
+
+      # Iterates over each value in the subset map. Ignores keys completely. If
+      # multiple keys have the same value, this will return them multiple times.
+      #
+      # @yield [Object] Each value in the map.
+      def each_value
+        @vals.each {|v| yield v}
+      end
     end
   end
 end
@@ -199,8 +211,9 @@ module Sass
     # @return [Hash] The mapped hash
     # @see #map_keys
     # @see #map_vals
-    def map_hash(hash, &block)
-      to_hash(hash.map(&block))
+    def map_hash(hash)
+      # Using &block here completely hoses performance on 1.8.
+      to_hash(hash.map {|k, v| yield k, v})
     end
 
     # Computes the powerset of the given array.
@@ -332,12 +345,105 @@ module Sass
       lcs_backtrace(lcs_table(x, y, &block), x, y, x.size-1, y.size-1, &block)
     end
 
+    # Converts a Hash to an Array. This is usually identical to `Hash#to_a`,
+    # with the following exceptions:
+    #
+    # * In Ruby 1.8, `Hash#to_a` is not deterministically ordered, but this is.
+    # * In Ruby 1.9 when running tests, this is ordered in the same way it would
+    #   be under Ruby 1.8 (sorted key order rather than insertion order).
+    #
+    # @param hash [Hash]
+    # @return [Array]
+    def hash_to_a(hash)
+      return hash.to_a unless ruby1_8? || defined?(Test::Unit)
+      return hash.sort_by {|k, v| k}
+    end
+
+    # Performs the equivalent of `enum.group_by.to_a`, but with a guaranteed
+    # order. Unlike [#hash_to_a], the resulting order isn't sorted key order;
+    # instead, it's the same order as `#group_by` has under Ruby 1.9 (key
+    # appearance order).
+    #
+    # @param enum [Enumerable]
+    # @return [Array<[Object, Array]>] An array of pairs.
+    def group_by_to_a(enum, &block)
+      return enum.group_by(&block).to_a unless ruby1_8?
+      order = {}
+      arr = []
+	  #RG There is no group_by in iron monkey :-/ 
+	  #RG This can be probably optimized by some Ruby guru
+	  groupKeys = []
+	  result = []
+	  enum.each do |key|
+	    res = block[key]
+		unless order.include?(res)
+			arr[order.size] = []
+			groupKeys[order.size] = res
+			order[res] = order.size
+		end
+		arr[order[res]] = arr[order[res]] + [ key ]
+	  end
+	  arr.each_with_index do |vals,key|
+	    result[key] =  [groupKeys[key], vals]
+	  end
+	  result
+      #RG enum.group_by do |e|
+      #RG   res = block[e]
+      #RG   unless order.include?(res)
+      #RG     order[res] = order.size
+      #RG   end
+      #RG   res
+      #RG end.each do |key, vals|
+      #RG   arr[order[key]] = [key, vals]
+      #RG end
+      #RG arr
+    end
+
+    # Asserts that `value` falls within `range` (inclusive), leaving
+    # room for slight floating-point errors.
+    #
+    # @param name [String] The name of the value. Used in the error message.
+    # @param range [Range] The allowed range of values.
+    # @param value [Numeric, Sass::Script::Number] The value to check.
+    # @param unit [String] The unit of the value. Used in error reporting.
+    # @return [Numeric] `value` adjusted to fall within range, if it
+    #   was outside by a floating-point margin.
+    def check_range(name, range, value, unit='')
+      grace = (-0.00001..0.00001)
+      str = value.to_s
+      value = value.value if value.is_a?(Sass::Script::Number)
+      return value if range.include?(value)
+      return range.first if grace.include?(value - range.first)
+      return range.last if grace.include?(value - range.last)
+      raise ArgumentError.new(
+        "#{name} #{str} must be between #{range.first}#{unit} and #{range.last}#{unit}")
+    end
+
+    # Returns whether or not `seq1` is a subsequence of `seq2`. That is, whether
+    # or not `seq2` contains every element in `seq1` in the same order (and
+    # possibly more elements besides).
+    #
+    # @param seq1 [Array]
+    # @param seq2 [Array]
+    # @return [Boolean]
+    def subsequence?(seq1, seq2)
+      i = j = 0
+      loop do
+        return true if i == seq1.size
+        return false if j == seq2.size
+        i += 1 if seq1[i] == seq2[j]
+        j += 1
+      end
+    end
+
     # Returns information about the caller of the previous method.
     #
     # @param entry [String] An entry in the `#caller` list, or a similarly formatted string
     # @return [[String, Fixnum, (String, nil)]] An array containing the filename, line, and method name of the caller.
     #   The method name may be nil
-    def caller_info(entry = caller[1])
+    def caller_info(entry = nil)
+      # JRuby evaluates `caller` incorrectly when it's in an actual default argument.
+      entry ||= caller[1]
       info = entry.scan(/^(.*?):(-?.*?)(?::.*`(.+)')?$/).first
       info[1] = info[1].to_i
       # This is added by Rubinius to designate a block, but we don't care about it.
@@ -406,19 +512,18 @@ module Sass
     #
     # @yield A block in which no Sass warnings will be printed
     def silence_sass_warnings
-      old_silence_warnings = @@silence_warnings
-      @@silence_warnings = true
+      old_level, Sass.logger.log_level = Sass.logger.log_level, :error
       yield
     ensure
-      @@silence_warnings = old_silence_warnings
+      Sass.logger.log_level = old_level
     end
 
     # The same as `Kernel#warn`, but is silenced by \{#silence\_sass\_warnings}.
     #
     # @param msg [String]
     def sass_warn(msg)
-      return if @@silence_warnings
-      warn(msg)
+      msg = msg + "\n" unless ruby1?
+      Sass.logger.warn(msg)
     end
 
     ## Cross Rails Version Compatibility
@@ -500,7 +605,35 @@ module Sass
       RUBY_ENGINE == "ironruby"
     end
 
+    # Like `Dir.glob`, but works with backslash-separated paths on Windows.
+    #
+    # @param path [String]
+    def glob(path, &block)
+      path = path.gsub('\\', '/') if windows?
+      Dir.glob(path, &block)
+    end
+
+    # Prepare a value for a destructuring assignment (e.g. `a, b =
+    # val`). This works around a performance bug when using
+    # ActiveSupport, and only needs to be called when `val` is likely
+    # to be `nil` reasonably often.
+    #
+    # See [this bug report](http://redmine.ruby-lang.org/issues/4917).
+    #
+    # @param val [Object]
+    # @return [Object]
+    def destructure(val)
+      val || []
+    end
+
     ## Cross-Ruby-Version Compatibility
+
+    # Whether or not this is running under a Ruby version under 2.0.
+    #
+    # @return [Boolean]
+    def ruby1?
+      Sass::Util::RUBY_VERSION[0] <= 1
+    end
 
     # Whether or not this is running under Ruby 1.8 or lower.
     #
@@ -520,6 +653,13 @@ module Sass
     # @return [Boolean]
     def ruby1_8_6?
       ruby1_8? && Sass::Util::RUBY_VERSION[2] < 7
+    end
+
+    # Whether or not this is running under MacRuby.
+    #
+    # @return [Boolean]
+    def macruby?
+      RUBY_ENGINE == 'macruby'
     end
 
     # Checks that the encoding of a string is valid in Ruby 1.9
@@ -582,7 +722,8 @@ MSG
       # We allow any printable ASCII characters but double quotes in the charset decl
       bin = str.dup.force_encoding("BINARY")
       encoding = Sass::Util::ENCODINGS_TO_CHECK.find do |enc|
-        bin =~ Sass::Util::CHARSET_REGEXPS[enc]
+        re = Sass::Util::CHARSET_REGEXPS[enc]
+        re && bin =~ re
       end
       charset, bom = $1, $2
       if charset
@@ -623,6 +764,8 @@ MSG
             Regexp.new(/\A(?:#{_enc("\uFEFF", e)})?#{
               _enc('@charset "', e)}(.*?)#{_enc('"', e)}|\A(#{
               _enc("\uFEFF", e)})/)
+          rescue Encoding::ConverterNotFoundError => _
+            nil # JRuby on Java 5 doesn't support UTF-32
           rescue
             # /\A@charset "(.*?)"/
             Regexp.new(/\A#{_enc('@charset "', e)}(.*?)#{_enc('"', e)}/)
@@ -652,8 +795,14 @@ MSG
     #
     # @param enum [Enumerable] The enumerable to get the enumerator for
     # @return [Enumerator] The with-index enumerator
-    def enum_with_index(enum)
-      ruby1_8? ? enum.enum_with_index : enum.each_with_index
+    def enum_with_index(enum)		
+	  #RG find applied to the iterator doesn't get the proper index in IronRuby??
+      #RG: ruby1_8? ? enum.enum_with_index : enum.each_with_index
+	  #RG So instead we convert it to array of the pairs, this can be possibly done differently
+	  #RG but seems to work
+	  enum.each_with_index.map do |el,i|
+		[el,i]
+	  end
     end
 
     # A version of `Enumerable#enum_cons` that works in Ruby 1.8 and 1.9.
@@ -672,6 +821,24 @@ MSG
     # @return [Enumerator] The consed enumerator
     def enum_slice(enum, n)
       ruby1_8? ? enum.enum_slice(n) : enum.each_slice(n)
+    end
+
+    # Destructively removes all elements from an array that match a block, and
+    # returns the removed elements.
+    #
+    # @param array [Array] The array from which to remove elements.
+    # @yield [el] Called for each element.
+    # @yieldparam el [*] The element to test.
+    # @yieldreturn [Boolean] Whether or not to extract the element.
+    # @return [Array] The extracted elements.
+    def extract!(array)
+      out = []
+      array.reject! do |e|
+        next false unless yield e
+        out << e
+        true
+      end
+      out
     end
 
     # Returns the ASCII code of the given character.
@@ -725,6 +892,57 @@ MSG
       return ':' + inspect_obj(obj.to_s) if obj.is_a?(Symbol)
       return obj.inspect unless obj.is_a?(String)
       '"' + obj.gsub(/[\x00-\x7F]+/) {|s| s.inspect[1...-1]} + '"'
+    end
+
+    # Extracts the non-string vlaues from an array containing both strings and non-strings.
+    # These values are replaced with escape sequences.
+    # This can be undone using \{#inject\_values}.
+    #
+    # This is useful e.g. when we want to do string manipulation
+    # on an interpolated string.
+    #
+    # The precise format of the resulting string is not guaranteed.
+    # However, it is guaranteed that newlines and whitespace won't be affected.
+    #
+    # @param arr [Array] The array from which values are extracted.
+    # @return [(String, Array)] The resulting string, and an array of extracted values.
+    def extract_values(arr)
+      values = []
+      return arr.map do |e|
+        next e.gsub('{', '{{') if e.is_a?(String)
+        values << e
+        next "{#{values.count - 1}}"
+      end.join, values
+    end
+
+    # Undoes \{#extract\_values} by transforming a string with escape sequences
+    # into an array of strings and non-string values.
+    #
+    # @param str [String] The string with escape sequences.
+    # @param values [Array] The array of values to inject.
+    # @return [Array] The array of strings and values.
+    def inject_values(str, values)
+      return [str.gsub('{{', '{')] if values.empty?
+      # Add an extra { so that we process the tail end of the string
+      result = (str + '{{').scan(/(.*?)(?:(\{\{)|\{(\d+)\})/m).map do |(pre, esc, n)|
+        [pre, esc ? '{' : '', n ? values[n.to_i] : '']
+      end.flatten(1)
+      result[-2] = '' # Get rid of the extra {
+      merge_adjacent_strings(result).reject {|s| s == ''}
+    end
+
+    # Allows modifications to be performed on the string form
+    # of an array containing both strings and non-strings.
+    #
+    # @param arr [Array] The array from which values are extracted.
+    # @yield [str] A block in which string manipulation can be done to the array.
+    # @yieldparam str [String] The string form of `arr`.
+    # @yieldreturn [String] The modified string.
+    # @return [Array] The modified, interpolated array.
+    def with_extracted_values(arr)
+      str, vals = extract_values(arr)
+      str = yield str
+      inject_values(str, vals)
     end
 
     ## Static Method Stuff
@@ -781,6 +999,141 @@ MSG
   end
 end
 
+require 'strscan'
+
+if Sass::Util.ruby1_8?
+  Sass::Util::MultibyteStringScanner = StringScanner
+else
+  # A wrapper of the native StringScanner class that works correctly with
+  # multibyte character encodings. The native class deals only in bytes, not
+  # characters, for methods like [#pos] and [#matched_size]. This class deals
+  # only in characters, instead.
+  class Sass::Util::MultibyteStringScanner < StringScanner
+    def self.new(str)
+      return StringScanner.new(str) if str.ascii_only?
+      super
+    end
+
+    def initialize(str)
+      super
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+    end
+
+    alias_method :byte_pos, :pos
+    alias_method :byte_matched_size, :matched_size
+
+    def check(pattern); _match super; end
+    def check_until(pattern); _matched super; end
+    def getch; _forward _match super; end
+    def match?(pattern); _size check(pattern); end
+    def matched_size; @mb_matched_size; end
+    def peek(len); string[@mb_pos, len]; end
+    alias_method :peep, :peek
+    def pos; @mb_pos; end
+    alias_method :pointer, :pos
+    def rest_size; rest.size; end
+    def scan(pattern); _forward _match super; end
+    def scan_until(pattern); _forward _matched super; end
+    def skip(pattern); _size scan(pattern); end
+    def skip_until(pattern); _matched _size scan_until(pattern); end
+
+    def get_byte
+      raise "MultibyteStringScanner doesn't support #get_byte."
+    end
+
+    def getbyte
+      raise "MultibyteStringScanner doesn't support #getbyte."
+    end
+
+    def pos=(n)
+      @mb_last_pos = nil
+
+      # We set position kind of a lot during parsing, so we want it to be as
+      # efficient as possible. This is complicated by the fact that UTF-8 is a
+      # variable-length encoding, so it's difficult to find the byte length that
+      # corresponds to a given character length.
+      #
+      # Our heuristic here is to try to count the fewest possible characters. So
+      # if the new position is close to the current one, just count the
+      # characters between the two; if the new position is closer to the
+      # beginning of the string, just count the characters from there.
+      if @mb_pos - n < @mb_pos / 2
+        # New position is close to old position
+        byte_delta = @mb_pos > n ? -string[n...@mb_pos].bytesize : string[@mb_pos...n].bytesize
+        super(byte_pos + byte_delta)
+      else
+        # New position is close to BOS
+        super(string[0...n].bytesize)
+      end
+      @mb_pos = n
+    end
+
+    def reset
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+
+    def scan_full(pattern, advance_pointer_p, return_string_p)
+      res = _match super(pattern, advance_pointer_p, true)
+      _forward res if advance_pointer_p
+      return res if return_string_p
+    end
+
+    def search_full(pattern, advance_pointer_p, return_string_p)
+      res = super(pattern, advance_pointer_p, true)
+      _forward res if advance_pointer_p
+      _matched((res if return_string_p))
+    end
+
+    def string=(str)
+      @mb_pos = 0
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+
+    def terminate
+      @mb_pos = string.size
+      @mb_matched_size = nil
+      @mb_last_pos = nil
+      super
+    end
+    alias_method :clear, :terminate
+
+    def unscan
+      super
+      @mb_pos = @mb_last_pos
+      @mb_last_pos = @mb_matched_size = nil
+    end
+
+    private
+
+    def _size(str)
+      str && str.size
+    end
+
+    def _match(str)
+      @mb_matched_size = str && str.size
+      str
+    end
+
+    def _matched(res)
+      _match matched
+      res
+    end
+
+    def _forward(str)
+      @mb_last_pos = @mb_pos
+      @mb_pos += str.size if str
+      str
+    end
+  end
+end
+
 module Sass
   # Handles Sass version-reporting.
   # Sass not only reports the standard three version numbers,
@@ -794,6 +1147,7 @@ module Sass
     # The `:name` key has the name of the version.
     # The `:string` key contains a human-readable string representation of the version.
     # The `:number` key is the major, minor, and teeny keys separated by periods.
+    # The `:date` key, which is not guaranteed to be defined, is the [DateTime] at which this release was cut.
     # If Sass is checked out from Git, the `:rev` key will have the revision hash.
     # For example:
     #
@@ -801,6 +1155,7 @@ module Sass
     #       :string => "2.1.0.9616393",
     #       :rev    => "9616393b8924ef36639c7e82aa88a51a24d16949",
     #       :number => "2.1.0",
+    #       :date   => DateTime.parse("Apr 30 13:52:01 2009 -0700"),
     #       :major  => 2, :minor => 1, :teeny => 0
     #     }
     #
@@ -814,6 +1169,7 @@ module Sass
     #     {
     #       :string => "3.0.beta.1",
     #       :number => "3.0.beta.1",
+    #       :date   => DateTime.parse("Mar 31 00:38:04 2010 -0700"),
     #       :major => 3, :minor => 0, :teeny => -1,
     #       :prerelease => "beta",
     #       :prerelease_number => 1
@@ -823,17 +1179,21 @@ module Sass
     def version
       return @@version if defined?(@@version)
 
-
-      #numbers = File.read(scope('VERSION')).strip.split('.').
-      numbers = "3.2.0.alpha.0".strip.split('.').
+	  #RG numbers = File.read(scope('VERSION')).strip.split('.').
+      numbers = '3.2.5'.strip.split('.').
         map {|n| n =~ /^[0-9]+$/ ? n.to_i : n}
-      name = "Bleeding Edge"
+      #RG name = File.read(scope('VERSION_NAME')).strip
+      name = 'Media Mark'.strip
       @@version = {
         :major => numbers[0],
         :minor => numbers[1],
         :teeny => numbers[2],
         :name => name
       }
+
+      if date = version_date
+        @@version[:date] = date
+      end
 
       if numbers[3].is_a?(String)
         @@version[:teeny] = -1
@@ -881,6 +1241,11 @@ module Sass
       end
       return nil
     end
+
+    def version_date
+      return unless File.exists?(scope('VERSION_DATE'))
+      return DateTime.parse(File.read(scope('VERSION_DATE')).strip)
+    end
   end
 
   extend Sass::Version
@@ -900,6 +1265,28 @@ end
 #
 # Also see the {file:SASS_REFERENCE.md full Sass reference}.
 module Sass
+  # The global load paths for Sass files. This is meant for plugins and
+  # libraries to register the paths to their Sass stylesheets to that they may
+  # be `@imported`. This load path is used by every instance of [Sass::Engine].
+  # They are lower-precedence than any load paths passed in via the
+  # {file:SASS_REFERENCE.md#load_paths-option `:load_paths` option}.
+  #
+  # If the `SASS_PATH` environment variable is set,
+  # the initial value of `load_paths` will be initialized based on that.
+  # The variable should be a colon-separated list of path names
+  # (semicolon-separated on Windows).
+  #
+  # Note that files on the global load path are never compiled to CSS
+  # themselves, even if they aren't partials. They exist only to be imported.
+  #
+  # @example
+  #   Sass.load_paths << File.dirname(__FILE__ + '/sass')
+  # @return [Array<String, Pathname, Sass::Importers::Base>]
+  def self.load_paths
+    @load_paths ||= ENV['SASS_PATH'] ?
+      ENV['SASS_PATH'].split(Sass::Util.windows? ? ';' : ':') : []
+  end
+
   # Compile a Sass or SCSS string to CSS.
   # Defaults to SCSS.
   #
@@ -948,11 +1335,101 @@ module Sass
   end
 end
 
+module Sass::Logger
 
-require 'strscan'
-require 'set'
+end
+
+module Sass
+  module Logger
+    module LogLevel
+
+      def self.included(base)
+        base.extend(ClassMethods)
+      end
+      
+      module ClassMethods
+        def inherited(subclass)
+          subclass.log_levels = subclass.superclass.log_levels.dup
+        end
+
+        def log_levels
+          @log_levels ||= {}
+        end
+
+        def log_levels=(levels)
+          @log_levels = levels
+        end
+
+        def log_level?(level, min_level)
+          log_levels[level] >= log_levels[min_level]
+        end
+
+        def log_level(name, options = {})
+          if options[:prepend]
+            level = log_levels.values.min
+            level = level.nil? ? 0 : level - 1
+          else
+            level = log_levels.values.max
+            level = level.nil? ? 0 : level + 1
+          end
+          log_levels.update(name => level)
+          define_logger(name)
+        end
+
+        def define_logger(name, options = {})
+          class_eval <<-RUBY, __FILE__, __LINE__ + 1
+            def #{name}(message)
+              #{options.fetch(:to, :log)}(#{name.inspect}, message)
+            end
+          RUBY
+        end
+      end
+      
+    end
+  end
+end 
+
+class Sass::Logger::Base
+  
+  include Sass::Logger::LogLevel
+
+  attr_accessor :log_level
+  attr_accessor :disabled
+
+  log_level :trace
+  log_level :debug
+  log_level :info
+  log_level :warn
+  log_level :error
+
+  def initialize(log_level = :debug)
+    self.log_level = log_level
+  end
+
+  def logging_level?(level)
+    !disabled && self.class.log_level?(level, log_level)
+  end
+
+  def log(level, message)
+    self._log(level, message) if logging_level?(level)
+  end
+
+  def _log(level, message)
+    Kernel::warn(message)
+  end
+
+end 
+
+module Sass
+
+  class << self
+    attr_accessor :logger
+  end
+
+  self.logger = Sass::Logger::Base.new
+end
+
 require 'digest/sha1'
-require 'stringio'
 
 module Sass
   # Sass cache stores are in charge of storing cached information,
@@ -1049,6 +1526,8 @@ module Sass
     end
   end
 end
+require 'fileutils'
+
 module Sass
   module CacheStores
     # A backend for the Sass cache using the filesystem.
@@ -1102,6 +1581,7 @@ module Sass
       # @param key [String]
       # @return [String] The path to the cache file.
       def path_to(key)
+        key = key.gsub(/[<>:\\|?*%]/) {|c| "%%%03d" % Sass::Util.ord(c)}
         File.join(cache_location, key)
       end
     end
@@ -1203,7 +1683,8 @@ module Sass
   # The nodes in this state are in the same structure as the Sass document:
   # rules and properties are nested beneath one another.
   # Nodes that can be in this state or in the dynamic state
-  # are called **static nodes**.
+  # are called **static nodes**; nodes that can only be in this state
+  # are called **solely static nodes**.
   #
   # {Tree::Visitors::Cssize} is then used to create a static CSS tree.
   # This is like a static Sass tree,
@@ -1254,8 +1735,7 @@ module Sass
       # @param options [{Symbol => Object}] The options
       # @see #options
       def options=(options)
-        children.each {|c| c.options = options}
-        @options = options
+        Sass::Tree::Visitors::SetOptions.visit(self, options)
       end
 
       # @private
@@ -1322,25 +1802,12 @@ module Sass
         Sass::Tree::Visitors::ToCss.visit(self)
       end
 
-      # Converts a static CSS tree (e.g. the output of \{Tree::Visitors::Cssize})
-      # into another static CSS tree,
-      # with the given extensions applied to all relevant {RuleNode}s.
+      # Returns a representation of the node for debugging purposes.
       #
-      # @todo Link this to the reference documentation on `@extend`
-      #   when such a thing exists.
-      #
-      # @param extends [Sass::Util::SubsetMap{Selector::Simple => Selector::Sequence}]
-      #   The extensions to perform on this tree
-      # @return [Tree::Node] The resulting tree of static CSS nodes.
-      # @raise [Sass::SyntaxError] Only if there's a programmer error
-      #   and this is not a static CSS tree
-      def do_extend(extends)
-        node = dup
-        node.children = children.map {|c| c.do_extend(extends)}
-        node
-      rescue Sass::SyntaxError => e
-        e.modify_backtrace(:filename => filename, :line => line)
-        raise e
+      # @return [String]
+      def inspect
+        return self.class.to_s unless has_children
+        "(#{self.class} #{children.map {|c| c.inspect}.join(' ')})"
       end
 
       # Iterates through each node in the tree rooted at this node
@@ -1348,9 +1815,9 @@ module Sass
       #
       # @yield node
       # @yieldparam node [Node] a node in the tree
-      def each(&block)
+      def each
         yield self
-        children.each {|c| c.each(&block)}
+        children.each {|c| c.each {|n| yield n}}
       end
 
       # Converts a node to Sass code that will generate it.
@@ -1374,9 +1841,14 @@ module Sass
       #
       # @return [Node]
       def deep_copy
-        node = dup
-        node.children = children.map {|c| c.deep_copy}
-        node
+        Sass::Tree::Visitors::DeepCopy.visit(self)
+      end
+
+      # Whether or not this node bubbles up through RuleNodes.
+      #
+      # @return [Boolean]
+      def bubbles?
+        false
       end
 
       protected
@@ -1413,7 +1885,7 @@ module Sass
         result = Visitors::Perform.visit(self)
         Visitors::CheckNesting.visit(result) # Check again to validate mixins
         result, extends = Visitors::Cssize.visit(result)
-        result = result.do_extend(extends) unless extends.empty?
+        Visitors::Extend.visit(result, extends)
         result.to_s
       end
     end
@@ -1471,6 +1943,13 @@ module Sass::Tree
     # @return [Boolean]
     attr_accessor :group_end
 
+    # The stack trace.
+    # This is only readable in a CSS tree as it is written during the perform step
+    # and only when the :trace_selectors option is set.
+    #
+    # @return [Array<String>]
+    attr_accessor :stack_trace
+
     # @param rule [Array<String, Sass::Script::Node>]
     #   The CSS rule. See \{#rule}
     def initialize(rule)
@@ -1517,15 +1996,6 @@ module Sass::Tree
       last.is_a?(String) && last[-1] == ?,
     end
 
-    # Extends this Rule's selector with the given `extends`.
-    #
-    # @see Node#do_extend
-    def do_extend(extends)
-      node = dup
-      node.resolved_rules = resolved_rules.do_extend(extends)
-      node
-    end
-
     # A hash that will be associated with this rule in the CSS document
     # if the {file:SASS_REFERENCE.md#debug_info-option `:debug_info` option} is enabled.
     # This data is used by e.g. [the FireSass Firebug extension](https://addons.mozilla.org/en-US/firefox/addon/103988).
@@ -1536,14 +2006,19 @@ module Sass::Tree
        :line => self.line}
     end
 
+    # A rule node is invisible if it has only placeholder selectors.
+    def invisible?
+      resolved_rules.members.all? {|seq| seq.has_placeholder?}
+    end
+
     private
 
     def try_to_parse_non_interpolated_rules
       if @rule.all? {|t| t.kind_of?(String)}
         # We don't use real filename/line info because we don't have it yet.
         # When we get it, we'll set it on the parsed rules if possible.
-        parser = Sass::SCSS::StaticParser.new(@rule.join.strip, 1)
-        @parsed_rules = parser.parse_selector('') rescue nil
+        parser = Sass::SCSS::StaticParser.new(@rule.join.strip, '', 1)
+        @parsed_rules = parser.parse_selector rescue nil
       end
     end
   end
@@ -1555,31 +2030,31 @@ module Sass::Tree
   # @see Sass::Tree
   class CommentNode < Node
     # The text of the comment, not including `/*` and `*/`.
+    # Interspersed with {Sass::Script::Node}s representing `#{}`-interpolation
+    # if this is a loud comment.
     #
-    # @return [String]
+    # @return [Array<String, Sass::Script::Node>]
     attr_accessor :value
 
-    # Whether the comment is loud.
+    # The text of the comment
+    # after any interpolated SassScript has been resolved.
+    # Only set once \{Tree::Visitors::Perform} has been run.
     #
-    # Loud comments start with ! and force the comment to be generated
-    # irrespective of compilation settings or the comment syntax used.
-    #
-    # @return [Boolean]
-    attr_accessor :loud
+    # @return [String]
+    attr_accessor :resolved_value
 
-    # Whether or not the comment is silent (that is, doesn't output to CSS).
+    # The type of the comment. `:silent` means it's never output to CSS,
+    # `:normal` means it's output in every compile mode except `:compressed`,
+    # and `:loud` means it's output even in `:compressed`.
     #
-    # @return [Boolean]
-    attr_accessor :silent
+    # @return [Symbol]
+    attr_accessor :type
 
-    # @param value [String] See \{#value}
-    # @param silent [Boolean] See \{#silent}
-    def initialize(value, silent)
-      @lines = []
-      @silent = silent
-      @value = normalize_indentation value
-      @loud = @value =~ %r{^(/[\/\*])?!}
-      @value.sub!("#{$1}!", $1.to_s) if @loud
+    # @param value [Array<String, Sass::Script::Node>] See \{#value}
+    # @param type [Symbol] See \{#type}
+    def initialize(value, type)
+      @value = Sass::Util.with_extracted_values(value) {|str| normalize_indentation str}
+      @type = type
       super()
     end
 
@@ -1589,7 +2064,7 @@ module Sass::Tree
     # @return [Boolean] Whether or not this node and the other object
     #   are the same
     def ==(other)
-      self.class == other.class && value == other.value && silent == other.silent
+      self.class == other.class && value == other.value && type == other.type
     end
 
     # Returns `true` if this is a silent comment
@@ -1599,16 +2074,21 @@ module Sass::Tree
     #
     # @return [Boolean]
     def invisible?
-      if @loud
-        return false
-      else
-        @silent || (style == :compressed)
+      case @type
+      when :loud; false
+      when :silent; true
+      else; style == :compressed
       end
     end
 
-    # Returns whether this comment should be interpolated for dynamic comment generation.
-    def evaluated?
-      @loud
+    # Returns the number of lines in the comment.
+    #
+    # @return [Fixnum]
+    def lines
+      @value.inject(0) do |s, e|
+        next s + e.count("\n") if e.is_a?(String)
+        next s
+      end
     end
 
     private
@@ -1617,7 +2097,7 @@ module Sass::Tree
       pre = str.split("\n").inject(str[/^[ \t]*/].split("")) do |pre, line|
         line[/^[ \t]*/].split("").zip(pre).inject([]) do |arr, (a, b)|
           break arr if a != b
-          arr + [a]
+          arr << a
         end
       end.join
       str.gsub(/^#{pre}/, '')
@@ -1718,15 +2198,19 @@ module Sass::Tree
       "#{initial}#{name}#{mid} #{self.class.val_to_sass(value, opts)}".rstrip
     end
 
+    # A property node is invisible if its value is empty.
+    #
+    # @return [Boolean]
+    def invisible?
+      resolved_value.empty?
+    end
+
     private
 
     def check!
       if @options[:property_syntax] && @options[:property_syntax] != @prop_syntax
         raise Sass::SyntaxError.new(
           "Illegal property syntax: can't use #{@prop_syntax} syntax when :property_syntax => #{@options[:property_syntax].inspect} is set.")
-      elsif resolved_value.empty?
-        raise Sass::SyntaxError.new("Invalid property: #{declaration.dump} (no value)." +
-          pseudo_class_selector_message)
       end
     end
 
@@ -1783,15 +2267,34 @@ module Sass::Tree
   #
   # @see Sass::Tree
   class DirectiveNode < Node
-    # The text of the directive, `@` and all.
+    # The text of the directive, `@` and all, with interpolation included.
     #
-    # @return [String]
+    # @return [Array<String, Sass::Script::Node>]
     attr_accessor :value
 
-    # @param value [String] See \{#value}
+    # The text of the directive after any interpolated SassScript has been resolved.
+    # Only set once \{Tree::Visitors::Perform} has been run.
+    #
+    # @return [String]
+    attr_accessor :resolved_value
+
+    # @param value [Array<String, Sass::Script::Node>] See \{#value}
     def initialize(value)
       @value = value
       super()
+    end
+
+    # @param value [String] See \{#resolved_value}
+    # @return [DirectiveNode]
+    def self.resolved(value)
+      node = new([value])
+      node.resolved_value = value
+      node
+    end
+
+    # @return [String] The name of the directive, including `@`.
+    def name
+      value.first.gsub(/ .*$/, '')
     end
   end
 end
@@ -1803,10 +2306,20 @@ module Sass::Tree
   #
   # @see Sass::Tree
   class MediaNode < DirectiveNode
-    # The media query (e.g. `print` or `screen`).
+    # TODO: parse and cache the query immediately if it has no dynamic elements
+
+    # The media query for this rule, interspersed with {Sass::Script::Node}s
+    # representing `#{}`-interpolation. Any adjacent strings will be merged
+    # together.
     #
-    # @return [String]
+    # @return [Array<String, Sass::Script::Node>]
     attr_accessor :query
+
+    # The media query for this rule, without any unresolved interpolation. It's
+    # only set once {Tree::Node#perform} has been called.
+    #
+    # @return [Sass::Media::QueryList]
+    attr_accessor :resolved_query
 
     # @see RuleNode#tabs
     attr_accessor :tabs
@@ -1814,7 +2327,7 @@ module Sass::Tree
     # @see RuleNode#group_end
     attr_accessor :group_end
 
-    # @param query [String] See \{#query}
+    # @param query [Array<String, Sass::Script::Node>] See \{#query}
     def initialize(query)
       @query = query
       @tabs = 0
@@ -1822,8 +2335,135 @@ module Sass::Tree
     end
 
     # @see DirectiveNode#value
-    def value
-      "@media #{query}"
+    def value; raise NotImplementedError; end
+
+    # @see DirectiveNode#name
+    def name; '@media'; end
+
+    # @see DirectiveNode#resolved_value
+    def resolved_value
+      @resolved_value ||= "@media #{resolved_query.to_css}"
+    end
+
+    # True when the directive has no visible children.
+    #
+    # @return [Boolean]
+    def invisible?
+      children.all? {|c| c.invisible?}
+    end
+
+    # @see Node#bubbles?
+    def bubbles?; true; end
+  end
+end
+module Sass::Tree
+  # A static node representing a `@supports` rule.
+  # `@supports` rules behave differently from other directives
+  # in that when they're nested within rules,
+  # they bubble up to top-level.
+  #
+  # @see Sass::Tree
+  class SupportsNode < DirectiveNode
+    # The name, which may include a browser prefix.
+    #
+    # @return [String]
+    attr_accessor :name
+
+    # The supports condition.
+    #
+    # @return [Sass::Supports::Condition]
+    attr_accessor :condition
+
+    # @see RuleNode#tabs
+    attr_accessor :tabs
+
+    # @see RuleNode#group_end
+    attr_accessor :group_end
+
+    # @param condition [Sass::Supports::Condition] See \{#condition}
+    def initialize(name, condition)
+      @name = name
+      @condition = condition
+      @tabs = 0
+      super('')
+    end
+
+    # @see DirectiveNode#value
+    def value; raise NotImplementedError; end
+
+    # @see DirectiveNode#resolved_value
+    def resolved_value
+      @resolved_value ||= "@#{name} #{condition.to_css}"
+    end
+
+    # True when the directive has no visible children.
+    #
+    # @return [Boolean]
+    def invisible?
+      children.all? {|c| c.invisible?}
+    end
+
+    # @see Node#bubbles?
+    def bubbles?; true; end
+  end
+end
+module Sass::Tree
+  # A node representing an `@import` rule that's importing plain CSS.
+  #
+  # @see Sass::Tree
+  class CssImportNode < DirectiveNode
+    # The URI being imported, either as a plain string or an interpolated
+    # script string.
+    #
+    # @return [String, Sass::Script::Node]
+    attr_accessor :uri
+
+    # The text of the URI being imported after any interpolated SassScript has
+    # been resolved. Only set once \{Tree::Visitors::Perform} has been run.
+    #
+    # @return [String]
+    attr_accessor :resolved_uri
+
+    # The media query for this rule, interspersed with {Sass::Script::Node}s
+    # representing `#{}`-interpolation. Any adjacent strings will be merged
+    # together.
+    #
+    # @return [Array<String, Sass::Script::Node>]
+    attr_accessor :query
+
+    # The media query for this rule, without any unresolved interpolation. It's
+    # only set once {Tree::Node#perform} has been called.
+    #
+    # @return [Sass::Media::QueryList]
+    attr_accessor :resolved_query
+
+    # @param uri [String, Sass::Script::Node] See \{#uri}
+    # @param query [Array<String, Sass::Script::Node>] See \{#query}
+    def initialize(uri, query = nil)
+      @uri = uri
+      @query = query
+      super('')
+    end
+
+    # @param uri [String] See \{#resolved_uri}
+    # @return [CssImportNode]
+    def self.resolved(uri)
+      node = new(uri)
+      node.resolved_uri = uri
+      node
+    end
+
+    # @see DirectiveNode#value
+    def value; raise NotImplementedError; end
+
+    # @see DirectiveNode#resolved_value
+    def resolved_value
+      @resolved_value ||=
+        begin
+          str = "@import #{resolved_uri}"
+          str << " #{resolved_query.to_css}" if resolved_query
+          str
+        end
     end
   end
 end
@@ -1839,7 +2479,7 @@ module Sass
 
       # The parse tree for the variable value.
       # @return [Script::Node]
-      attr_reader :expr
+      attr_accessor :expr
 
       # Whether this is a guarded variable assignment (`!default`).
       # @return [Boolean]
@@ -1872,13 +2512,24 @@ module Sass
       # and the parse tree for the default value of the argument.
       #
       # @return [Array<(Script::Node, Script::Node)>]
-      attr_reader :args
+      attr_accessor :args
+
+      # The splat argument for this mixin, if one exists.
+      #
+      # @return [Script::Node?]
+      attr_accessor :splat
+
+      # Whether the mixin uses `@content`. Set during the nesting check phase.
+      # @return [Boolean]
+      attr_accessor :has_content
 
       # @param name [String] The mixin name
       # @param args [Array<(Script::Node, Script::Node)>] See \{#args}
-      def initialize(name, args)
+      # @param splat [Script::Node] See \{#splat}
+      def initialize(name, args, splat)
         @name = name
         @args = args
+        @splat = splat
         super()
       end
     end
@@ -1898,20 +2549,67 @@ module Sass::Tree
 
     # The arguments to the mixin.
     # @return [Array<Script::Node>]
-    attr_reader :args
+    attr_accessor :args
 
     # A hash from keyword argument names to values.
     # @return [{String => Script::Node}]
-    attr_reader :keywords
+    attr_accessor :keywords
+
+    # The splat argument for this mixin, if one exists.
+    #
+    # @return [Script::Node?]
+    attr_accessor :splat
 
     # @param name [String] The name of the mixin
     # @param args [Array<Script::Node>] See \{#args}
+    # @param splat [Script::Node] See \{#splat}
     # @param keywords [{String => Script::Node}] See \{#keywords}
-    def initialize(name, args, keywords)
+    def initialize(name, args, keywords, splat)
       @name = name
       @args = args
       @keywords = keywords
+      @splat = splat
       super()
+    end
+  end
+end
+
+module Sass::Tree
+  # A solely static node left over after a mixin include or @content has been performed.
+  # Its sole purpose is to wrap exceptions to add to the backtrace.
+  #
+  # @see Sass::Tree
+  class TraceNode < Node
+    # The name of the trace entry to add.
+    # @return [String]
+    attr_reader :name
+
+    # @param name [String] The name of the trace entry to add.
+    def initialize(name)
+      @name = name
+      self.has_children = true
+      super()
+    end
+
+    # Initializes this node from an existing node.
+    # @param name [String] The name of the trace entry to add.
+    # @param mixin [Node] The node to copy information from.
+    # @return [TraceNode]
+    def self.from_node(name, node)
+      trace = new(name)
+      trace.line = node.line
+      trace.filename = node.filename
+      trace.options = node.options
+      trace
+    end
+  end
+end
+module Sass
+  module Tree
+    # A node representing the placement within a mixin of the include statement's content.
+    #
+    # @see Sass::Tree
+    class ContentNode < Node
     end
   end
 end
@@ -1930,13 +2628,20 @@ module Sass
       # the default value of the argument
       #
       # @return [Array<Script::Node>]
-      attr_reader :args
+      attr_accessor :args
+
+      # The splat argument for this function, if one exists.
+      #
+      # @return [Script::Node?]
+      attr_accessor :splat
 
       # @param name [String] The function name
       # @param args [Array<(Script::Node, Script::Node)>] The arguments for the function.
-      def initialize(name, args)
+      # @param splat [Script::Node] See \{#splat}
+      def initialize(name, args, splat)
         @name = name
         @args = args
+        @splat = splat
         super()
       end
     end
@@ -1950,7 +2655,7 @@ module Sass
     class ReturnNode < Node
       # The expression to return.
       # @type [Script::Node]
-      attr_reader :expr
+      attr_accessor :expr
 
       # @param expr [Script::Node] The expression to return
       def initialize(expr)
@@ -1976,14 +2681,21 @@ module Sass::Tree
     # representing `#{}`-interpolation.
     #
     # @return [Array<String, Sass::Script::Node>]
-    attr_reader :selector
+    attr_accessor :selector
+
+    # Whether the `@extend` is allowed to match no selectors or not.
+    #
+    # @return [Boolean]
+    def optional?; @optional; end
 
     # @param selector [Array<String, Sass::Script::Node>]
     #   The CSS selector to extend,
     #   interspersed with {Sass::Script::Node}s
     #   representing `#{}`-interpolation.
-    def initialize(selector)
+    # @param optional [Boolean] See \{#optional}
+    def initialize(selector, optional)
       @selector = selector
+      @optional = optional
       super()
     end
   end
@@ -2002,7 +2714,7 @@ module Sass::Tree
     # If this is nil, this is an `@else` node, not an `@else if`.
     #
     # @return [Script::Expr]
-    attr_reader :expr
+    attr_accessor :expr
 
     # The next {IfNode} in the if-else list, or `nil`.
     #
@@ -2024,12 +2736,6 @@ module Sass::Tree
       @last_else = node
     end
 
-    # @see Node#options=
-    def options=(options)
-      super
-      self.else.options = options if self.else
-    end
-
     def _dump(f)
       Marshal.dump([self.expr, self.else, self.children])
     end
@@ -2043,13 +2749,6 @@ module Sass::Tree
         node.else ? node.else.instance_variable_get('@last_else') : node)
       node
     end
-
-    # @see Node#deep_copy
-    def deep_copy
-      node = super
-      node.else = self.else.deep_copy if self.else
-      node
-    end
   end
 end
 
@@ -2060,7 +2759,7 @@ module Sass::Tree
   class WhileNode < Node
     # The parse tree for the continuation expression.
     # @return [Script::Node]
-    attr_reader :expr
+    attr_accessor :expr
 
     # @param expr [Script::Node] See \{#expr}
     def initialize(expr)
@@ -2081,11 +2780,11 @@ module Sass::Tree
 
     # The parse tree for the initial expression.
     # @return [Script::Node]
-    attr_reader :from
+    attr_accessor :from
 
     # The parse tree for the final expression.
     # @return [Script::Node]
-    attr_reader :to
+    attr_accessor :to
 
     # Whether to include `to` in the loop or stop just before.
     # @return [Boolean]
@@ -2116,7 +2815,7 @@ module Sass::Tree
 
     # The parse tree for the list.
     # @param [Script::Node]
-    attr_reader :list
+    attr_accessor :list
 
     # @param var [String] The name of the loop variable
     # @param list [Script::Node] The parse tree for the list
@@ -2135,7 +2834,7 @@ module Sass
     class DebugNode < Node
       # The expression to print.
       # @return [Script::Node] 
-      attr_reader :expr
+      attr_accessor :expr
 
       # @param expr [Script::Node] The expression to print
       def initialize(expr)
@@ -2153,7 +2852,7 @@ module Sass
     class WarnNode < Node
       # The expression to print.
       # @return [Script::Node]
-      attr_reader :expr
+      attr_accessor :expr
 
       # @param expr [Script::Node] The expression to print
       def initialize(expr)
@@ -2173,6 +2872,9 @@ module Sass
       #
       # @return [String]
       attr_reader :imported_filename
+
+      # Sets the imported file.
+      attr_writer :imported_file
 
       # @param imported_filename [String] The name of the imported file
       def initialize(imported_filename)
@@ -2208,12 +2910,12 @@ module Sass
 
         if @options[:importer]
           f = @options[:importer].find_relative(
-            @imported_filename, @options[:filename], @options.dup)
+            @imported_filename, @options[:filename], options_for_importer)
           return f if f
         end
 
         paths.each do |p|
-          if f = p.find(@imported_filename, @options.dup)
+          if f = p.find(@imported_filename, options_for_importer)
             return f
           end
         end
@@ -2227,6 +2929,10 @@ module Sass
         raise SyntaxError.new(message)
       rescue SyntaxError => e
         raise SyntaxError.new(e.message, :line => self.line, :filename => @filename)
+      end
+
+      def options_for_importer
+        @options.merge(:_line => line)
       end
     end
   end
@@ -2288,7 +2994,7 @@ module Sass::Tree::Visitors
     # @return [Object] The return value of the `visit_*` method for this node.
     def visit(node)
       method = "visit_#{node_name node}"
-      if self.respond_to?(method)
+      if self.respond_to?(method, true)
         self.send(method, node) {visit_children(node)}
       else
         visit_children(node)
@@ -2337,13 +3043,93 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
     new(environment).send(:visit, root)
   end
 
+  # @api private
+  def self.perform_arguments(callable, args, keywords, splat)
+    desc = "#{callable.type.capitalize} #{callable.name}"
+    downcase_desc = "#{callable.type} #{callable.name}"
+
+    begin
+      unless keywords.empty?
+        unknown_args = keywords.keys - callable.args.map {|var| var.first.underscored_name}
+        if callable.splat && unknown_args.include?(callable.splat.underscored_name)
+          raise Sass::SyntaxError.new("Argument $#{callable.splat.name} of #{downcase_desc} cannot be used as a named argument.")
+        elsif unknown_args.any?
+          raise Sass::SyntaxError.new("#{desc} doesn't have #{unknown_args.length > 1 ? 'the following arguments:' : 'an argument named'} #{unknown_args.map{|name| "$#{name}"}.join ', '}.")
+        end
+      end
+    rescue Sass::SyntaxError => keyword_exception
+    end
+
+    # If there's no splat, raise the keyword exception immediately. The actual
+    # raising happens in the ensure clause at the end of this function.
+    return if keyword_exception && !callable.splat
+
+    if args.size > callable.args.size && !callable.splat
+      takes = callable.args.size
+      passed = args.size
+      raise Sass::SyntaxError.new(
+        "#{desc} takes #{takes} argument#{'s' unless takes == 1} " +
+        "but #{passed} #{passed == 1 ? 'was' : 'were'} passed.")
+    end
+
+    splat_sep = :comma
+    if splat
+      args += splat.to_a
+      splat_sep = splat.separator if splat.is_a?(Sass::Script::List)
+      # If the splat argument exists, there won't be any keywords passed in
+      # manually, so we can safely overwrite rather than merge here.
+      keywords = splat.keywords if splat.is_a?(Sass::Script::ArgList)
+    end
+
+    keywords = keywords.dup
+    env = Sass::Environment.new(callable.environment)
+    callable.args.zip(args[0...callable.args.length]) do |(var, default), value|
+      if value && keywords.include?(var.underscored_name)
+        raise Sass::SyntaxError.new("#{desc} was passed argument $#{var.name} both by position and by name.")
+      end
+
+      value ||= keywords.delete(var.underscored_name)
+      value ||= default && default.perform(env)
+      raise Sass::SyntaxError.new("#{desc} is missing argument #{var.inspect}.") unless value
+      env.set_local_var(var.name, value)
+    end
+
+    if callable.splat
+      rest = args[callable.args.length..-1]
+      arg_list = Sass::Script::ArgList.new(rest, keywords.dup, splat_sep)
+      arg_list.options = env.options
+      env.set_local_var(callable.splat.name, arg_list)
+    end
+
+    yield env
+  rescue Exception => e
+  ensure
+    # If there's a keyword exception, we don't want to throw it immediately,
+    # because the invalid keywords may be part of a glob argument that should be
+    # passed on to another function. So we only raise it if we reach the end of
+    # this function *and* the keywords attached to the argument list glob object
+    # haven't been accessed.
+    #
+    # The keyword exception takes precedence over any Sass errors, but not over
+    # non-Sass exceptions.
+    if keyword_exception &&
+        !(arg_list && arg_list.keywords_accessed) &&
+        (e.nil? || e.is_a?(Sass::SyntaxError))
+      raise keyword_exception
+    elsif e
+      raise e
+    end
+  end
+
   protected
 
   def initialize(env)
     @environment = env
+    # Stack trace information, including mixin includes and imports.
+    @stack = []
   end
 
-  # If an exception is raised, this add proper metadata to the backtrace.
+  # If an exception is raised, this adds proper metadata to the backtrace.
   def visit(node)
     super(node.dup)
   rescue Sass::SyntaxError => e
@@ -2353,7 +3139,7 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
 
   # Keeps track of the current environment.
   def visit_children(parent)
-    with_environment Sass::Environment.new(@environment) do
+    with_environment Sass::Environment.new(@environment, parent.options) do
       parent.children = super.flatten
       parent
     end
@@ -2373,7 +3159,6 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
 
   # Sets the options on the environment if this is the top-level root.
   def visit_root(node)
-    @environment.options = node.options if @environment.options.nil? || @environment.options.empty?
     yield
   rescue Sass::SyntaxError => e
     e.sass_template ||= node.template
@@ -2383,12 +3168,8 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # Removes this node from the tree if it's a silent comment.
   def visit_comment(node)
     return [] if node.invisible?
-    if node.evaluated?
-      node.value.gsub!(/(^|[^\\])\#\{([^}]*)\}/) do |md|
-        $1+Sass::Script.parse($2, node.line, 0, node.options).perform(@environment).to_s
-      end
-      node.value = run_interp([Sass::Script::String.new(node.value)])
-    end
+    node.resolved_value = run_interp_no_strip(node.value)
+    node.resolved_value.gsub!(/\\([\\#])/, '\1')
     node
   end
 
@@ -2419,8 +3200,8 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # Runs SassScript interpolation in the selector,
   # and then parses the result into a {Sass::Selector::CommaSequence}.
   def visit_extend(node)
-    parser = Sass::SCSS::CssParser.new(run_interp(node.selector), node.line)
-    node.resolved_selector = parser.parse_selector(node.filename)
+    parser = Sass::SCSS::StaticParser.new(run_interp(node.selector), node.filename, node.line)
+    node.resolved_selector = parser.parse_selector
     node
   end
 
@@ -2445,8 +3226,9 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
 
   # Loads the function into the environment.
   def visit_function(node)
-    @environment.set_function(node.name,
-      Sass::Callable.new(node.name, node.args, @environment, node.children))
+    env = Sass::Environment.new(@environment, node.options)
+    @environment.set_local_function(node.name,
+      Sass::Callable.new(node.name, node.args, node.splat, env, node.children, !:has_content, "function"))
     []
   end
 
@@ -2467,76 +3249,81 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # or parses and includes the imported Sass file.
   def visit_import(node)
     if path = node.css_import?
-      return Sass::Tree::DirectiveNode.new("@import url(#{path})")
+      return Sass::Tree::CssImportNode.resolved("url(#{path})")
     end
+    file = node.imported_file
+    handle_import_loop!(node) if @stack.any? {|e| e[:filename] == file.options[:filename]}
 
-    @environment.push_frame(:filename => node.filename, :line => node.line)
-    root = node.imported_file.to_tree
-    node.children = root.children.map {|c| visit(c)}.flatten
-    node
-  rescue Sass::SyntaxError => e
-    e.modify_backtrace(:filename => node.imported_file.options[:filename])
-    e.add_backtrace(:filename => node.filename, :line => node.line)
-    raise e
+    begin
+      @stack.push(:filename => node.filename, :line => node.line)
+      root = file.to_tree
+      Sass::Tree::Visitors::CheckNesting.visit(root)
+      node.children = root.children.map {|c| visit(c)}.flatten
+      node
+    rescue Sass::SyntaxError => e
+      e.modify_backtrace(:filename => node.imported_file.options[:filename])
+      e.add_backtrace(:filename => node.filename, :line => node.line)
+      raise e
+    end
   ensure
-    @environment.pop_frame
+    @stack.pop unless path
   end
 
   # Loads a mixin into the environment.
   def visit_mixindef(node)
-    @environment.set_mixin(node.name,
-      Sass::Callable.new(node.name, node.args, @environment, node.children))
+    env = Sass::Environment.new(@environment, node.options)
+    @environment.set_local_mixin(node.name,
+      Sass::Callable.new(node.name, node.args, node.splat, env, node.children, node.has_content, "mixin"))
     []
   end
 
   # Runs a mixin.
   def visit_mixin(node)
-    handle_include_loop!(node) if @environment.mixins_in_use.include?(node.name)
+    include_loop = true
+    handle_include_loop!(node) if @stack.any? {|e| e[:name] == node.name}
+    include_loop = false
 
-    original_env = @environment
-    original_env.push_frame(:filename => node.filename, :line => node.line)
-    original_env.prepare_frame(:mixin => node.name)
+    @stack.push(:filename => node.filename, :line => node.line, :name => node.name)
     raise Sass::SyntaxError.new("Undefined mixin '#{node.name}'.") unless mixin = @environment.mixin(node.name)
 
-    passed_args = node.args.dup
-    passed_keywords = node.keywords.dup
-
-    raise Sass::SyntaxError.new(<<END.gsub("\n", "")) if mixin.args.size < passed_args.size
-Mixin #{node.name} takes #{mixin.args.size} argument#{'s' if mixin.args.size != 1}
- but #{node.args.size} #{node.args.size == 1 ? 'was' : 'were'} passed.
-END
-
-    passed_keywords.each do |name, value|
-      # TODO: Make this fast
-      unless mixin.args.find {|(var, default)| var.underscored_name == name}
-        raise Sass::SyntaxError.new("Mixin #{node.name} doesn't have an argument named $#{name}")
-      end
+    if node.children.any? && !mixin.has_content
+      raise Sass::SyntaxError.new(%Q{Mixin "#{node.name}" does not accept a content block.})
     end
 
-    environment = mixin.args.zip(passed_args).
-      inject(Sass::Environment.new(mixin.environment)) do |env, ((var, default), value)|
-      env.set_local_var(var.name,
-        if value
-          value.perform(@environment)
-        elsif kv = passed_keywords[var.underscored_name]
-          kv.perform(@environment)
-        elsif default
-          default.perform(env)
-        end)
-      raise Sass::SyntaxError.new("Mixin #{node.name} is missing parameter #{var.inspect}.") unless env.var(var.name)
-      env
-    end
+    args = node.args.map {|a| a.perform(@environment)}
+    keywords = Sass::Util.map_hash(node.keywords) {|k, v| [k, v.perform(@environment)]}
+    splat = node.splat.perform(@environment) if node.splat
 
-    with_environment(environment) {node.children = mixin.tree.map {|c| visit(c)}.flatten}
-    node
+    self.class.perform_arguments(mixin, args, keywords, splat) do |env|
+      env.caller = Sass::Environment.new(@environment)
+      env.content = node.children if node.has_children
+
+      trace_node = Sass::Tree::TraceNode.from_node(node.name, node)
+      with_environment(env) {trace_node.children = mixin.tree.map {|c| visit(c)}.flatten}
+      trace_node
+    end
   rescue Sass::SyntaxError => e
-    if original_env # Don't add backtrace info if this is an @include loop
+    unless include_loop
       e.modify_backtrace(:mixin => node.name, :line => node.line)
       e.add_backtrace(:line => node.line)
     end
     raise e
   ensure
-    original_env.pop_frame if original_env
+    @stack.pop unless include_loop
+  end
+
+  def visit_content(node)
+    return [] unless content = @environment.content
+    @stack.push(:filename => node.filename, :line => node.line, :name => '@content')
+    trace_node = Sass::Tree::TraceNode.from_node('@content', node)
+    with_environment(@environment.caller) {trace_node.children = content.map {|c| visit(c.dup)}.flatten}
+    trace_node
+  rescue Sass::SyntaxError => e
+    e.modify_backtrace(:mixin => '@content', :line => node.line)
+    e.add_backtrace(:line => node.line)
+    raise e
+  ensure
+    @stack.pop if content
   end
 
   # Runs any SassScript that may be embedded in a property.
@@ -2555,14 +3342,22 @@ END
   # Runs SassScript interpolation in the selector,
   # and then parses the result into a {Sass::Selector::CommaSequence}.
   def visit_rule(node)
-    parser = Sass::SCSS::StaticParser.new(run_interp(node.rule), node.line)
-    node.parsed_rules ||= parser.parse_selector(node.filename)
+    rule = node.rule
+    rule = rule.map {|e| e.is_a?(String) && e != ' ' ? e.strip : e} if node.style == :compressed
+    parser = Sass::SCSS::StaticParser.new(run_interp(node.rule), node.filename, node.line)
+    node.parsed_rules ||= parser.parse_selector
+    if node.options[:trace_selectors]
+      @stack.push(:filename => node.filename, :line => node.line)
+      node.stack_trace = stack_trace
+      @stack.pop
+    end
     yield
   end
 
   # Loads the new variable value into the environment.
   def visit_variable(node)
-    return [] if node.guarded && !@environment.var(node.name).nil?
+    var = @environment.var(node.name)
+    return [] if node.guarded && var && !var.null?
     val = node.expr.perform(@environment)
     @environment.set_var(node.name, val)
     []
@@ -2570,20 +3365,15 @@ END
 
   # Prints the expression to STDERR with a stylesheet trace.
   def visit_warn(node)
-    @environment.push_frame(:filename => node.filename, :line => node.line)
+    @stack.push(:filename => node.filename, :line => node.line)
     res = node.expr.perform(@environment)
     res = res.value if res.is_a?(Sass::Script::String)
-    msg = "WARNING: #{res}\n"
-    @environment.stack.reverse.each_with_index do |entry, i|
-      msg << "        #{i == 0 ? "on" : "from"} line #{entry[:line]}" <<
-        " of #{entry[:filename] || "an unknown file"}"
-      msg << ", in `#{entry[:mixin]}'" if entry[:mixin]
-      msg << "\n"
-    end
+    msg = "WARNING: #{res}\n         "
+    msg << stack_trace.join("\n         ") << "\n"
     Sass::Util.sass_warn msg
     []
   ensure
-    @environment.pop_frame
+    @stack.pop
   end
 
   # Runs the child nodes until the continuation expression becomes false.
@@ -2596,35 +3386,94 @@ END
   end
 
   def visit_directive(node)
-    if node.value['#{']
-      node.value = run_interp(Sass::Engine.parse_interp(node.value, node.line, 0, node.options))
+    node.resolved_value = run_interp(node.value)
+    yield
+  end
+
+  def visit_media(node)
+    parser = Sass::SCSS::StaticParser.new(run_interp(node.query), node.filename, node.line)
+    node.resolved_query ||= parser.parse_media_query_list
+    yield
+  end
+
+  def visit_supports(node)
+    node.condition = node.condition.deep_copy
+    node.condition.perform(@environment)
+    yield
+  end
+
+  def visit_cssimport(node)
+    node.resolved_uri = run_interp([node.uri])
+    if node.query
+      parser = Sass::SCSS::StaticParser.new(run_interp(node.query), node.filename, node.line)
+      node.resolved_query ||= parser.parse_media_query_list
     end
     yield
-    node
   end
 
   private
 
-  def run_interp(text)
+  def stack_trace
+    trace = []
+    stack = @stack.map {|e| e.dup}.reverse
+    stack.each_cons(2) {|(e1, e2)| e1[:caller] = e2[:name]; [e1, e2]}
+    stack.each_with_index do |entry, i|
+      msg = "#{i == 0 ? "on" : "from"} line #{entry[:line]}"
+      msg << " of #{entry[:filename] || "an unknown file"}"
+      msg << ", in `#{entry[:caller]}'" if entry[:caller]
+      trace << msg
+    end
+    trace
+  end
+
+  def run_interp_no_strip(text)
     text.map do |r|
       next r if r.is_a?(String)
       val = r.perform(@environment)
       # Interpolated strings should never render with quotes
       next val.value if val.is_a?(Sass::Script::String)
       val.to_s
-    end.join.strip
+    end.join
+  end
+
+  def run_interp(text)
+    run_interp_no_strip(text).strip
   end
 
   def handle_include_loop!(node)
     msg = "An @include loop has been found:"
-    mixins = @environment.stack.map {|s| s[:mixin]}.compact
-    if mixins.size == 2 && mixins[0] == mixins[1]
-      raise Sass::SyntaxError.new("#{msg} #{node.name} includes itself")
+    content_count = 0
+    mixins = @stack.reverse.map {|s| s[:name]}.compact.select do |s|
+      if s == '@content'
+        content_count += 1
+        false
+      elsif content_count > 0
+        content_count -= 1
+        false
+      else
+        true
+      end
     end
 
-    mixins << node.name
-    msg << "\n" << Sass::Util.enum_cons(mixins, 2).map do |m1, m2|
+    return if mixins.empty?
+    raise Sass::SyntaxError.new("#{msg} #{node.name} includes itself") if mixins.size == 1
+
+    msg << "\n" << Sass::Util.enum_cons(mixins.reverse + [node.name], 2).map do |m1, m2|
       "    #{m1} includes #{m2}"
+    end.join("\n")
+    raise Sass::SyntaxError.new(msg)
+  end
+
+  def handle_import_loop!(node)
+    msg = "An @import loop has been found:"
+    files = @stack.map {|s| s[:filename]}.compact
+    if node.filename == node.imported_file.options[:filename]
+      raise Sass::SyntaxError.new("#{msg} #{node.filename} imports itself")
+    end
+
+    files << node.filename << node.imported_file.options[:filename]
+    msg << "\n" << Sass::Util.enum_cons(files, 2).map do |m1, m2|
+      "    #{m1} imports #{m2}"
     end.join("\n")
     raise Sass::SyntaxError.new(msg)
   end
@@ -2643,12 +3492,13 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   attr_reader :parent
 
   def initialize
+    @parent_directives = []
     @extends = Sass::Util::SubsetMap.new
   end
 
   # If an exception is raised, this adds proper metadata to the backtrace.
   def visit(node)
-    super(node.dup)
+    super(node)
   rescue Sass::SyntaxError => e
     e.modify_backtrace(:filename => node.filename, :line => node.line)
     raise e
@@ -2669,9 +3519,11 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   # @yield A block in which the parent is set to `parent`.
   # @return [Object] The return value of the block.
   def with_parent(parent)
+    @parent_directives.push parent if parent.is_a?(Sass::Tree::DirectiveNode)
     old_parent, @parent = @parent, parent
     yield
   ensure
+    @parent_directives.pop if parent.is_a?(Sass::Tree::DirectiveNode)
     @parent = old_parent
   end
 
@@ -2683,12 +3535,27 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   def visit_root(node)
     yield
 
-    # In Ruby 1.9 we can make all @charset nodes invisible
-    # and infer the final @charset from the encoding of the final string.
-    if Sass::Util.ruby1_8? && parent.nil?
-      charset = node.children.find {|c| c.is_a?(Sass::Tree::CharsetNode)}
-      node.children.reject! {|c| c.is_a?(Sass::Tree::CharsetNode)}
-      node.children.unshift charset if charset
+    if parent.nil?
+      # In Ruby 1.9 we can make all @charset nodes invisible
+      # and infer the final @charset from the encoding of the final string.
+      if Sass::Util.ruby1_8?
+        charset = node.children.find {|c| c.is_a?(Sass::Tree::CharsetNode)}
+        node.children.reject! {|c| c.is_a?(Sass::Tree::CharsetNode)}
+        node.children.unshift charset if charset
+      end
+
+      imports = Sass::Util.extract!(node.children) do |c|
+        c.is_a?(Sass::Tree::DirectiveNode) && !c.is_a?(Sass::Tree::MediaNode) &&
+          c.resolved_value =~ /^@import /i
+      end
+      charset_and_index = Sass::Util.ruby1_8? &&
+        node.children.each_with_index.find {|c, _| c.is_a?(Sass::Tree::CharsetNode)}
+      if charset_and_index
+        index = charset_and_index.last
+        node.children = node.children[0..index] + imports + node.children[index+1..-1]
+      else
+        node.children = imports + node.children
+      end
     end
 
     return node, @extends
@@ -2696,6 +3563,22 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
     e.sass_template ||= node.template
     raise e
   end
+
+  # A simple struct wrapping up information about a single `@extend` instance. A
+  # single [ExtendNode] can have multiple Extends if either the parent node or
+  # the extended selector is a comma sequence.
+  #
+  # @attr extender [Sass::Selector::Sequence]
+  #   The selector of the CSS rule containing the `@extend`.
+  # @attr target [Array<Sass::Selector::Simple>] The selector being `@extend`ed.
+  # @attr node [Sass::Tree::ExtendNode] The node that produced this extend.
+  # @attr directives [Array<Sass::Tree::DirectiveNode>]
+  #   The directives containing the `@extend`.
+  # @attr result [Symbol]
+  #   The result of this extend. One of `:not_found` (the target doesn't exist
+  #   in the document), `:failed_to_unify` (the target exists but cannot be
+  #   unified with the extender), or `:succeeded`.
+  Extend = Struct.new(:extender, :target, :node, :directives, :result)
 
   # Registers an extension in the `@extends` subset map.
   def visit_extend(node)
@@ -2707,6 +3590,8 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
       sseq = seq.members.first
       if !sseq.is_a?(Sass::Selector::SimpleSequence)
         raise Sass::SyntaxError.new("Can't extend #{seq.to_a.join}: invalid selector")
+      elsif sseq.members.any? {|ss| ss.is_a?(Sass::Selector::Parent)}
+        raise Sass::SyntaxError.new("Can't extend #{seq.to_a.join}: can't extend parent selectors")
       end
 
       sel = sseq.members
@@ -2715,7 +3600,7 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
           raise Sass::SyntaxError.new("#{seq} can't extend: invalid selector")
         end
 
-        @extends[sel] = seq
+        @extends[sel] = Extend.new(seq, sel, node, @parent_directives.dup, :not_found)
       end
     end
 
@@ -2735,26 +3620,22 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   # Bubbles the `@media` directive up through RuleNodes
   # and merges it with other `@media` directives.
   def visit_media(node)
-    if parent.is_a?(Sass::Tree::RuleNode)
-      new_rule = parent.dup
-      new_rule.children = node.children
-      node.children = with_parent(node) {Array(visit(new_rule))}
-      # If the last child is actually the end of the group,
-      # the parent's cssize will set it properly
-      node.children.last.group_end = false unless node.children.empty?
-    else
-      yield
-    end
-
+    yield unless bubble(node)
     media = node.children.select {|c| c.is_a?(Sass::Tree::MediaNode)}
     node.children.reject! {|c| c.is_a?(Sass::Tree::MediaNode)}
-    media.each {|n| n.query = "#{node.query} and #{n.query}"}
+    media = media.select {|n| n.resolved_query = n.resolved_query.merge(node.resolved_query)}
     (node.children.empty? ? [] : [node]) + media
   end
 
-  # Asserts that all the mixin's children are valid in their new location.
-  def visit_mixin(node)
-    # Don't use #visit_children to avoid adding the mixin node to the list of parents.
+  # Bubbles the `@supports` directive up through RuleNodes.
+  def visit_supports(node)
+    yield unless bubble(node)
+    node
+  end
+
+  # Asserts that all the traced children are valid in their new location.
+  def visit_trace(node)
+    # Don't use #visit_children to avoid adding the trace node to the list of parents.
     node.children.map {|c| visit(c)}.flatten
   rescue Sass::SyntaxError => e
     e.modify_backtrace(:mixin => node.name, :filename => node.filename, :line => node.line)
@@ -2790,8 +3671,8 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
 
     yield
 
-    rules = node.children.select {|c| c.is_a?(Sass::Tree::RuleNode) || c.is_a?(Sass::Tree::MediaNode)}
-    props = node.children.reject {|c| c.is_a?(Sass::Tree::RuleNode) || c.is_a?(Sass::Tree::MediaNode) || c.invisible?}
+    rules = node.children.select {|c| c.is_a?(Sass::Tree::RuleNode) || c.bubbles?}
+    props = node.children.reject {|c| c.is_a?(Sass::Tree::RuleNode) || c.bubbles? || c.invisible?}
 
     unless props.empty?
       node.children = props
@@ -2802,6 +3683,87 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
     rules.last.group_end = true unless parent.is_a?(Sass::Tree::RuleNode) || rules.empty?
 
     rules
+  end
+
+  private
+
+  def bubble(node)
+    return unless parent.is_a?(Sass::Tree::RuleNode)
+    new_rule = parent.dup
+    new_rule.children = node.children
+    node.children = with_parent(node) {Array(visit(new_rule))}
+    # If the last child is actually the end of the group,
+    # the parent's cssize will set it properly
+    node.children.last.group_end = false unless node.children.empty?
+    true
+  end
+end
+# A visitor for performing selector inheritance on a static CSS tree.
+#
+# Destructively modifies the tree.
+class Sass::Tree::Visitors::Extend < Sass::Tree::Visitors::Base
+  # Performs the given extensions on the static CSS tree based in `root`, then
+  # validates that all extends matched some selector.
+  #
+  # @param root [Tree::Node] The root node of the tree to visit.
+  # @param extends [Sass::Util::SubsetMap{Selector::Simple =>
+  #                                       Sass::Tree::Visitors::Cssize::Extend}]
+  #   The extensions to perform on this tree.
+  # @return [Object] The return value of \{#visit} for the root node.
+  def self.visit(root, extends)
+    return if extends.empty?
+    new(extends).send(:visit, root)
+    check_extends_fired! extends
+  end
+
+  protected
+
+  def initialize(extends)
+    @parent_directives = []
+    @extends = extends
+  end
+
+  # If an exception is raised, this adds proper metadata to the backtrace.
+  def visit(node)
+    super(node)
+  rescue Sass::SyntaxError => e
+    e.modify_backtrace(:filename => node.filename, :line => node.line)
+    raise e
+  end
+
+  # Keeps track of the current parent directives.
+  def visit_children(parent)
+    @parent_directives.push parent if parent.is_a?(Sass::Tree::DirectiveNode)
+    super
+  ensure
+    @parent_directives.pop if parent.is_a?(Sass::Tree::DirectiveNode)
+  end
+
+  # Applies the extend to a single rule's selector.
+  def visit_rule(node)
+    node.resolved_rules = node.resolved_rules.do_extend(@extends, @parent_directives)
+  end
+
+  private
+
+  def self.check_extends_fired!(extends)
+    extends.each_value do |ex|
+      next if ex.result == :succeeded || ex.node.optional?
+      warn = "\"#{ex.extender}\" failed to @extend \"#{ex.target.join}\"."
+      reason =
+        if ex.result == :not_found
+          "The selector \"#{ex.target.join}\" was not found."
+        else
+          "No selectors matching \"#{ex.target.join}\" could be unified with \"#{ex.extender}\"."
+        end
+
+      Sass::Util.sass_warn <<WARN
+WARNING on line #{ex.node.line}#{" of #{ex.node.filename}" if ex.node.filename}: #{warn}
+  #{reason}
+  This will be an error in future releases of Sass.
+  Use "@extend #{ex.target.join} !optional" if the extend should be able to fail.
+WARN
+    end
   end
 end
 # A visitor for converting a Sass tree into a source string.
@@ -2822,12 +3784,14 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
     @options = options
     @format = format
     @tabs = 0
+    # 2 spaces by default
+    @tab_chars = @options[:indent] || "  "
   end
 
   def visit_children(parent)
     @tabs += 1
     return @format == :sass ? "\n" : " {}\n" if parent.children.empty?
-    (@format == :sass ? "\n" : " {\n") + super.join.rstrip + (@format == :sass ? "\n" : " }\n")
+    (@format == :sass ? "\n" : " {\n") + super.join.rstrip + (@format == :sass ? "\n" : "\n#{ @tab_chars * (@tabs-1)}}\n")
   ensure
     @tabs -= 1
   end
@@ -2838,7 +3802,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
       visit(child) +
         if nxt &&
             (child.is_a?(Sass::Tree::CommentNode) &&
-              child.line + child.value.count("\n") + 1 == nxt.line) ||
+              child.line + child.lines + 1 == nxt.line) ||
             (child.is_a?(Sass::Tree::ImportNode) && nxt.is_a?(Sass::Tree::ImportNode) &&
               child.line + 1 == nxt.line) ||
             (child.is_a?(Sass::Tree::VariableNode) && nxt.is_a?(Sass::Tree::VariableNode) &&
@@ -2855,8 +3819,9 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_comment(node)
+    value = interp_to_src(node.value)
     content = if @format == :sass
-      content = node.value.gsub(/\*\/$/, '').rstrip
+      content = value.gsub(/\*\/$/, '').rstrip
       if content =~ /\A[ \t]/
         # Re-indent SCSS comments like this:
         #     /* foo
@@ -2872,7 +3837,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
         else
           content.gsub!(/\n( \*|\/\/)/, "\n  ")
           spaces = content.scan(/\n( *)/).map {|s| s.first.size}.min
-          sep = node.silent ? "\n//" : "\n *"
+          sep = node.type == :silent ? "\n//" : "\n *"
           if spaces >= 2
             content.gsub(/\n  /, sep)
           else
@@ -2880,25 +3845,19 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
           end
         end
 
-      content.gsub!(/\A\/\*/, '//') if node.silent
+      content.gsub!(/\A\/\*/, '//') if node.type == :silent
       content.gsub!(/^/, tab_str)
       content.rstrip + "\n"
     else
-      spaces = ('  ' * [@tabs - node.value[/^ */].size, 0].max)
-      content = if node.silent
-        node.value.gsub(/^[\/ ]\*/, '//').gsub(/ *\*\/$/, '')
+      spaces = (@tab_chars * [@tabs - value[/^ */].size, 0].max)
+      content = if node.type == :silent
+        value.gsub(/^[\/ ]\*/, '//').gsub(/ *\*\/$/, '')
       else
-        node.value
+        value
       end.gsub(/^/, spaces) + "\n"
       content
     end
-    if node.loud
-      if node.silent
-        content.gsub!(%r{^\s*(//!?)}, '//!')
-      else
-        content.sub!(%r{^\s*(/\*)}, '/*!')
-      end
-    end
+    content.sub!(%r{^\s*(/\*)}, '/*!') if node.type == :loud #'
     content
   end
 
@@ -2907,7 +3866,8 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_directive(node)
-    res = "#{tab_str}#{node.value}"
+    res = "#{tab_str}#{interp_to_src(node.value)}"
+    res.gsub!(/^@import \#\{(.*)\}([^}]*)$/, '@import \1\2');
     return res + "#{semi}\n" unless node.has_children
     res + yield + "\n"
   end
@@ -2917,7 +3877,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_extend(node)
-    "#{tab_str}@extend #{selector_to_src(node.selector).lstrip}#{semi}\n"
+    "#{tab_str}@extend #{selector_to_src(node.selector).lstrip}#{semi}#{" !optional" if node.optional?}\n"
   end
 
   def visit_for(node)
@@ -2929,6 +3889,10 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
     args = node.args.map do |v, d|
       d ? "#{v.to_sass(@options)}: #{d.to_sass(@options)}" : v.to_sass(@options)
     end.join(", ")
+    if node.splat
+      args << ", " unless node.args.empty?
+      args << node.splat.to_sass(@options) << "..."
+    end
 
     "#{tab_str}@function #{dasherize(node.name)}(#{args})#{yield}"
   end
@@ -2939,6 +3903,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
       elsif node.expr; "else if"
       else; "else"
       end
+    @is_else = false
     str = "#{tab_str}@#{name}"
     str << " #{node.expr.to_sass(@options)}" if node.expr
     str << yield
@@ -2955,33 +3920,64 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_media(node)
-    "#{tab_str}@media #{node.query}#{yield}"
+    "#{tab_str}@media #{media_interp_to_src(node.query)}#{yield}"
+  end
+
+  def visit_supports(node)
+    "#{tab_str}@#{node.name} #{node.condition.to_src(@options)}#{yield}"
+  end
+
+  def visit_cssimport(node)
+    if node.uri.is_a?(Sass::Script::Node)
+      str = "#{tab_str}@import #{node.uri.to_sass(@options)}"
+    else
+      str = "#{tab_str}@import #{node.uri}"
+    end
+    str << " #{interp_to_src(node.query)}" unless node.query.empty?
+    "#{str}#{semi}\n"
   end
 
   def visit_mixindef(node)
     args =
-      if node.args.empty?
+      if node.args.empty? && node.splat.nil?
         ""
       else
-        '(' + node.args.map do |v, d|
+        str = '('
+        str << node.args.map do |v, d|
           if d
             "#{v.to_sass(@options)}: #{d.to_sass(@options)}"
           else
             v.to_sass(@options)
           end
-        end.join(", ") + ')'
+        end.join(", ")
+
+        if node.splat
+          str << ", " unless node.args.empty?
+          str << node.splat.to_sass(@options) << '...'
+        end
+
+        str << ')'
       end
-          
+
     "#{tab_str}#{@format == :sass ? '=' : '@mixin '}#{dasherize(node.name)}#{args}#{yield}"
   end
 
   def visit_mixin(node)
-    unless node.args.empty? && node.keywords.empty?
+    unless node.args.empty? && node.keywords.empty? && node.splat.nil?
       args = node.args.map {|a| a.to_sass(@options)}.join(", ")
-      keywords = node.keywords.map {|k, v| "$#{dasherize(k)}: #{v.to_sass(@options)}"}.join(', ')
-      arglist = "(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
+      keywords = Sass::Util.hash_to_a(node.keywords).
+        map {|k, v| "$#{dasherize(k)}: #{v.to_sass(@options)}"}.join(', ')
+      if node.splat
+        splat = (args.empty? && keywords.empty?) ? "" : ", "
+        splat = "#{splat}#{node.splat.to_sass(@options)}..."
+      end
+      arglist = "(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords}#{splat})"
     end
-    "#{tab_str}#{@format == :sass ? '+' : '@include '}#{dasherize(node.name)}#{arglist}#{semi}\n"
+    "#{tab_str}#{@format == :sass ? '+' : '@include '}#{dasherize(node.name)}#{arglist}#{node.has_children ? yield : semi}\n"
+  end
+
+  def visit_content(node)
+    "#{tab_str}@content#{semi}\n"
   end
 
   def visit_prop(node)
@@ -3002,7 +3998,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
     elsif @format == :scss
       name = selector_to_scss(node.rule)
       res = name + yield
-      if node.children.last.is_a?(Sass::Tree::CommentNode) && node.children.last.silent
+      if node.children.last.is_a?(Sass::Tree::CommentNode) && node.children.last.type == :silent
         res.slice!(-3..-1)
         res << "\n" << tab_str << "}\n"
       end
@@ -3024,6 +4020,29 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
 
   private
 
+  def interp_to_src(interp)
+    interp.map do |r|
+      next r if r.is_a?(String)
+      "\#{#{r.to_sass(@options)}}"
+    end.join
+  end
+
+  # Like interp_to_src, but removes the unnecessary `#{}` around the keys and
+  # values in media expressions.
+  def media_interp_to_src(interp)
+    Sass::Util.enum_with_index(interp).map do |r, i|
+      next r if r.is_a?(String)
+      before, after = interp[i-1], interp[i+1]
+      if before.is_a?(String) && after.is_a?(String) &&
+          ((before[-1] == ?( && after[0] == ?:) ||
+           (before =~ /:\s*/ && after[0] == ?)))
+        r.to_sass(@options)
+      else
+        "\#{#{r.to_sass(@options)}}"
+      end
+    end.join
+  end
+
   def selector_to_src(sel)
     @format == :sass ? selector_to_sass(sel) : selector_to_scss(sel)
   end
@@ -3031,7 +4050,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   def selector_to_sass(sel)
     sel.map do |r|
       if r.is_a?(String)
-        r.gsub(/(,[ \t]*)?\n\s*/) {$1 ? $1 + "\n" : " "}
+        r.gsub(/(,)?([ \t]*)\n\s*/) {$1 ? "#{$1}#{$2}\n" : " "}
       else
         "\#{#{r.to_sass(@options)}}"
       end
@@ -3039,8 +4058,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def selector_to_scss(sel)
-    sel.map {|r| r.is_a?(String) ? r : "\#{#{r.to_sass(@options)}}"}.
-      join.gsub(/^[ \t]*/, tab_str)
+    interp_to_src(sel).gsub(/^[ \t]*/, tab_str).gsub(/[ \t]*$/, '')
   end
 
   def semi
@@ -3048,7 +4066,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def tab_str
-    '  ' * @tabs
+    @tab_chars * @tabs
   end
 
   def dasherize(s)
@@ -3118,32 +4136,24 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
 
   def visit_comment(node)
     return if node.invisible?
-    spaces = ('  ' * [@tabs - node.value[/^ */].size, 0].max)
+    spaces = ('  ' * [@tabs - node.resolved_value[/^ */].size, 0].max)
 
-    content = node.value.gsub(/^/, spaces).gsub(%r{^(\s*)//(.*)$}) do |md|
-      "#{$1}/*#{$2} */"
-    end
-    if content =~ /[^\\]\#\{.*\}/
-      Sass::Util.sass_warn <<MESSAGE
-WARNING:
-On line #{node.line}#{" of '#{node.filename}'" if node.filename}
-Comments will evaluate the contents of interpolations (\#{ ... }) in Sass 3.2.
-Please escape the interpolation by adding a backslash before the hash sign.
-MESSAGE
-    elsif content =~ /\\\#\{.*\}/
-      content.gsub!(/\\(\#\{.*\})/, '\1')
-    end
-    content.gsub!(/\n +(\* *(?!\/))?/, ' ') if (node.style == :compact || node.style == :compressed) && !node.loud
+    content = node.resolved_value.gsub(/^/, spaces)
+    content.gsub!(%r{^(\s*)//(.*)$}) {|md| "#{$1}/*#{$2} */"} if node.type == :silent
+    content.gsub!(/\n +(\* *(?!\/))?/, ' ') if (node.style == :compact || node.style == :compressed) && node.type != :loud
     content
   end
 
   def visit_directive(node)
-    return node.value + ";" unless node.has_children
-    return node.value + " {}" if node.children.empty?
+    was_in_directive = @in_directive
+    tab_str = '  ' * @tabs
+    return tab_str + node.resolved_value + ";" unless node.has_children
+    return tab_str + node.resolved_value + " {}" if node.children.empty?
+    @in_directive = @in_directive || !node.is_a?(Sass::Tree::MediaNode)
     result = if node.style == :compressed
-               "#{node.value}{"
+               "#{node.resolved_value}{"
              else
-               "#{'  ' * @tabs}#{node.value} {" + (node.style == :compact ? ' ' : "\n")
+               "#{tab_str}#{node.resolved_value} {" + (node.style == :compact ? ' ' : "\n")
              end
     was_prop = false
     first = true
@@ -3172,6 +4182,8 @@ MESSAGE
                     else
                       (node.style == :expanded ? "\n" : " ") + "}\n"
                     end
+  ensure
+    @in_directive = was_in_directive
   end
 
   def visit_media(node)
@@ -3180,7 +4192,16 @@ MESSAGE
     str
   end
 
+  def visit_supports(node)
+    visit_media(node)
+  end
+
+  def visit_cssimport(node)
+    visit_directive(node)
+  end
+
   def visit_prop(node)
+    return if node.resolved_value.empty?
     tab_str = '  ' * (@tabs + node.tabs)
     if node.style == :compressed
       "#{tab_str}#{node.resolved_name}:#{node.resolved_value}"
@@ -3202,10 +4223,15 @@ MESSAGE
       per_rule_indent, total_indent = [:nested, :expanded].include?(node.style) ? [rule_indent, ''] : ['', rule_indent]
 
       joined_rules = node.resolved_rules.members.map do |seq|
+        next if seq.has_placeholder?
         rule_part = seq.to_a.join
-        rule_part.gsub!(/\s*([^,])\s*\n\s*/m, '\1 ') if node.style == :compressed
+        if node.style == :compressed
+          rule_part.gsub!(/([^,])\s*\n\s*/m, '\1 ')
+          rule_part.gsub!(/\s*([,+>])\s*/m, '\1')
+          rule_part.strip!
+        end
         rule_part
-      end.join(rule_separator)
+      end.compact.join(rule_separator)
 
       joined_rules.sub!(/\A\s*/, per_rule_indent)
       joined_rules.gsub!(/\s*\n\s*/, "#{line_separator}#{per_rule_indent}")
@@ -3215,8 +4241,12 @@ MESSAGE
       old_spaces = '  ' * @tabs
       spaces = '  ' * (@tabs + 1)
       if node.style != :compressed
-        if node.options[:debug_info]
+        if node.options[:debug_info] && !@in_directive
           to_return << visit(debug_info_rule(node.debug_info, node.options)) << "\n"
+        elsif node.options[:trace_selectors]
+          to_return << "#{old_spaces}/* "
+          to_return << node.stack_trace.join("\n   #{old_spaces}")
+          to_return << " */\n"
         elsif node.options[:line_comments]
           to_return << "#{old_spaces}/* line #{node.line}"
 
@@ -3256,16 +4286,17 @@ MESSAGE
   private
 
   def debug_info_rule(debug_info, options)
-    node = Sass::Tree::DirectiveNode.new("@media -sass-debug-info")
-    debug_info.map {|k, v| [k.to_s, v.to_s]}.sort.each do |k, v|
+    node = Sass::Tree::DirectiveNode.resolved("@media -sass-debug-info")
+    Sass::Util.hash_to_a(debug_info.map {|k, v| [k.to_s, v.to_s]}).each do |k, v|
       rule = Sass::Tree::RuleNode.new([""])
       rule.resolved_rules = Sass::Selector::CommaSequence.new(
         [Sass::Selector::Sequence.new(
             [Sass::Selector::SimpleSequence.new(
-                [Sass::Selector::Element.new(k.to_s.gsub(/[^\w-]/, "\\\\\\0"), nil)])
+                [Sass::Selector::Element.new(k.to_s.gsub(/[^\w-]/, "\\\\\\0"), nil)],
+                false)
             ])
         ])
-      prop = Sass::Tree::PropNode.new([""], "", :new)
+      prop = Sass::Tree::PropNode.new([""], Sass::Script::String.new(''), :new)
       prop.resolved_name = "font-family"
       prop.resolved_value = Sass::SCSS::RX.escape_ident(v.to_s)
       rule << prop
@@ -3275,17 +4306,245 @@ MESSAGE
     node
   end
 end
+# A visitor for copying the full structure of a Sass tree.
+class Sass::Tree::Visitors::DeepCopy < Sass::Tree::Visitors::Base
+  protected
+
+  def visit(node)
+    super(node.dup)
+  end
+
+  def visit_children(parent)
+    parent.children = parent.children.map {|c| visit(c)}
+    parent
+  end
+
+  def visit_debug(node)
+    node.expr = node.expr.deep_copy
+    yield
+  end
+
+  def visit_each(node)
+    node.list = node.list.deep_copy
+    yield
+  end
+
+  def visit_extend(node)
+    node.selector = node.selector.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    yield
+  end
+
+  def visit_for(node)
+    node.from = node.from.deep_copy
+    node.to = node.to.deep_copy
+    yield
+  end
+
+  def visit_function(node)
+    node.args = node.args.map {|k, v| [k.deep_copy, v && v.deep_copy]}
+    yield
+  end
+
+  def visit_if(node)
+    node.expr = node.expr.deep_copy if node.expr
+    node.else = visit(node.else) if node.else
+    yield
+  end
+
+  def visit_mixindef(node)
+    node.args = node.args.map {|k, v| [k.deep_copy, v && v.deep_copy]}
+    yield
+  end
+
+  def visit_mixin(node)
+    node.args = node.args.map {|a| a.deep_copy}
+    node.keywords = Hash[node.keywords.map {|k, v| [k, v.deep_copy]}]
+    yield
+  end
+
+  def visit_prop(node)
+    node.name = node.name.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    node.value = node.value.deep_copy
+    yield
+  end
+
+  def visit_return(node)
+    node.expr = node.expr.deep_copy
+    yield
+  end
+
+  def visit_rule(node)
+    node.rule = node.rule.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    yield
+  end
+
+  def visit_variable(node)
+    node.expr = node.expr.deep_copy
+    yield
+  end
+
+  def visit_warn(node)
+    node.expr = node.expr.deep_copy
+    yield
+  end
+
+  def visit_while(node)
+    node.expr = node.expr.deep_copy
+    yield
+  end
+
+  def visit_directive(node)
+    node.value = node.value.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    yield
+  end
+
+  def visit_media(node)
+    node.query = node.query.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    yield
+  end
+
+  def visit_supports(node)
+    node.condition = node.condition.deep_copy
+    yield
+  end
+end
+# A visitor for setting options on the Sass tree
+class Sass::Tree::Visitors::SetOptions < Sass::Tree::Visitors::Base
+  # @param root [Tree::Node] The root node of the tree to visit.
+  # @param options [{Symbol => Object}] The options has to set.
+  def self.visit(root, options); new(options).send(:visit, root); end
+
+  protected
+
+  def initialize(options)
+    @options = options
+  end
+
+  def visit(node)
+    node.instance_variable_set('@options', @options)
+    super
+  end
+
+  def visit_debug(node)
+    node.expr.options = @options
+    yield
+  end
+
+  def visit_each(node)
+    node.list.options = @options
+    yield
+  end
+
+  def visit_extend(node)
+    node.selector.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)}
+    yield
+  end
+
+  def visit_for(node)
+    node.from.options = @options
+    node.to.options = @options
+    yield
+  end
+
+  def visit_function(node)
+    node.args.each do |k, v|
+      k.options = @options
+      v.options = @options if v
+    end
+    yield
+  end
+
+  def visit_if(node)
+    node.expr.options = @options if node.expr
+    visit(node.else) if node.else
+    yield
+  end
+
+  def visit_import(node)
+    # We have no good way of propagating the new options through an Engine
+    # instance, so we just null it out. This also lets us avoid caching an
+    # imported Engine along with the importing source tree.
+    node.imported_file = nil
+    yield
+  end
+
+  def visit_mixindef(node)
+    node.args.each do |k, v|
+      k.options = @options
+      v.options = @options if v
+    end
+    yield
+  end
+
+  def visit_mixin(node)
+    node.args.each {|a| a.options = @options}
+    node.keywords.each {|k, v| v.options = @options}
+    yield
+  end
+
+  def visit_prop(node)
+    node.name.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)}
+    node.value.options = @options
+    yield
+  end
+
+  def visit_return(node)
+    node.expr.options = @options
+    yield
+  end
+
+  def visit_rule(node)
+    node.rule.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)}
+    yield
+  end
+
+  def visit_variable(node)
+    node.expr.options = @options
+    yield
+  end
+
+  def visit_warn(node)
+    node.expr.options = @options
+    yield
+  end
+
+  def visit_while(node)
+    node.expr.options = @options
+    yield
+  end
+
+  def visit_directive(node)
+    node.value.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)}
+    yield
+  end
+
+  def visit_media(node)
+    node.query.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)}
+    yield
+  end
+
+  def visit_cssimport(node)
+    node.query.each {|c| c.options = @options if c.is_a?(Sass::Script::Node)} if node.query
+    yield
+  end
+
+  def visit_supports(node)
+    node.condition.options = @options
+    yield
+  end
+end
 # A visitor for checking that all nodes are properly nested.
 class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
   protected
 
+  def initialize
+    @parents = []
+  end
+
   def visit(node)
-    if error = (@parent && (
-          try_send("invalid_#{node_name @parent}_child?", @parent, node) ||
-          try_send("invalid_#{node_name node}_parent?", @parent, node))) ||
-        (@real_parent && (
-          try_send("invalid_#{node_name @real_parent}_real_child?", @real_parent, node) ||
-          try_send("invalid_#{node_name node}_real_parent?", @real_parent, node)))
+    if error = @parent && (
+        try_send("invalid_#{node_name @parent}_child?", @parent, node) ||
+        try_send("invalid_#{node_name node}_parent?", @parent, node))
       raise Sass::SyntaxError.new(error)
     end
     super
@@ -3294,16 +4553,18 @@ class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
     raise e
   end
 
-  PARENT_CLASSES = [ Sass::Tree::EachNode,   Sass::Tree::ForNode,   Sass::Tree::IfNode,
-                     Sass::Tree::ImportNode, Sass::Tree::MixinNode, Sass::Tree::WhileNode]
+  CONTROL_NODES = [Sass::Tree::EachNode, Sass::Tree::ForNode, Sass::Tree::IfNode,
+    Sass::Tree::WhileNode, Sass::Tree::TraceNode]
+  SCRIPT_NODES = [Sass::Tree::ImportNode] + CONTROL_NODES
   def visit_children(parent)
     old_parent = @parent
-    @parent = parent unless is_any_of?(parent, PARENT_CLASSES)
-    old_real_parent, @real_parent = @real_parent, parent
+    @parent = parent unless is_any_of?(parent, SCRIPT_NODES) ||
+      (parent.bubbles? && !old_parent.is_a?(Sass::Tree::RootNode))
+    @parents.push parent
     super
   ensure
     @parent = old_parent
-    @real_parent = old_real_parent
+    @parents.pop
   end
 
   def visit_root(node)
@@ -3321,72 +4582,82 @@ class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
     raise e
   end
 
+  def visit_mixindef(node)
+    @current_mixin_def, old_mixin_def = node, @current_mixin_def
+    yield
+  ensure
+    @current_mixin_def = old_mixin_def
+  end
+
+  def invalid_content_parent?(parent, child)
+    if @current_mixin_def
+      @current_mixin_def.has_content = true
+      nil
+    else
+      "@content may only be used within a mixin."
+    end
+  end
+
   def invalid_charset_parent?(parent, child)
     "@charset may only be used at the root of a document." unless parent.is_a?(Sass::Tree::RootNode)
   end
 
-  INVALID_EXTEND_PARENTS = [Sass::Tree::RuleNode, Sass::Tree::MixinDefNode]
+  VALID_EXTEND_PARENTS = [Sass::Tree::RuleNode, Sass::Tree::MixinDefNode, Sass::Tree::MixinNode]
   def invalid_extend_parent?(parent, child)
-    unless is_any_of?(parent, INVALID_EXTEND_PARENTS)
-      "Extend directives may only be used within rules."
+    unless is_any_of?(parent, VALID_EXTEND_PARENTS)
+      return "Extend directives may only be used within rules."
     end
   end
 
-  def invalid_function_parent?(parent, child)
-    "Functions may only be defined at the root of a document." unless parent.is_a?(Sass::Tree::RootNode)
-  end
-
-  INVALID_FUNCTION_CHILDREN = [
-    Sass::Tree::CommentNode,  Sass::Tree::DebugNode, Sass::Tree::EachNode,
-    Sass::Tree::ForNode,      Sass::Tree::IfNode,    Sass::Tree::ReturnNode,
-    Sass::Tree::VariableNode, Sass::Tree::WarnNode,  Sass::Tree::WhileNode
-  ]
-  def invalid_function_child?(parent, child)
-    unless is_any_of?(child, INVALID_FUNCTION_CHILDREN)
-      "Functions can only contain variable declarations and control directives."
-    end
-  end
-
-  INVALID_IMPORT_PARENTS = [
-    Sass::Tree::IfNode,   Sass::Tree::ForNode, Sass::Tree::WhileNode,
-    Sass::Tree::EachNode, Sass::Tree::MixinDefNode
-  ]
+  INVALID_IMPORT_PARENTS = CONTROL_NODES +
+    [Sass::Tree::MixinDefNode, Sass::Tree::MixinNode]
   def invalid_import_parent?(parent, child)
-    if is_any_of?(@real_parent, INVALID_IMPORT_PARENTS)
+    unless (@parents.map {|p| p.class} & INVALID_IMPORT_PARENTS).empty?
       return "Import directives may not be used within control directives or mixins."
     end
     return if parent.is_a?(Sass::Tree::RootNode)
     return "CSS import directives may only be used at the root of a document." if child.css_import?
-    # If this is a nested @import, we need to make sure it doesn't have anything
-    # that's legal at top-level but not in the current context (e.g. mixin defs).
-    child.imported_file.to_tree.children.each {|c| visit(c)}
-    nil
   rescue Sass::SyntaxError => e
     e.modify_backtrace(:filename => child.imported_file.options[:filename])
     e.add_backtrace(:filename => child.filename, :line => child.line)
     raise e
   end
 
-  def invalid_import_real_parent?(parent, child)
-    
-  end
-
   def invalid_mixindef_parent?(parent, child)
-    "Mixins may only be defined at the root of a document." unless parent.is_a?(Sass::Tree::RootNode)
+    unless (@parents.map {|p| p.class} & INVALID_IMPORT_PARENTS).empty?
+      return "Mixins may not be defined within control directives or other mixins."
+    end
   end
 
-  INVALID_PROP_CHILDREN = [Sass::Tree::CommentNode, Sass::Tree::PropNode]
+  def invalid_function_parent?(parent, child)
+    unless (@parents.map {|p| p.class} & INVALID_IMPORT_PARENTS).empty?
+      return "Functions may not be defined within control directives or other mixins."
+    end
+  end
+
+  VALID_FUNCTION_CHILDREN = [
+    Sass::Tree::CommentNode,  Sass::Tree::DebugNode, Sass::Tree::ReturnNode,
+    Sass::Tree::VariableNode, Sass::Tree::WarnNode
+  ] + CONTROL_NODES
+  def invalid_function_child?(parent, child)
+    unless is_any_of?(child, VALID_FUNCTION_CHILDREN)
+      "Functions can only contain variable declarations and control directives."
+    end
+  end
+
+  VALID_PROP_CHILDREN = [Sass::Tree::CommentNode, Sass::Tree::PropNode, Sass::Tree::MixinNode] + CONTROL_NODES
   def invalid_prop_child?(parent, child)
-    unless is_any_of?(child, INVALID_PROP_CHILDREN)
+    unless is_any_of?(child, VALID_PROP_CHILDREN)
       "Illegal nesting: Only properties may be nested beneath properties."
     end
   end
 
-  INVALID_PROP_PARENTS = [Sass::Tree::RuleNode, Sass::Tree::PropNode,
-                          Sass::Tree::MixinDefNode, Sass::Tree::DirectiveNode]
+  VALID_PROP_PARENTS = [Sass::Tree::RuleNode, Sass::Tree::PropNode,
+                        Sass::Tree::MixinDefNode, Sass::Tree::DirectiveNode,
+                        Sass::Tree::MixinNode]
   def invalid_prop_parent?(parent, child)
-    unless is_any_of?(parent, INVALID_PROP_PARENTS)
-      "Properties are only allowed within rules, directives, or other properties." + child.pseudo_class_selector_message
+    unless is_any_of?(parent, VALID_PROP_PARENTS)
+      "Properties are only allowed within rules, directives, mixin includes, or other properties." + child.pseudo_class_selector_message
     end
   end
 
@@ -3403,9 +4674,9 @@ class Sass::Tree::Visitors::CheckNesting < Sass::Tree::Visitors::Base
     return false
   end
 
-  def try_send(method, *args, &block)
-    return unless respond_to?(method)
-    send(method, *args, &block)
+  def try_send(method, *args)
+    return unless respond_to?(method, true)
+    send(method, *args)
   end
 end
 
@@ -3442,6 +4713,12 @@ module Sass
       # @return [String]
       def inspect
         to_a.map {|e| e.is_a?(Sass::Script::Node) ? "\#{#{e.to_sass}}" : e}.join
+      end
+
+      # @see \{#inspect}
+      # @return [String]
+      def to_s
+        inspect
       end
 
       # Returns a hash code for this selector object.
@@ -3490,7 +4767,7 @@ module Sass
         sels_with_ix = Sass::Util.enum_with_index(sels)
         _, i =
           if self.is_a?(Pseudo) || self.is_a?(SelectorPseudoClass)
-            sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) && sels.last.type == :element}
+            sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) && (sels.last.final? || sels.last.type == :element)}
           else
             sels_with_ix.find {|sel, _| sel.is_a?(Pseudo) || sel.is_a?(SelectorPseudoClass)}
           end
@@ -3526,8 +4803,9 @@ module Sass
   module Selector
     # The abstract parent class of the various selector sequence classes.
     #
-    # All subclasses should implement a `members` method
-    # that returns an array of object that respond to `#line=` and `#filename=`.
+    # All subclasses should implement a `members` method that returns an array
+    # of object that respond to `#line=` and `#filename=`, as well as a `to_a`
+    # method that returns an array of strings and script nodes.
     class AbstractSequence
       # The line of the Sass template on which this selector was declared.
       #
@@ -3581,6 +4859,37 @@ module Sass
         other.class == self.class && other.hash == self.hash && _eql?(other)
       end
       alias_method :==, :eql?
+
+      # Whether or not this selector sequence contains a placeholder selector.
+      # Checks recursively.
+      def has_placeholder?
+        @has_placeholder ||=
+          members.any? {|m| m.is_a?(AbstractSequence) ? m.has_placeholder? : m.is_a?(Placeholder)}
+      end
+
+      # Converts the selector into a string. This is the standard selector
+      # string, along with any SassScript interpolation that may exist.
+      #
+      # @return [String]
+      def to_s
+        to_a.map {|e| e.is_a?(Sass::Script::Node) ? "\#{#{e.to_sass}}" : e}.join
+      end
+
+      # Returns the specificity of the selector as an integer. The base is given
+      # by {Sass::Selector::SPECIFICITY_BASE}.
+      #
+      # @return [Fixnum]
+      def specificity
+        _specificity(members)
+      end
+
+      protected
+
+      def _specificity(arr)
+        spec = 0
+        arr.map {|m| spec += m.is_a?(String) ? 0 : m.specificity}
+        spec
+      end
     end
   end
 end
@@ -3630,12 +4939,23 @@ module Sass
       # @todo Link this to the reference documentation on `@extend`
       #   when such a thing exists.
       #
-      # @param extends [Sass::Util::SubsetMap{Selector::Simple => Selector::Sequence}]
+      # @param extends [Sass::Util::SubsetMap{Selector::Simple =>
+      #                                       Sass::Tree::Visitors::Cssize::Extend}]
       #   The extensions to perform on this selector
+      # @param parent_directives [Array<Sass::Tree::DirectiveNode>]
+      #   The directives containing this selector.
       # @return [CommaSequence] A copy of this selector,
       #   with extensions made according to `extends`
-      def do_extend(extends)
-        CommaSequence.new(members.map {|seq| seq.do_extend(extends)}.flatten)
+      def do_extend(extends, parent_directives)
+        CommaSequence.new(members.map do |seq|
+            extended = seq.do_extend(extends, parent_directives)
+            # First Law of Extend: the result of extending a selector should
+            # always contain the base selector.
+            #
+            # See https://github.com/nex3/sass/issues/324.
+            extended.unshift seq unless seq.has_placeholder? || extended.include?(seq)
+            extended
+          end.flatten)
       end
 
       # Returns a string representation of the sequence.
@@ -3691,17 +5011,16 @@ module Sass
         filename
       end
 
-      # The array of {SimpleSequence simple selector sequences}, operators, and newlines.
-      # The operators are strings such as `"+"` and `">"`
-      # representing the corresponding CSS operators.
-      # Newlines are also newline strings;
-      # these aren't semantically relevant,
-      # but they do affect formatting.
+      # The array of {SimpleSequence simple selector sequences}, operators, and
+      # newlines. The operators are strings such as `"+"` and `">"` representing
+      # the corresponding CSS operators, or interpolated SassScript. Newlines
+      # are also newline strings; these aren't semantically relevant, but they
+      # do affect formatting.
       #
-      # @return [Array<SimpleSequence, String>]
+      # @return [Array<SimpleSequence, String|Array<Sass::Tree::Node, String>>]
       attr_reader :members
 
-      # @param seqs_and_ops [Array<SimpleSequence, String>] See \{#members}
+      # @param seqs_and_ops [Array<SimpleSequence, String|Array<Sass::Tree::Node, String>>] See \{#members}
       def initialize(seqs_and_ops)
         @members = seqs_and_ops
       end
@@ -3714,15 +5033,15 @@ module Sass
       # @return [Sequence] This selector, with parent references resolved
       # @raise [Sass::SyntaxError] If a parent selector is invalid
       def resolve_parent_refs(super_seq)
-        members = @members
+        members = @members.dup
         nl = (members.first == "\n" && members.shift)
         unless members.any? do |seq_or_op|
             seq_or_op.is_a?(SimpleSequence) && seq_or_op.members.first.is_a?(Parent)
           end
-          members = []
+          old_members, members = members, []
           members << nl if nl
-          members << SimpleSequence.new([Parent.new])
-          members += @members
+          members << SimpleSequence.new([Parent.new], false)
+          members += old_members
         end
 
         Sequence.new(
@@ -3735,22 +5054,26 @@ module Sass
       # Non-destructively extends this selector with the extensions specified in a hash
       # (which should come from {Sass::Tree::Visitors::Cssize}).
       #
-      # @overload def do_extend(extends)
-      # @param extends [Sass::Util::SubsetMap{Selector::Simple => Selector::Sequence}]
+      # @overload def do_extend(extends, parent_directives)
+      # @param extends [Sass::Util::SubsetMap{Selector::Simple =>
+      #                                       Sass::Tree::Visitors::Cssize::Extend}]
       #   The extensions to perform on this selector
+      # @param parent_directives [Array<Sass::Tree::DirectiveNode>]
+      #   The directives containing this selector.
       # @return [Array<Sequence>] A list of selectors generated
       #   by extending this selector with `extends`.
       #   These correspond to a {CommaSequence}'s {CommaSequence#members members array}.
       # @see CommaSequence#do_extend
-      def do_extend(extends, seen = Set.new)
-        paths = Sass::Util.paths(members.map do |sseq_or_op|
-            next [[sseq_or_op]] unless sseq_or_op.is_a?(SimpleSequence)
-            extended = sseq_or_op.do_extend(extends, seen)
-            choices = extended.map {|seq| seq.members}
-            choices.unshift([sseq_or_op]) unless extended.any? {|seq| seq.superselector?(sseq_or_op)}
-            choices
-          end)
-        Sass::Util.flatten(paths.map {|path| weave(path)}, 1).map {|p| Sequence.new(p)}
+      def do_extend(extends, parent_directives, seen = Set.new)
+        extended_not_expanded = members.map do |sseq_or_op|
+          next [[sseq_or_op]] unless sseq_or_op.is_a?(SimpleSequence)
+          extended = sseq_or_op.do_extend(extends, parent_directives, seen)
+          choices = extended.map {|seq| seq.members}
+          choices.unshift([sseq_or_op]) unless extended.any? {|seq| seq.superselector?(sseq_or_op)}
+          choices
+        end
+        weaves = Sass::Util.paths(extended_not_expanded).map {|path| weave(path)}
+        Sass::Util.flatten(trim(weaves), 1).map {|p| Sequence.new(p)}
       end
 
       # Returns whether or not this selector matches all elements
@@ -3781,6 +5104,15 @@ module Sass
         members.map {|m| m.inspect}.join(" ")
       end
 
+      # Add to the {SimpleSequence#sources} sets of the child simple sequences.
+      # This destructively modifies this sequence's members array, but not the
+      # child simple sequences.
+      #
+      # @param sources [Set<Sequence>]
+      def add_sources!(sources)
+        members.map! {|m| m.is_a?(SimpleSequence) ? m.with_more_sources(sources) : m}
+      end
+
       private
 
       # Conceptually, this expands "parenthesized selectors".
@@ -3791,20 +5123,21 @@ module Sass
       # @param path [Array<Array<SimpleSequence or String>>] A list of parenthesized selector groups.
       # @return [Array<Array<SimpleSequence or String>>] A list of fully-expanded selectors.
       def weave(path)
+        # This function works by moving through the selector path left-to-right,
+        # building all possible prefixes simultaneously. These prefixes are
+        # `befores`, while the remaining parenthesized suffixes is `afters`.
         befores = [[]]
         afters = path.dup
 
         until afters.empty?
           current = afters.shift.dup
           last_current = [current.pop]
-          while !current.empty? && last_current.first.is_a?(String) || current.last.is_a?(String)
-            last_current.unshift(current.pop)
-          end
           befores = Sass::Util.flatten(befores.map do |before|
-              subweave(before, current).map {|seqs| seqs + last_current}
+              next [] unless sub = subweave(before, current)
+              sub.map {|seqs| seqs + last_current}
             end, 1)
-          return befores if afters.empty?
         end
+        return befores
       end
 
       # This interweaves two lists of selectors,
@@ -3816,35 +5149,183 @@ module Sass
       # `.foo .baz .bar .bang`, `.foo .baz .bar.bang`, `.foo .baz .bang .bar`,
       # and so on until `.baz .bang .foo .bar`.
       #
-      # @overload def subweave(seq1, seq2)
+      # Semantically, for selectors A and B, this returns all selectors `AB_i`
+      # such that the union over all i of elements matched by `AB_i X` is
+      # identical to the intersection of all elements matched by `A X` and all
+      # elements matched by `B X`. Some `AB_i` are elided to reduce the size of
+      # the output.
+      #
       # @param seq1 [Array<SimpleSequence or String>]
       # @param seq2 [Array<SimpleSequence or String>]
       # @return [Array<Array<SimpleSequence or String>>]
-      def subweave(seq1, seq2, cache = {})
+      def subweave(seq1, seq2)
         return [seq2] if seq1.empty?
         return [seq1] if seq2.empty?
 
+        seq1, seq2 = seq1.dup, seq2.dup
+        return unless init = merge_initial_ops(seq1, seq2)
+        return unless fin = merge_final_ops(seq1, seq2)
         seq1 = group_selectors(seq1)
         seq2 = group_selectors(seq2)
         lcs = Sass::Util.lcs(seq2, seq1) do |s1, s2|
           next s1 if s1 == s2
           next unless s1.first.is_a?(SimpleSequence) && s2.first.is_a?(SimpleSequence)
-          next s2 if subweave_superselector?(s1, s2)
-          next s1 if subweave_superselector?(s2, s1)
+          next s2 if parent_superselector?(s1, s2)
+          next s1 if parent_superselector?(s2, s1)
         end
 
-        diff = []
+        diff = [[init]]
         until lcs.empty?
-          diff << chunks(seq1, seq2) {|s| subweave_superselector?(s.first, lcs.first)} << [lcs.shift]
+          diff << chunks(seq1, seq2) {|s| parent_superselector?(s.first, lcs.first)} << [lcs.shift]
           seq1.shift
           seq2.shift
         end
         diff << chunks(seq1, seq2) {|s| s.empty?}
+        diff += fin.map {|sel| sel.is_a?(Array) ? sel : [sel]}
         diff.reject! {|c| c.empty?}
 
-        Sass::Util.paths(diff).map {|p| p.flatten}
+        Sass::Util.paths(diff).map {|p| p.flatten}.reject {|p| path_has_two_subjects?(p)}
       end
 
+      # Extracts initial selector combinators (`"+"`, `">"`, `"~"`, and `"\n"`)
+      # from two sequences and merges them together into a single array of
+      # selector combinators.
+      #
+      # @param seq1 [Array<SimpleSequence or String>]
+      # @param seq2 [Array<SimpleSequence or String>]
+      # @return [Array<String>, nil] If there are no operators in the merged
+      #   sequence, this will be the empty array. If the operators cannot be
+      #   merged, this will be nil.
+      def merge_initial_ops(seq1, seq2)
+        ops1, ops2 = [], []
+        ops1 << seq1.shift while seq1.first.is_a?(String)
+        ops2 << seq2.shift while seq2.first.is_a?(String)
+
+        newline = false
+        newline ||= !!ops1.shift if ops1.first == "\n"
+        newline ||= !!ops2.shift if ops2.first == "\n"
+
+        # If neither sequence is a subsequence of the other, they cannot be
+        # merged successfully
+        lcs = Sass::Util.lcs(ops1, ops2)
+        return unless lcs == ops1 || lcs == ops2
+        return (newline ? ["\n"] : []) + (ops1.size > ops2.size ? ops1 : ops2)
+      end
+
+      # Extracts final selector combinators (`"+"`, `">"`, `"~"`) and the
+      # selectors to which they apply from two sequences and merges them
+      # together into a single array.
+      #
+      # @param seq1 [Array<SimpleSequence or String>]
+      # @param seq2 [Array<SimpleSequence or String>]
+      # @return [Array<SimpleSequence or String or
+      #     Array<Array<SimpleSequence or String>>]
+      #   If there are no trailing combinators to be merged, this will be the
+      #   empty array. If the trailing combinators cannot be merged, this will
+      #   be nil. Otherwise, this will contained the merged selector. Array
+      #   elements are [Sass::Util#paths]-style options; conceptually, an "or"
+      #   of multiple selectors.
+      def merge_final_ops(seq1, seq2, res = [])
+        ops1, ops2 = [], []
+        ops1 << seq1.pop while seq1.last.is_a?(String)
+        ops2 << seq2.pop while seq2.last.is_a?(String)
+
+        # Not worth the headache of trying to preserve newlines here. The most
+        # important use of newlines is at the beginning of the selector to wrap
+        # across lines anyway.
+        ops1.reject! {|o| o == "\n"}
+        ops2.reject! {|o| o == "\n"}
+
+        return res if ops1.empty? && ops2.empty?
+        if ops1.size > 1 || ops2.size > 1
+          # If there are multiple operators, something hacky's going on. If one
+          # is a supersequence of the other, use that, otherwise give up.
+          lcs = Sass::Util.lcs(ops1, ops2)
+          return unless lcs == ops1 || lcs == ops2
+          res.unshift *(ops1.size > ops2.size ? ops1 : ops2).reverse
+          return res
+        end
+
+        # This code looks complicated, but it's actually just a bunch of special
+        # cases for interactions between different combinators.
+        op1, op2 = ops1.first, ops2.first
+        if op1 && op2
+          sel1 = seq1.pop
+          sel2 = seq2.pop
+          if op1 == '~' && op2 == '~'
+            if sel1.superselector?(sel2)
+              res.unshift sel2, '~'
+            elsif sel2.superselector?(sel1)
+              res.unshift sel1, '~'
+            else
+              merged = sel1.unify(sel2.members, sel2.subject?)
+              res.unshift [
+                [sel1, '~', sel2, '~'],
+                [sel2, '~', sel1, '~'],
+                ([merged, '~'] if merged)
+              ].compact
+            end
+          elsif (op1 == '~' && op2 == '+') || (op1 == '+' && op2 == '~')
+            if op1 == '~'
+              tilde_sel, plus_sel = sel1, sel2
+            else
+              tilde_sel, plus_sel = sel2, sel1
+            end
+
+            if tilde_sel.superselector?(plus_sel)
+              res.unshift plus_sel, '+'
+            else
+              merged = plus_sel.unify(tilde_sel.members, tilde_sel.subject?)
+              res.unshift [
+                [tilde_sel, '~', plus_sel, '+'],
+                ([merged, '+'] if merged)
+              ].compact
+            end
+          elsif op1 == '>' && %w[~ +].include?(op2)
+            res.unshift sel2, op2
+            seq1.push sel1, op1
+          elsif op2 == '>' && %w[~ +].include?(op1)
+            res.unshift sel1, op1
+            seq2.push sel2, op2
+          elsif op1 == op2
+            return unless merged = sel1.unify(sel2.members, sel2.subject?)
+            res.unshift merged, op1
+          else
+            # Unknown selector combinators can't be unified
+            return
+          end
+          return merge_final_ops(seq1, seq2, res)
+        elsif op1
+          seq2.pop if op1 == '>' && seq2.last && seq2.last.superselector?(seq1.last)
+          res.unshift seq1.pop, op1
+          return merge_final_ops(seq1, seq2, res)
+        else # op2
+          seq1.pop if op2 == '>' && seq1.last && seq1.last.superselector?(seq2.last)
+          res.unshift seq2.pop, op2
+          return merge_final_ops(seq1, seq2, res)
+        end
+      end
+
+      # Takes initial subsequences of `seq1` and `seq2` and returns all
+      # orderings of those subsequences. The initial subsequences are determined
+      # by a block.
+      #
+      # Destructively removes the initial subsequences of `seq1` and `seq2`.
+      #
+      # For example, given `(A B C | D E)` and `(1 2 | 3 4 5)` (with `|`
+      # denoting the boundary of the initial subsequence), this would return
+      # `[(A B C 1 2), (1 2 A B C)]`. The sequences would then be `(D E)` and
+      # `(3 4 5)`.
+      #
+      # @param seq1 [Array]
+      # @param seq2 [Array]
+      # @yield [a] Used to determine when to cut off the initial subsequences.
+      #   Called repeatedly for each sequence until it returns true.
+      # @yieldparam a [Array] A final subsequence of one input sequence after
+      #   cutting off some initial subsequence.
+      # @yieldreturn [Boolean] Whether or not to cut off the initial subsequence
+      #   here.
+      # @return [Array<Array>] All possible orderings of the initial subsequences.
       def chunks(seq1, seq2)
         chunk1 = []
         chunk1 << seq1.shift until yield seq1
@@ -3856,6 +5337,15 @@ module Sass
         [chunk1 + chunk2, chunk2 + chunk1]
       end
 
+      # Groups a sequence into subsequences. The subsequences are determined by
+      # strings; adjacent non-string elements will be put into separate groups,
+      # but any element adjacent to a string will be grouped with that string.
+      #
+      # For example, `(A B "C" D E "F" G "H" "I" J)` will become `[(A) (B "C" D)
+      # (E "F" G "H" "I" J)]`.
+      #
+      # @param seq [Array]
+      # @return [Array<Array>]
       def group_selectors(seq)
         newseq = []
         tail = seq.dup
@@ -3869,22 +5359,90 @@ module Sass
         return newseq
       end
 
-      def subweave_superselector?(sseq1, sseq2)
-        if sseq1.size > 1
-          # More complex selectors are never superselectors of less complex ones
-          return unless sseq2.size > 1
+      # Given two selector sequences, returns whether `seq1` is a
+      # superselector of `seq2`; that is, whether `seq1` matches every
+      # element `seq2` matches.
+      #
+      # @param seq1 [Array<SimpleSequence or String>]
+      # @param seq2 [Array<SimpleSequence or String>]
+      # @return [Boolean]
+      def _superselector?(seq1, seq2)
+        seq1 = seq1.reject {|e| e == "\n"}
+        seq2 = seq2.reject {|e| e == "\n"}
+        # Selectors with leading or trailing operators are neither
+        # superselectors nor subselectors.
+        return if seq1.last.is_a?(String) || seq2.last.is_a?(String) ||
+          seq1.first.is_a?(String) || seq2.first.is_a?(String)
+        # More complex selectors are never superselectors of less complex ones
+        return if seq1.size > seq2.size
+        return seq1.first.superselector?(seq2.last) if seq1.size == 1
+
+        _, si = Sass::Util.enum_with_index(seq2).find do |e, i|
+          return if i == seq2.size - 1
+          next if e.is_a?(String)
+          seq1.first.superselector?(e)
+        end
+        return unless si
+
+        if seq1[1].is_a?(String)
+          return unless seq2[si+1].is_a?(String)
           # .foo ~ .bar is a superselector of .foo + .bar
-          return unless sseq1[1] == "~" ? sseq2[1] != ">" : sseq2[1] == sseq1[1]
-          return unless sseq1.first.superselector?(sseq2.first)
-          return true if sseq1.size == 2
-          return false if sseq2.size == 2
-          return subweave_superselector?(sseq1[2..-1], sseq2[2..-1])
-        elsif sseq2.size > 1
-          return true if sseq2[1] == ">" && sseq1.first.superselector?(sseq2.first)
-          return false if sseq2.size == 2
-          return subweave_superselector?(sseq1, sseq2[2..-1])
+          return unless seq1[1] == "~" ? seq2[si+1] != ">" : seq1[1] == seq2[si+1]
+          return _superselector?(seq1[2..-1], seq2[si+2..-1])
+        elsif seq2[si+1].is_a?(String)
+          return unless seq2[si+1] == ">"
+          return _superselector?(seq1[1..-1], seq2[si+2..-1])
         else
-          sseq1.first.superselector?(sseq2.first)
+          return _superselector?(seq1[1..-1], seq2[si+1..-1])
+        end
+      end
+
+      # Like \{#_superselector?}, but compares the selectors in the
+      # context of parent selectors, as though they shared an implicit
+      # base simple selector. For example, `B` is not normally a
+      # superselector of `B A`, since it doesn't match `A` elements.
+      # However, it is a parent superselector, since `B X` is a
+      # superselector of `B A X`.
+      #
+      # @param seq1 [Array<SimpleSequence or String>]
+      # @param seq2 [Array<SimpleSequence or String>]
+      # @return [Boolean]
+      def parent_superselector?(seq1, seq2)
+        base = Sass::Selector::SimpleSequence.new([Sass::Selector::Placeholder.new('<temp>')], false)
+        _superselector?(seq1 + [base], seq2 + [base])
+      end
+
+      # Removes redundant selectors from between multiple lists of
+      # selectors. This takes a list of lists of selector sequences;
+      # each individual list is assumed to have no redundancy within
+      # itself. A selector is only removed if it's redundant with a
+      # selector in another list.
+      #
+      # "Redundant" here means that one selector is a superselector of
+      # the other. The more specific selector is removed.
+      #
+      # @param seqses [Array<Array<Array<SimpleSequence or String>>>]
+      # @return [Array<Array<Array<SimpleSequence or String>>>]
+      def trim(seqses)
+        # Avoid truly horrific quadratic behavior. TOOD: I think there
+        # may be a way to get perfect trimming without going quadratic.
+        return seqses if seqses.size > 100
+        # This is n^2 on the sequences, but only comparing between
+        # separate sequences should limit the quadratic behavior.
+        seqses.map do |seqs1|
+          seqs1.reject do |seq1|
+            min_spec = 0
+            _sources(seq1).map {|seq| min_spec += seq.specificity}
+            seqses.any? do |seqs2|
+              next if seqs1.equal?(seqs2)
+              # Second Law of Extend: the specificity of a generated selector
+              # should never be less than the specificity of the extending
+              # selector.
+              #
+              # See https://github.com/nex3/sass/issues/324.
+              seqs2.any? {|seq2| _specificity(seq2) >= min_spec && _superselector?(seq2, seq1)}
+            end
+          end
         end
       end
 
@@ -3894,6 +5452,36 @@ module Sass
 
       def _eql?(other)
         other.members.reject {|m| m == "\n"}.eql?(self.members.reject {|m| m == "\n"})
+      end
+
+      private
+
+      def path_has_two_subjects?(path)
+        subject = false
+        path.each do |sseq_or_op|
+          next unless sseq_or_op.is_a?(SimpleSequence)
+          next unless sseq_or_op.subject?
+          return true if subject
+          subject = true
+        end
+        false
+      end
+
+      def _sources(seq)
+        s = Set.new
+        seq.map {|sseq_or_op| s.merge sseq_or_op.sources if sseq_or_op.is_a?(SimpleSequence)}
+        s
+      end
+
+      def extended_not_expanded_to_s(extended_not_expanded)
+        extended_not_expanded.map do |choices|
+          choices = choices.map do |sel|
+            next sel.first.to_s if sel.size == 1
+            "#{sel.join ' '}"
+          end
+          next choices.first if choices.size == 1 && !choices.include?(' ')
+          "(#{choices.join ', '})"
+        end.join ' '
       end
     end
   end
@@ -3908,7 +5496,26 @@ module Sass
       # The array of individual selectors.
       #
       # @return [Array<Simple>]
-      attr_reader :members
+      attr_accessor :members
+
+      # The extending selectors that caused this selector sequence to be
+      # generated. For example:
+      #
+      #     a.foo { ... }
+      #     b.bar {@extend a}
+      #     c.baz {@extend b}
+      #
+      # The generated selector `b.foo.bar` has `{b.bar}` as its `sources` set,
+      # and the generated selector `c.foo.bar.baz` has `{b.bar, c.baz}` as its
+      # `sources` set.
+      #
+      # This is populated during the {#do_extend} process.
+      #
+      # @return {Set<Sequence>}
+      attr_accessor :sources
+
+      # @see \{#subject?}
+      attr_writer :subject
 
       # Returns the element or universal selector in this sequence,
       # if it exists.
@@ -3925,9 +5532,22 @@ module Sass
         @rest ||= Set.new(base ? members[1..-1] : members)
       end
 
+      # Whether or not this compound selector is the subject of the parent
+      # selector; that is, whether it is prepended with `$` and represents the
+      # actual element that will be selected.
+      #
+      # @return [Boolean]
+      def subject?
+        @subject
+      end
+
       # @param selectors [Array<Simple>] See \{#members}
-      def initialize(selectors)
+      # @param subject [Boolean] See \{#subject?}
+      # @param sources [Set<Sequence>]
+      def initialize(selectors, subject, sources = Set.new)
         @members = selectors
+        @subject = subject
+        @sources = sources
       end
 
       # Resolves the {Parent} selectors within this selector
@@ -3948,29 +5568,37 @@ module Sass
         end
 
         super_seq.members[0...-1] +
-          [SimpleSequence.new(super_seq.members.last.members + @members[1..-1])]
+          [SimpleSequence.new(super_seq.members.last.members + @members[1..-1], subject?)]
       end
 
       # Non-destrucively extends this selector with the extensions specified in a hash
       # (which should come from {Sass::Tree::Visitors::Cssize}).
       #
-      # @overload def do_extend(extends)
-      # @param extends [{Selector::Simple => Selector::Sequence}]
+      # @overload def do_extend(extends, parent_directives)
+      # @param extends [{Selector::Simple =>
+      #                  Sass::Tree::Visitors::Cssize::Extend}]
       #   The extensions to perform on this selector
+      # @param parent_directives [Array<Sass::Tree::DirectiveNode>]
+      #   The directives containing this selector.
       # @return [Array<Sequence>] A list of selectors generated
       #   by extending this selector with `extends`.
       # @see CommaSequence#do_extend
-      def do_extend(extends, seen = Set.new)
-        extends.get(members.to_set).map do |seq, sels|
+      def do_extend(extends, parent_directives, seen = Set.new)
+        Sass::Util.group_by_to_a(extends.get(members.to_set)) {|ex, _| ex.extender}.map do |seq, group|
+          sels = group.map {|_, s| s}.flatten
           # If A {@extend B} and C {...},
           # seq is A, sels is B, and self is C
 
           self_without_sel = self.members - sels
-          next unless unified = seq.members.last.unify(self_without_sel)
-          [sels, seq.members[0...-1] + [unified]]
+          group.each {|e, _| e.result = :failed_to_unify unless e.result == :succeeded}
+          next unless unified = seq.members.last.unify(self_without_sel, subject?)
+          group.each {|e, _| e.result = :succeeded}
+          next if group.map {|e, _| check_directives_match!(e, parent_directives)}.none?
+          new_seq = Sequence.new(seq.members[0...-1] + [unified])
+          new_seq.add_sources!(sources + [seq])
+          [sels, new_seq]
         end.compact.map do |sels, seq|
-          seq = Sequence.new(seq)
-          seen.include?(sels) ? [] : seq.do_extend(extends, seen + [sels])
+          seen.include?(sels) ? [] : seq.do_extend(extends, parent_directives, seen + [sels])
         end.flatten.uniq
       end
 
@@ -3979,6 +5607,7 @@ module Sass
       # that matches both this selector and the input selector.
       #
       # @param sels [Array<Simple>] A {SimpleSequence}'s {SimpleSequence#members members array}
+      # @param subject [Boolean] Whether the {SimpleSequence} being merged is a subject.
       # @return [SimpleSequence, nil] A {SimpleSequence} matching both `sels` and this selector,
       #   or `nil` if this is impossible (e.g. unifying `#foo` and `#bar`)
       # @raise [Sass::SyntaxError] If this selector cannot be unified.
@@ -3987,12 +5616,12 @@ module Sass
       #   Since these selectors should be resolved
       #   by the time extension and unification happen,
       #   this exception will only ever be raised as a result of programmer error
-      def unify(sels)
+      def unify(sels, other_subject)
         return unless sseq = members.inject(sels) do |sseq, sel|
           return unless sseq
           sel.unify(sseq)
         end
-        SimpleSequence.new(sseq)
+        SimpleSequence.new(sseq, other_subject || subject?)
       end
 
       # Returns whether or not this selector matches all elements
@@ -4009,7 +5638,9 @@ module Sass
 
       # @see Simple#to_a
       def to_a
-        @members.map {|sel| sel.to_a}.flatten
+        res = @members.map {|sel| sel.to_a}.flatten
+        res << '!' if subject?
+        res
       end
 
       # Returns a string representation of the sequence.
@@ -4020,14 +5651,42 @@ module Sass
         members.map {|m| m.inspect}.join
       end
 
+      # Return a copy of this simple sequence with `sources` merged into the
+      # {#sources} set.
+      #
+      # @param sources [Set<Sequence>]
+      # @return [SimpleSequence]
+      def with_more_sources(sources)
+        sseq = dup
+        sseq.members = members.dup
+        sseq.sources.merge sources
+        sseq
+      end
+
       private
+
+      def check_directives_match!(extend, parent_directives)
+        dirs1 = extend.directives.map {|d| d.resolved_value}
+        dirs2 = parent_directives.map {|d| d.resolved_value}
+        return true if Sass::Util.subsequence?(dirs1, dirs2)
+
+        Sass::Util.sass_warn <<WARNING
+DEPRECATION WARNING on line #{extend.node.line}#{" of #{extend.node.filename}" if extend.node.filename}:
+  @extending an outer selector from within #{extend.directives.last.name} is deprecated.
+  You may only @extend selectors within the same directive.
+  This will be an error in Sass 3.3.
+  It can only work once @extend is supported natively in the browser.
+WARNING
+        return false
+      end
 
       def _hash
         [base, Sass::Util.set_hash(rest)].hash
       end
 
       def _eql?(other)
-        other.base.eql?(self.base) && Sass::Util.set_eql?(other.rest, self.rest)
+        other.base.eql?(self.base) && Sass::Util.set_eql?(other.rest, self.rest) &&
+          other.subject? == self.subject?
       end
     end
   end
@@ -4047,6 +5706,13 @@ module Sass
   # Finally, {Simple} is the superclass of the simplest selectors,
   # such as `.foo` or `#bar`.
   module Selector
+    # The base used for calculating selector specificity. The spec says this
+    # should be "sufficiently high"; it's extremely unlikely that any single
+    # selector sequence will contain 1,000 simple selectors.
+    #
+    # @type [Fixnum]
+    SPECIFICITY_BASE = 1_000
+
     # A parent-referencing selector (`&` in Sass).
     # The function of this is to be replaced by the parent selector
     # in the nested hierarchy.
@@ -4081,6 +5747,11 @@ module Sass
       def to_a
         [".", *@name]
       end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        SPECIFICITY_BASE
+      end
     end
 
     # An id selector (e.g. `#foo`).
@@ -4107,6 +5778,37 @@ module Sass
       def unify(sels)
         return if sels.any? {|sel2| sel2.is_a?(Id) && self.name != sel2.name}
         super
+      end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        SPECIFICITY_BASE**2
+      end
+    end
+
+    # A placeholder selector (e.g. `%foo`).
+    # This exists to be replaced via `@extend`.
+    # Rulesets using this selector will not be printed, but can be extended.
+    # Otherwise, this acts just like a class selector.
+    class Placeholder < Simple
+      # The placeholder name.
+      #
+      # @return [Array<String, Sass::Script::Node>]
+      attr_reader :name
+
+      # @param name [Array<String, Sass::Script::Node>] The placeholder name
+      def initialize(name)
+        @name = name
+      end
+
+      # @see Selector#to_a
+      def to_a
+        ["%", *@name]
+      end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        0
       end
     end
 
@@ -4170,6 +5872,11 @@ module Sass
         return unless accept
         [name == :universal ? Universal.new(ns) : Element.new(name, ns)] + sels[1..-1]
       end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        0
+      end
     end
 
     # An element selector (e.g. `h1`).
@@ -4232,6 +5939,11 @@ module Sass
         return unless accept
         [Element.new(name, ns)] + sels[1..-1]
       end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        1
+      end
     end
 
     # Selector interpolation (`#{}` in Sass).
@@ -4285,15 +5997,22 @@ module Sass
       # @return [Array<String, Sass::Script::Node>]
       attr_reader :value
 
+      # Flags for the attribute selector (e.g. `i`).
+      #
+      # @return [Array<String, Sass::Script::Node>]
+      attr_reader :flags
+
       # @param name [Array<String, Sass::Script::Node>] The attribute name
       # @param namespace [Array<String, Sass::Script::Node>, nil] See \{#namespace}
       # @param operator [String] The matching operator, e.g. `"="` or `"^="`
       # @param value [Array<String, Sass::Script::Node>] See \{#value}
-      def initialize(name, namespace, operator, value)
+      # @param value [Array<String, Sass::Script::Node>] See \{#flags}
+      def initialize(name, namespace, operator, value, flags)
         @name = name
         @namespace = namespace
         @operator = operator
         @value = value
+        @flags = flags
       end
 
       # @see Selector#to_a
@@ -4302,7 +6021,13 @@ module Sass
         res.concat(@namespace) << "|" if @namespace
         res.concat @name
         (res << @operator).concat @value if @value
+        (res << " ").concat @flags if @flags
         res << "]"
+      end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        SPECIFICITY_BASE
       end
     end
 
@@ -4315,6 +6040,13 @@ module Sass
       #
       # @return [Symbol]
       attr_reader :type
+
+      # Some psuedo-class-syntax selectors (`:after` and `:before)
+      # are actually considered pseudo-elements
+      # and must be at the end of the selector to function properly.
+      #
+      # @return [Array<String>]
+      FINAL_SELECTORS = %w[after before]
 
       # The name of the selector.
       #
@@ -4341,6 +6073,10 @@ module Sass
         @arg = arg
       end
 
+      def final?
+        type == :class && FINAL_SELECTORS.include?(name.first)
+      end
+
       # @see Selector#to_a
       def to_a
         res = [@type == :class ? ":" : "::"] + @name
@@ -4348,8 +6084,8 @@ module Sass
         res
       end
 
-      # Returns `nil` if this is a pseudoclass selector
-      # and `sels` contains a pseudoclass selector different than this one.
+      # Returns `nil` if this is a pseudoelement selector
+      # and `sels` contains a pseudoelement selector different than this one.
       #
       # @see Selector#unify
       def unify(sels)
@@ -4357,7 +6093,13 @@ module Sass
           sel.is_a?(Pseudo) && sel.type == :element &&
             (sel.name != self.name || sel.arg != self.arg)
         end
+        return sels + [self] if final?
         super
+      end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        type == :class ? SPECIFICITY_BASE : 1
       end
     end
 
@@ -4375,7 +6117,7 @@ module Sass
       attr_reader :selector
 
       # @param [String] The name of the pseudoclass
-      # @param [Selector::Sequence] The selector argument
+      # @param [Selector::CommaSequence] The selector argument
       def initialize(name, selector)
         @name = name
         @selector = selector
@@ -4385,10 +6127,14 @@ module Sass
       def to_a
         [":", @name, "("] + @selector.to_a + [")"]
       end
+
+      # @see AbstractSequence#specificity
+      def specificity
+        SPECIFICITY_BASE
+      end
     end
   end
 end
-require 'set'
 
 module Sass
   # The lexical environment for SassScript.
@@ -4408,86 +6154,32 @@ module Sass
     #
     # @return [Environment]
     attr_reader :parent
-    attr_writer :options
+    attr_reader :options
+    attr_writer :caller
+    attr_writer :content
 
+    # @param options [{Symbol => Object}] The options hash. See
+    #   {file:SASS_REFERENCE.md#sass_options the Sass options documentation}.
     # @param parent [Environment] See \{#parent}
-    def initialize(parent = nil)
+    def initialize(parent = nil, options = nil)
       @parent = parent
-      unless parent
-        @stack = []
-        @mixins_in_use = Set.new
-        set_var("important", Script::String.new("!important"))
-      end
+      @options = options || (parent && parent.options) || {}
     end
 
-    # The options hash.
-    # See {file:SASS_REFERENCE.md#sass_options the Sass options documentation}.
-    #
-    # @return [{Symbol => Object}]
-    def options
-      @options || parent_options || {}
+    # The environment of the caller of this environment's mixin or function.
+    # @return {Environment?}
+    def caller
+      @caller || (@parent && @parent.caller)
     end
 
-    # Push a new stack frame onto the mixin/include stack.
-    #
-    # @param frame_info [{Symbol => Object}]
-    #   Frame information has the following keys:
-    #
-    #   `:filename`
-    #   : The name of the file in which the lexical scope changed.
-    #
-    #   `:mixin`
-    #   : The name of the mixin in which the lexical scope changed,
-    #     or `nil` if it wasn't within in a mixin.
-    #
-    #   `:line`
-    #   : The line of the file on which the lexical scope changed. Never nil.
-    def push_frame(frame_info)
-      top_of_stack = stack.last
-      if top_of_stack && top_of_stack.delete(:prepared)
-        top_of_stack.merge!(frame_info)
-      else
-        stack.push(top_of_stack = frame_info)
-      end
-      mixins_in_use << top_of_stack[:mixin] if top_of_stack[:mixin] && !top_of_stack[:prepared]
-    end
-
-    # Like \{#push\_frame}, but next time a stack frame is pushed,
-    # it will be merged with this frame.
-    #
-    # @param frame_info [{Symbol => Object}] Same as for \{#push\_frame}.
-    def prepare_frame(frame_info)
-      push_frame(frame_info.merge(:prepared => true))
-    end
-
-    # Pop a stack frame from the mixin/include stack.
-    def pop_frame
-      stack.pop if stack.last && stack.last[:prepared]
-      popped = stack.pop
-      mixins_in_use.delete(popped[:mixin]) if popped && popped[:mixin]
-    end
-
-    # A list of stack frames in the mixin/include stack.
-    # The last element in the list is the most deeply-nested frame.
-    #
-    # @return [Array<{Symbol => Object}>] The stack frames,
-    #   of the form passed to \{#push\_frame}.
-    def stack
-      @stack ||= @parent.stack
-    end
-
-    # A set of names of mixins currently present in the stack.
-    #
-    # @return [Set<String>] The mixin names.
-    def mixins_in_use
-      @mixins_in_use ||= @parent.mixins_in_use
+    # The content passed to this environmnet. This is naturally only set
+    # for mixin body environments with content passed in.
+    # @return {Environment?}
+    def content
+      @content || (@parent && @parent.content)
     end
 
     private
-
-    def parent_options
-      @parent_options ||= @parent && @parent.options
-    end
 
     class << self
       private
@@ -4543,7 +6235,6 @@ RUBY
     inherited_hash :function
   end
 end
-require 'strscan'
 module Sass::Script
   # The abstract superclass for SassScript parse tree nodes.
   #
@@ -4603,6 +6294,14 @@ module Sass::Script
       Sass::Util.abstract(self)
     end
 
+    # Returns a deep clone of this node.
+    # The child nodes are cloned, but options are not.
+    #
+    # @return [Node]
+    def deep_copy
+      Sass::Util.abstract(self)
+    end
+
     protected
 
     # Converts underscores to dashes if the :dasherize option is set.
@@ -4658,7 +6357,6 @@ module Sass
 
       # @return [String] A string representation of the variable
       def inspect(opts = {})
-        return "!important" if name == "important"
         "$#{dasherize(name, opts)}"
       end
       alias_method :to_sass, :inspect
@@ -4669,6 +6367,11 @@ module Sass
       # @see Node#children
       def children
         []
+      end
+
+      # @see Node#deep_copy
+      def deep_copy
+        dup
       end
 
       protected
@@ -4781,14 +6484,17 @@ module Sass::Script
   #
   # ## Other Color Functions
   #
-  # \{#adjust_color adjust-color($color, \[$red\], \[$green\], \[$blue\], \[$hue\], \[$saturation\], \[$lightness\], \[$alpha\]}
+  # \{#adjust_color adjust-color($color, \[$red\], \[$green\], \[$blue\], \[$hue\], \[$saturation\], \[$lightness\], \[$alpha\])}
   # : Increase or decrease any of the components of a color.
   #
-  # \{#scale_color scale-color($color, \[$red\], \[$green\], \[$blue\], \[$hue\], \[$saturation\], \[$lightness\], \[$alpha\]}
+  # \{#scale_color scale-color($color, \[$red\], \[$green\], \[$blue\], \[$saturation\], \[$lightness\], \[$alpha\])}
   # : Fluidly scale one or more components of a color.
   #
-  # \{#change_color change-color($color, \[$red\], \[$green\], \[$blue\], \[$hue\], \[$saturation\], \[$lightness\], \[$alpha\]}
+  # \{#change_color change-color($color, \[$red\], \[$green\], \[$blue\], \[$hue\], \[$saturation\], \[$lightness\], \[$alpha\])}
   # : Changes one or more properties of a color.
+  #
+  # \{#ie_hex_str ie-hex-str($color)}
+  # : Converts a color into the format understood by IE filters.
   #
   # ## String Functions
   #
@@ -4815,6 +6521,12 @@ module Sass::Script
   # \{#abs abs($value)}
   # : Returns the absolute value of a number.
   #
+  # \{#min min($x1, $x2, ...)\}
+  # : Finds the minimum of several values.
+  #
+  # \{#max max($x1, $x2, ...)\}
+  # : Finds the maximum of several values.
+  #
   # ## List Functions {#list-functions}
   #
   # \{#length length($list)}
@@ -4825,6 +6537,9 @@ module Sass::Script
   #
   # \{#join join($list1, $list2, \[$separator\])}
   # : Joins together two lists into one.
+  #
+  # \{#append append($list1, $val, \[$separator\])}
+  # : Appends a single value onto the end of a list.
   #
   # ## Introspection Functions
   #
@@ -4932,7 +6647,7 @@ module Sass::Script
     #   to {Sass::Script::Literal}s as the last argument.
     #   In addition, if this is true and `:var_args` is not,
     #   Sass will ensure that the last argument passed is a hash.
-    # 
+    #
     # @example
     #   declare :rgba, [:hex, :alpha]
     #   declare :rgba, [:red, :green, :blue, :alpha]
@@ -5057,11 +6772,10 @@ module Sass::Script
       Color.new([red, green, blue].map do |c|
           v = c.value
           if c.numerator_units == ["%"] && c.denominator_units.empty?
-            next v * 255 / 100.0 if (0..100).include?(v)
-            raise ArgumentError.new("Color value #{c} must be between 0% and 100% inclusive")
+            v = Sass::Util.check_range("Color value", 0..100, c, '%')
+            v * 255 / 100.0
           else
-            next v if (0..255).include?(v)
-            raise ArgumentError.new("Color value #{v} must be between 0 and 255 inclusive")
+            Sass::Util.check_range("Color value", 0..255, c)
           end
         end)
     end
@@ -5101,10 +6815,7 @@ module Sass::Script
         assert_type color, :Color
         assert_type alpha, :Number
 
-        unless (0..1).include?(alpha.value)
-          raise ArgumentError.new("Alpha channel #{alpha.value} must be between 0 and 1 inclusive")
-        end
-
+        Sass::Util.check_range('Alpha channel', 0..1, alpha)
         color.with(:alpha => alpha.value)
       when 4
         red, green, blue, alpha = args
@@ -5154,16 +6865,11 @@ module Sass::Script
       assert_type lightness, :Number
       assert_type alpha, :Number
 
-      unless (0..1).include?(alpha.value)
-        raise ArgumentError.new("Alpha channel #{alpha.value} must be between 0 and 1")
-      end
+      Sass::Util.check_range('Alpha channel', 0..1, alpha)
 
-      original_s = saturation
-      original_l = lightness
-      # This algorithm is from http://www.w3.org/TR/css3-color#hsl-color
-      h, s, l = [hue, saturation, lightness].map { |a| a.value }
-      raise ArgumentError.new("Saturation #{s} must be between 0% and 100%") unless (0..100).include?(s)
-      raise ArgumentError.new("Lightness #{l} must be between 0% and 100%") unless (0..100).include?(l)
+      h = hue.value
+      s = Sass::Util.check_range('Saturation', 0..100, saturation, '%')
+      l = Sass::Util.check_range('Lightness', 0..100, lightness, '%')
 
       Color.new(:hue => h, :saturation => s, :lightness => l, :alpha => alpha.value)
     end
@@ -5273,7 +6979,10 @@ module Sass::Script
         return Sass::Script::String.new("alpha(#{args.map {|a| a.to_s}.join(", ")})")
       end
 
-      opacity(*args)
+      raise ArgumentError.new("wrong number of arguments (#{args.size} for 1)") if args.size != 1
+
+      assert_type args.first, :Color
+      Sass::Script::Number.new(args.first.alpha)
     end
     declare :alpha, [:color]
 
@@ -5286,6 +6995,7 @@ module Sass::Script
     # @see #transparentize
     # @raise [ArgumentError] If `color` isn't a color
     def opacity(color)
+      return Sass::Script::String.new("opacity(#{color})") if color.is_a?(Sass::Script::Number)
       assert_type color, :Color
       Sass::Script::Number.new(color.alpha)
     end
@@ -5376,16 +7086,21 @@ module Sass::Script
     # @example
     #   saturate(hsl(120, 30%, 90%), 20%) => hsl(120, 50%, 90%)
     #   saturate(#855, 20%) => #9e3f3f
-    # @param color [Color]
-    # @param amount [Number]
-    # @return [Color]
-    # @see #desaturate
-    # @raise [ArgumentError] If `color` isn't a color,
-    #   or `number` isn't a number between 0% and 100%
-    def saturate(color, amount)
+    # @overload saturate(color, amount)
+    #   @param color [Color]
+    #   @param amount [Number]
+    #   @return [Color]
+    #   @see #desaturate
+    #   @raise [ArgumentError] If `color` isn't a color,
+    #     or `number` isn't a number between 0% and 100%
+    def saturate(color, amount = nil)
+      # Support the filter effects definition of saturate.
+      # https://dvcs.w3.org/hg/FXTF/raw-file/tip/filters/index.html
+      return Sass::Script::String.new("saturate(#{color})") if amount.nil?
       _adjust(color, amount, :saturation, 0..100, :+, "%")
     end
     declare :saturate, [:color, :amount]
+    declare :saturate, [:amount]
 
     # Makes a color less saturated.
     # Takes a color and an amount between 0% and 100%,
@@ -5423,6 +7138,23 @@ module Sass::Script
       color.with(:hue => color.hue + degrees.value)
     end
     declare :adjust_hue, [:color, :degrees]
+
+    # Returns an IE hex string for a color with an alpha channel
+    # suitable for passing to IE filters.
+    #
+    # @example
+    #   ie-hex-str(#abc) => #FFAABBCC
+    #   ie-hex-str(#3322BB) => #FF3322BB
+    #   ie-hex-str(rgba(0, 255, 0, 0.5)) => #8000FF00
+    # @param color [Color]
+    # @return [String]
+    # @raise [ArgumentError] If `color` isn't a color
+    def ie_hex_str(color)
+      assert_type color, :Color
+      alpha = (color.alpha * 255).round.to_s(16).rjust(2, '0')
+      Sass::Script::String.new("##{alpha}#{color.send(:hex_str)[1..-1]}".upcase)
+    end
+    declare :ie_hex_str, [:color]
 
     # Adjusts one or more properties of a color.
     # This can change the red, green, blue, hue, saturation, value, and alpha properties.
@@ -5469,9 +7201,7 @@ module Sass::Script
 
         next unless val = kwargs.delete(name)
         assert_type val, :Number, name
-        if range && !range.include?(val.value)
-          raise ArgumentError.new("$#{name}: Amount #{val} must be between #{range.first}#{units} and #{range.last}#{units}")
-        end
+        Sass::Util.check_range("$#{name}: Amount", range, val, units) if range
         adjusted = color.send(name) + val.value
         adjusted = [0, Sass::Util.restrict(adjusted, range)].max if range
         [name.to_sym, adjusted]
@@ -5540,8 +7270,8 @@ module Sass::Script
         assert_type val, :Number, name
         if !(val.numerator_units == ['%'] && val.denominator_units.empty?)
           raise ArgumentError.new("$#{name}: Amount #{val} must be a % (e.g. #{val.value}%)")
-        elsif !(-100..100).include?(val.value)
-          raise ArgumentError.new("$#{name}: Amount #{val} must be between -100% and 100%")
+        else
+          Sass::Util.check_range("$#{name}: Amount", -100..100, val, '%')
         end
 
         current = color.send(name)
@@ -5635,31 +7365,28 @@ module Sass::Script
       assert_type color2, :Color
       assert_type weight, :Number
 
-      unless (0..100).include?(weight.value)
-        raise ArgumentError.new("Weight #{weight} must be between 0% and 100%")
-      end
+      Sass::Util.check_range("Weight", 0..100, weight, '%')
 
-      # This algorithm factors in both the user-provided weight
-      # and the difference between the alpha values of the two colors
-      # to decide how to perform the weighted average of the two RGB values.
+      # This algorithm factors in both the user-provided weight (w) and the
+      # difference between the alpha values of the two colors (a) to decide how
+      # to perform the weighted average of the two RGB values.
       #
       # It works by first normalizing both parameters to be within [-1, 1],
-      # where 1 indicates "only use color1", -1 indicates "only use color 0",
-      # and all values in between indicated a proportionately weighted average.
+      # where 1 indicates "only use color1", -1 indicates "only use color2", and
+      # all values in between indicated a proportionately weighted average.
       #
-      # Once we have the normalized variables w and a,
-      # we apply the formula (w + a)/(1 + w*a)
-      # to get the combined weight (in [-1, 1]) of color1.
+      # Once we have the normalized variables w and a, we apply the formula
+      # (w + a)/(1 + w*a) to get the combined weight (in [-1, 1]) of color1.
       # This formula has two especially nice properties:
       #
       #   * When either w or a are -1 or 1, the combined weight is also that number
       #     (cases where w * a == -1 are undefined, and handled as a special case).
       #
-      #   * When a is 0, the combined weight is w, and vice versa
+      #   * When a is 0, the combined weight is w, and vice versa.
       #
       # Finally, the weight of color1 is renormalized to be within [0, 1]
       # and the weight of color2 is given by 1 minus the weight of color1.
-      p = weight.value/100.0
+      p = (weight.value/100.0).to_f
       w = p*2 - 1
       a = color1.alpha - color2.alpha
 
@@ -5681,6 +7408,7 @@ module Sass::Script
     # @raise [ArgumentError] if `color` isn't a color
     # @see #desaturate
     def grayscale(color)
+      return Sass::Script::String.new("grayscale(#{color})") if color.is_a?(Sass::Script::Number)
       desaturate color, Number.new(100)
     end
     declare :grayscale, [:color]
@@ -5704,12 +7432,15 @@ module Sass::Script
     # @return [Color]
     # @raise [ArgumentError] if `color` isn't a color
     def invert(color)
+      return Sass::Script::String.new("invert(#{color})") if color.is_a?(Sass::Script::Number)
+
       assert_type color, :Color
       color.with(
         :red => (255 - color.red),
         :green => (255 - color.green),
         :blue => (255 - color.blue))
     end
+    declare :invert, [:color]
 
     # Removes quotes from a string if the string is quoted,
     # or returns the same string if it's not.
@@ -5842,8 +7573,8 @@ module Sass::Script
     # Rounds a number up to the nearest whole number.
     #
     # @example
-    #   ciel(10.4px) => 11px
-    #   ciel(10.6px) => 11px
+    #   ceil(10.4px) => 11px
+    #   ceil(10.6px) => 11px
     # @param value [Number] The number
     # @return [Number] The rounded number
     # @raise [ArgumentError] if `value` isn't a number
@@ -5877,6 +7608,37 @@ module Sass::Script
       numeric_transformation(value) {|n| n.abs}
     end
     declare :abs, [:value]
+
+    # Finds the minimum of several values. This function takes any number of
+    # arguments.
+    #
+    # @example
+    #   min(1px, 4px) => 1px
+    #   min(5em, 3em, 4em) => 3em
+    # @param values [[Number]] The numbers
+    # @return [Number] The minimum value
+    # @raise [ArgumentError] if any argument isn't a number, or if not all of
+    #   the arguments have comparable units
+    def min(*values)
+      values.each {|v| assert_type v, :Number}
+      values.inject {|min, val| min.lt(val).to_bool ? min : val}
+    end
+    declare :min, [], :var_args => :true
+
+    # Finds the maximum of several values. This function takes any number of
+    # arguments.
+    #
+    # @example
+    #   max(1px, 4px) => 4px
+    #   max(5em, 3em, 4em) => 5em
+    # @return [Number] The maximum value
+    # @raise [ArgumentError] if any argument isn't a number, or if not all of
+    #   the arguments have comparable units
+    def max(*values)
+      values.each {|v| assert_type v, :Number}
+      values.inject {|max, val| max.gt(val).to_bool ? max : val}
+    end
+    declare :max, [], :var_args => :true
 
     # Return the length of a list.
     #
@@ -5965,14 +7727,14 @@ module Sass::Script
     #   append(10px 20px, 30px) => 10px 20px 30px
     #   append((blue, red), green) => blue, red, green
     #   append(10px 20px, 30px 40px) => 10px 20px (30px 40px)
-    #   join(10px, 20px, comma) => 10px, 20px
-    #   join((blue, red), green, space) => blue red green
-    # @overload join(list, val, separator: auto)
-    #   @param list1 [Literal] The first list to join
-    #   @param list2 [Literal] The second list to join
+    #   append(10px, 20px, comma) => 10px, 20px
+    #   append((blue, red), green, space) => blue red green
+    # @overload append(list, val, separator: auto)
+    #   @param list [Literal] The list to add the value to
+    #   @param val [Literal] The value to add to the end of the list
     #   @param separator [String] How the list separator (comma or space) should be determined.
     #     If this is `comma` or `space`, that is always the separator;
-    #     if this is `auto` (the default), the separator is determined as explained above.
+    #     if this is `auto` (the default), the separator is the same as that used by the list.
     def append(list, val, separator = Sass::Script::String.new("auto"))
       assert_type separator, :String
       unless %w[auto space comma].include?(separator.value)
@@ -5989,6 +7751,49 @@ module Sass::Script
     end
     declare :append, [:list, :val]
     declare :append, [:list, :val, :separator]
+
+    # Combines several lists into a single comma separated list
+    # space separated lists.
+    #
+    # The length of the resulting list is the length of the
+    # shortest list.
+    #
+    # @example
+    #   zip(1px 1px 3px, solid dashed solid, red green blue)
+    #   => 1px solid red, 1px dashed green, 3px solid blue
+    def zip(*lists)
+      length = nil
+      values = []
+      lists.each do |list|
+        assert_type list, :List
+        values << list.value.dup
+        length = length.nil? ? list.value.length : [length, list.value.length].min
+      end
+      values.each do |value|
+        value.slice!(length)
+      end
+      new_list_value = values.first.zip(*values[1..-1])
+      List.new(new_list_value.map{|list| List.new(list, :space)}, :comma)
+    end
+    declare :zip, [], :var_args => true
+
+
+    # Returns the position of the given value within the given
+    # list. If not found, returns false.
+    #
+    # @example
+    #   index(1px solid red, solid) => 2
+    #   index(1px solid red, dashed) => false
+    def index(list, value)
+      assert_type list, :List
+      index = list.value.index {|e| e.eq(value).to_bool }
+      if index
+        Number.new(index + 1)
+      else
+        Bool.new(false)
+      end
+    end
+    declare :index, [:list, :value]
 
     # Returns one of two values based on the truth value of the first argument.
     #
@@ -6020,9 +7825,7 @@ module Sass::Script
     def _adjust(color, amount, attr, range, op, units = "")
       assert_type color, :Color
       assert_type amount, :Number
-      unless range.include?(amount.value)
-        raise ArgumentError.new("Amount #{amount} must be between #{range.first}#{units} and #{range.last}#{units}")
-      end
+      Sass::Util.check_range('Amount', range, amount, units)
 
       # TODO: is it worth restricting here,
       # or should we do so in the Color constructor itself,
@@ -6056,30 +7859,45 @@ module Sass
       # @return [{String => Script::Node}]
       attr_reader :keywords
 
+      # The splat argument for this function, if one exists.
+      #
+      # @return [Script::Node?]
+      attr_accessor :splat
+
       # @param name [String] See \{#name}
       # @param args [Array<Script::Node>] See \{#args}
+      # @param splat [Script::Node] See \{#splat}
       # @param keywords [{String => Script::Node}] See \{#keywords}
-      def initialize(name, args, keywords)
+      def initialize(name, args, keywords, splat)
         @name = name
         @args = args
         @keywords = keywords
+        @splat = splat
         super()
       end
 
       # @return [String] A string representation of the function call
       def inspect
         args = @args.map {|a| a.inspect}.join(', ')
-        keywords = @keywords.sort_by {|k, v| k}.
+        keywords = Sass::Util.hash_to_a(@keywords).
             map {|k, v| "$#{k}: #{v.inspect}"}.join(', ')
-        "#{name}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
+        if self.splat
+          splat = (args.empty? && keywords.empty?) ? "" : ", "
+          splat = "#{splat}#{self.splat.inspect}..."
+        end
+        "#{name}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords}#{splat})"
       end
 
       # @see Node#to_sass
       def to_sass(opts = {})
         args = @args.map {|a| a.to_sass(opts)}.join(', ')
-        keywords = @keywords.sort_by {|k, v| k}.
+        keywords = Sass::Util.hash_to_a(@keywords).
           map {|k, v| "$#{dasherize(k, opts)}: #{v.to_sass(opts)}"}.join(', ')
-        "#{dasherize(name, opts)}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
+        if self.splat
+          splat = (args.empty? && keywords.empty?) ? "" : ", "
+          splat = "#{splat}#{self.splat.inspect}..."
+        end
+        "#{dasherize(name, opts)}(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords}#{splat})"
       end
 
       # Returns the arguments to the function.
@@ -6087,7 +7905,17 @@ module Sass
       # @return [Array<Node>]
       # @see Node#children
       def children
-        @args + @keywords.values
+        res = @args + @keywords.values
+        res << @splat if @splat
+        res
+      end
+
+      # @see Node#deep_copy
+      def deep_copy
+        node = dup
+        node.instance_variable_set('@args', args.map {|a| a.deep_copy})
+        node.instance_variable_set('@keywords', Hash[keywords.map {|k, v| [k, v.deep_copy]}])
+        node
       end
 
       protected
@@ -6099,13 +7927,14 @@ module Sass
       # @raise [Sass::SyntaxError] if the function call raises an ArgumentError
       def _perform(environment)
         args = @args.map {|a| a.perform(environment)}
+        splat = @splat.perform(environment) if @splat
         if fn = environment.function(@name)
           keywords = Sass::Util.map_hash(@keywords) {|k, v| [k, v.perform(environment)]}
-          return perform_sass_fn(fn, args, keywords)
+          return perform_sass_fn(fn, args, keywords, splat)
         end
 
         ruby_name = @name.tr('-', '_')
-        args = construct_ruby_args(ruby_name, args, environment)
+        args = construct_ruby_args(ruby_name, args, splat, environment)
 
         unless Functions.callable?(ruby_name)
           opts(to_literal(args))
@@ -6113,7 +7942,17 @@ module Sass
           opts(Functions::EvaluationContext.new(environment.options).send(ruby_name, *args))
         end
       rescue ArgumentError => e
-        raise e unless e.backtrace.any? {|t| t =~ /:in `(block in )?(#{name}|perform)'$/}
+        # If this is a legitimate Ruby-raised argument error, re-raise it.
+        # Otherwise, it's an error in the user's stylesheet, so wrap it.
+        if e.message =~ /^wrong number of arguments \(\d+ for \d+\)/ &&
+            e.backtrace[0] !~ /:in `(block in )?#{ruby_name}'$/ &&
+            # JRuby (as of 1.6.7.2) doesn't put the actual method for
+            # which the argument error was thrown in the backtrace, so
+            # we detect whether our send threw an argument error.
+            (RUBY_PLATFORM !~ /java/ || e.backtrace[0] !~ /:in `send'$/ ||
+             e.backtrace[1] !~ /:in `_perform'$/)
+          raise e
+        end
         raise Sass::SyntaxError.new("#{e.message} for `#{name}'")
       end
 
@@ -6126,12 +7965,23 @@ module Sass
 
       private
 
-      def construct_ruby_args(name, args, environment)
-        unless signature = Functions.signature(name.to_sym, args.size, @keywords.size)
-          return args if keywords.empty?
+      def construct_ruby_args(name, args, splat, environment)
+        args += splat.to_a if splat
+
+        # If variable arguments were passed, there won't be any explicit keywords.
+        if splat.is_a?(Sass::Script::ArgList)
+          kwargs_size = splat.keywords.size
+          splat.keywords_accessed = false
+        else
+          kwargs_size = @keywords.size
+        end
+
+        unless signature = Functions.signature(name.to_sym, args.size, kwargs_size)
+          return args if @keywords.empty?
           raise Sass::SyntaxError.new("Function #{name} doesn't support keyword arguments")
         end
-        keywords = Sass::Util.map_hash(@keywords) {|k, v| [k, v.perform(environment)]}
+        keywords = splat.is_a?(Sass::Script::ArgList) ? splat.keywords :
+          Sass::Util.map_hash(@keywords) {|k, v| [k, v.perform(environment)]}
 
         # If the user passes more non-keyword args than the function expects,
         # but it does expect keyword args, Ruby's arg handling won't raise an error.
@@ -6156,44 +8006,30 @@ module Sass
           if signature.var_kwargs
             args << keywords
           else
-            raise Sass::SyntaxError.new("Function #{name} doesn't take an argument named $#{keywords.keys.sort.first}")
+            argname = keywords.keys.sort.first
+            if signature.args.include?(argname)
+              raise Sass::SyntaxError.new("Function #{name} was passed argument $#{argname} both by position and by name")
+            else
+              raise Sass::SyntaxError.new("Function #{name} doesn't have an argument named $#{argname}")
+            end
           end
         end
 
         args
       end
 
-      def perform_sass_fn(function, args, keywords)
-        # TODO: merge with mixin arg evaluation?
-        keywords.each do |name, value|
-          # TODO: Make this fast
-          unless function.args.find {|(var, default)| var.underscored_name == name}
-            raise Sass::SyntaxError.new("Function #{@name} doesn't have an argument named $#{name}")
+      def perform_sass_fn(function, args, keywords, splat)
+        Sass::Tree::Visitors::Perform.perform_arguments(function, args, keywords, splat) do |env|
+          val = catch :_sass_return do
+            function.tree.each {|c| Sass::Tree::Visitors::Perform.visit(c, env)}
+            raise Sass::SyntaxError.new("Function #{@name} finished without @return")
           end
+          val
         end
-
-        if args.size > function.args.size
-          raise ArgumentError.new("Wrong number of arguments (#{args.size} for #{function.args.size})")
-        end
-
-        environment = function.args.zip(args).
-          inject(Sass::Environment.new(function.environment)) do |env, ((var, default), value)|
-          env.set_local_var(var.name,
-            value || keywords[var.underscored_name] || (default && default.perform(env)))
-          raise Sass::SyntaxError.new("Function #{@name} is missing parameter #{var.inspect}.") unless env.var(var.name)
-          env
-        end
-
-        val = catch :_sass_return do
-          function.tree.each {|c| Sass::Tree::Visitors::Perform.visit(c, environment)}
-          raise Sass::SyntaxError.new("Function #{@name} finished without @return")
-        end
-        val
       end
     end
   end
 end
-require 'set'
 module Sass::Script
   # The abstract superclass for SassScript objects.
   #
@@ -6237,11 +8073,34 @@ module Sass::Script
     # @return [Boolean, nil]
     attr_accessor :original
 
-    # The precision with which numbers will be printed to CSS files.
-    # For example, if this is `1000.0`,
+    def self.precision
+      @precision ||= 5
+    end
+
+    # Sets the number of digits of precision
+    # For example, if this is `3`,
     # `3.1415926` will be printed as `3.142`.
-    # @api public
-    PRECISION = 1000.0
+    def self.precision=(digits)
+      @precision = digits.round
+      @precision_factor = 10.0**@precision
+    end
+
+    # the precision factor used in numeric output
+    # it is derived from the `precision` method.
+    def self.precision_factor
+      @precision_factor ||= 10.0**precision
+    end
+
+    # Handles the deprecation warning for the PRECISION constant
+    # This can be removed in 3.2.
+    def self.const_missing(const)
+      if const == :PRECISION
+        Sass::Util.sass_warn("Sass::Script::Number::PRECISION is deprecated and will be removed in a future release. Use Sass::Script::Number.precision_factor instead.")
+        const_set(:PRECISION, self.precision_factor)
+      else
+        super
+      end
+    end
 
     # Used so we don't allocate two new arrays for each new number.
     NO_UNITS  = []
@@ -6539,7 +8398,7 @@ module Sass::Script
       elsif num % 1 == 0.0
         num.to_i
       else
-        (num * PRECISION).round / PRECISION
+        ((num * self.precision_factor).round / self.precision_factor).to_f
       end
     end
 
@@ -6601,12 +8460,13 @@ module Sass::Script
     end
 
     # A hash of unit names to their index in the conversion table
-    CONVERTABLE_UNITS = {"in" => 0,        "cm" => 1,    "pc" => 2,    "mm" => 3,   "pt" => 4}
-    CONVERSION_TABLE = [[ 1,                2.54,         6,            25.4,        72        ], # in
-                        [ nil,              1,            2.36220473,   10,          28.3464567], # cm
-                        [ nil,              nil,          1,            4.23333333,  12        ], # pc
-                        [ nil,              nil,          nil,          1,           2.83464567], # mm
-                        [ nil,              nil,          nil,          nil,         1         ]] # pt
+    CONVERTABLE_UNITS = {"in" => 0,        "cm" => 1,    "pc" => 2,    "mm" => 3,   "pt" => 4,  "px" => 5    }
+    CONVERSION_TABLE = [[ 1,                2.54,         6,            25.4,        72        , 96          ], # in
+                        [ nil,              1,            2.36220473,   10,          28.3464567, 37.795275591], # cm
+                        [ nil,              nil,          1,            4.23333333,  12        , 16          ], # pc
+                        [ nil,              nil,          nil,          1,           2.83464567, 3.7795275591], # mm
+                        [ nil,              nil,          nil,          nil,         1         , 1.3333333333], # pt
+                        [ nil,              nil,          nil,          nil,         nil       , 1           ]] # px
 
     def conversion_factor(from_unit, to_unit)
       res = CONVERSION_TABLE[CONVERTABLE_UNITS[from_unit]][CONVERTABLE_UNITS[to_unit]]
@@ -6649,26 +8509,157 @@ module Sass::Script
     class << self; include Sass::Util; end
 
     # A hash from color names to `[red, green, blue]` value arrays.
-    HTML4_COLORS = map_vals({
-        'black'   => 0x000000,
-        'silver'  => 0xc0c0c0,
-        'gray'    => 0x808080,
-        'white'   => 0xffffff,
-        'maroon'  => 0x800000,
-        'red'     => 0xff0000,
-        'purple'  => 0x800080,
+    COLOR_NAMES = map_vals({
+        'aliceblue' => 0xf0f8ff,
+        'antiquewhite' => 0xfaebd7,
+        'aqua' => 0x00ffff,
+        'aquamarine' => 0x7fffd4,
+        'azure' => 0xf0ffff,
+        'beige' => 0xf5f5dc,
+        'bisque' => 0xffe4c4,
+        'black' => 0x000000,
+        'blanchedalmond' => 0xffebcd,
+        'blue' => 0x0000ff,
+        'blueviolet' => 0x8a2be2,
+        'brown' => 0xa52a2a,
+        'burlywood' => 0xdeb887,
+        'cadetblue' => 0x5f9ea0,
+        'chartreuse' => 0x7fff00,
+        'chocolate' => 0xd2691e,
+        'coral' => 0xff7f50,
+        'cornflowerblue' => 0x6495ed,
+        'cornsilk' => 0xfff8dc,
+        'crimson' => 0xdc143c,
+        'cyan' => 0x00ffff,
+        'darkblue' => 0x00008b,
+        'darkcyan' => 0x008b8b,
+        'darkgoldenrod' => 0xb8860b,
+        'darkgray' => 0xa9a9a9,
+        'darkgrey' => 0xa9a9a9,
+        'darkgreen' => 0x006400,
+        'darkkhaki' => 0xbdb76b,
+        'darkmagenta' => 0x8b008b,
+        'darkolivegreen' => 0x556b2f,
+        'darkorange' => 0xff8c00,
+        'darkorchid' => 0x9932cc,
+        'darkred' => 0x8b0000,
+        'darksalmon' => 0xe9967a,
+        'darkseagreen' => 0x8fbc8f,
+        'darkslateblue' => 0x483d8b,
+        'darkslategray' => 0x2f4f4f,
+        'darkslategrey' => 0x2f4f4f,
+        'darkturquoise' => 0x00ced1,
+        'darkviolet' => 0x9400d3,
+        'deeppink' => 0xff1493,
+        'deepskyblue' => 0x00bfff,
+        'dimgray' => 0x696969,
+        'dimgrey' => 0x696969,
+        'dodgerblue' => 0x1e90ff,
+        'firebrick' => 0xb22222,
+        'floralwhite' => 0xfffaf0,
+        'forestgreen' => 0x228b22,
         'fuchsia' => 0xff00ff,
-        'green'   => 0x008000,
-        'lime'    => 0x00ff00,
-        'olive'   => 0x808000,
-        'yellow'  => 0xffff00,
-        'navy'    => 0x000080,
-        'blue'    => 0x0000ff,
-        'teal'    => 0x008080,
-        'aqua'    => 0x00ffff
+        'gainsboro' => 0xdcdcdc,
+        'ghostwhite' => 0xf8f8ff,
+        'gold' => 0xffd700,
+        'goldenrod' => 0xdaa520,
+        'gray' => 0x808080,
+        'green' => 0x008000,
+        'greenyellow' => 0xadff2f,
+        'honeydew' => 0xf0fff0,
+        'hotpink' => 0xff69b4,
+        'indianred' => 0xcd5c5c,
+        'indigo' => 0x4b0082,
+        'ivory' => 0xfffff0,
+        'khaki' => 0xf0e68c,
+        'lavender' => 0xe6e6fa,
+        'lavenderblush' => 0xfff0f5,
+        'lawngreen' => 0x7cfc00,
+        'lemonchiffon' => 0xfffacd,
+        'lightblue' => 0xadd8e6,
+        'lightcoral' => 0xf08080,
+        'lightcyan' => 0xe0ffff,
+        'lightgoldenrodyellow' => 0xfafad2,
+        'lightgreen' => 0x90ee90,
+        'lightgray' => 0xd3d3d3,
+        'lightgrey' => 0xd3d3d3,
+        'lightpink' => 0xffb6c1,
+        'lightsalmon' => 0xffa07a,
+        'lightseagreen' => 0x20b2aa,
+        'lightskyblue' => 0x87cefa,
+        'lightslategray' => 0x778899,
+        'lightslategrey' => 0x778899,
+        'lightsteelblue' => 0xb0c4de,
+        'lightyellow' => 0xffffe0,
+        'lime' => 0x00ff00,
+        'limegreen' => 0x32cd32,
+        'linen' => 0xfaf0e6,
+        'magenta' => 0xff00ff,
+        'maroon' => 0x800000,
+        'mediumaquamarine' => 0x66cdaa,
+        'mediumblue' => 0x0000cd,
+        'mediumorchid' => 0xba55d3,
+        'mediumpurple' => 0x9370db,
+        'mediumseagreen' => 0x3cb371,
+        'mediumslateblue' => 0x7b68ee,
+        'mediumspringgreen' => 0x00fa9a,
+        'mediumturquoise' => 0x48d1cc,
+        'mediumvioletred' => 0xc71585,
+        'midnightblue' => 0x191970,
+        'mintcream' => 0xf5fffa,
+        'mistyrose' => 0xffe4e1,
+        'moccasin' => 0xffe4b5,
+        'navajowhite' => 0xffdead,
+        'navy' => 0x000080,
+        'oldlace' => 0xfdf5e6,
+        'olive' => 0x808000,
+        'olivedrab' => 0x6b8e23,
+        'orange' => 0xffa500,
+        'orangered' => 0xff4500,
+        'orchid' => 0xda70d6,
+        'palegoldenrod' => 0xeee8aa,
+        'palegreen' => 0x98fb98,
+        'paleturquoise' => 0xafeeee,
+        'palevioletred' => 0xdb7093,
+        'papayawhip' => 0xffefd5,
+        'peachpuff' => 0xffdab9,
+        'peru' => 0xcd853f,
+        'pink' => 0xffc0cb,
+        'plum' => 0xdda0dd,
+        'powderblue' => 0xb0e0e6,
+        'purple' => 0x800080,
+        'red' => 0xff0000,
+        'rosybrown' => 0xbc8f8f,
+        'royalblue' => 0x4169e1,
+        'saddlebrown' => 0x8b4513,
+        'salmon' => 0xfa8072,
+        'sandybrown' => 0xf4a460,
+        'seagreen' => 0x2e8b57,
+        'seashell' => 0xfff5ee,
+        'sienna' => 0xa0522d,
+        'silver' => 0xc0c0c0,
+        'skyblue' => 0x87ceeb,
+        'slateblue' => 0x6a5acd,
+        'slategray' => 0x708090,
+        'slategrey' => 0x708090,
+        'snow' => 0xfffafa,
+        'springgreen' => 0x00ff7f,
+        'steelblue' => 0x4682b4,
+        'tan' => 0xd2b48c,
+        'teal' => 0x008080,
+        'thistle' => 0xd8bfd8,
+        'tomato' => 0xff6347,
+        'turquoise' => 0x40e0d0,
+        'violet' => 0xee82ee,
+        'wheat' => 0xf5deb3,
+        'white' => 0xffffff,
+        'whitesmoke' => 0xf5f5f5,
+        'yellow' => 0xffff00,
+        'yellowgreen' => 0x9acd32
       }) {|color| (0..2).map {|n| color >> (n << 3) & 0xff}.reverse}
+
     # A hash from `[red, green, blue]` value arrays to color names.
-    HTML4_COLORS_REVERSE = map_hash(HTML4_COLORS) {|k, v| [v, k]}
+    COLOR_NAMES_REVERSE = map_hash(hash_to_a(COLOR_NAMES)) {|k, v| [v, k]}
 
     # Constructs an RGB or HSL color object,
     # optionally with an alpha channel.
@@ -6731,21 +8722,16 @@ module Sass::Script
       [:red, :green, :blue].each do |k|
         next if @attrs[k].nil?
         @attrs[k] = @attrs[k].to_i
-        next if (0..255).include?(@attrs[k])
-        raise ArgumentError.new("#{k.to_s.capitalize} value must be between 0 and 255")
+        Sass::Util.check_range("#{k.to_s.capitalize} value", 0..255, @attrs[k])
       end
 
       [:saturation, :lightness].each do |k|
         next if @attrs[k].nil?
-        @attrs[k] = 0 if @attrs[k] < 0.00001 && @attrs[k] > -0.00001
-        @attrs[k] = 100 if @attrs[k] - 100 < 0.00001 && @attrs[k] - 100 > -0.00001
-        next if (0..100).include?(@attrs[k])
-        raise ArgumentError.new("#{k.to_s.capitalize} must be between 0 and 100")
+        value = Number.new(@attrs[k], ['%']) # Get correct unit for error messages
+        @attrs[k] = Sass::Util.check_range("#{k.to_s.capitalize}", 0..100, value, '%')
       end
 
-      unless (0..1).include?(@attrs[:alpha])
-        raise ArgumentError.new("Alpha channel must be between 0 and 1")
-      end
+      @attrs[:alpha] = Sass::Util.check_range("Alpha channel", 0..1, @attrs[:alpha])
     end
 
     # The red component of the color.
@@ -6998,7 +8984,7 @@ module Sass::Script
     def to_s(opts = {})
       return rgba_str if alpha?
       return smallest if options[:style] == :compressed
-      return HTML4_COLORS_REVERSE[rgb] if HTML4_COLORS_REVERSE[rgb]
+      return COLOR_NAMES_REVERSE[rgb] if COLOR_NAMES_REVERSE[rgb]
       hex_str
     end
     alias_method :to_sass, :to_s
@@ -7014,7 +9000,7 @@ module Sass::Script
 
     def smallest
       small_hex_str = hex_str.gsub(/^#(.)\1(.)\2(.)\3$/, '#\1\2\3')
-      return small_hex_str unless (color = HTML4_COLORS_REVERSE[rgb]) &&
+      return small_hex_str unless (color = COLOR_NAMES_REVERSE[rgb]) &&
         color.size <= small_hex_str.size
       return color
     end
@@ -7125,6 +9111,39 @@ module Sass::Script
     alias_method :to_sass, :to_s
   end
 end
+
+module Sass::Script
+  # A SassScript object representing a null value.
+  class Null < Literal
+    # Creates a new null literal.
+    def initialize
+      super nil
+    end
+
+    # @return [Boolean] `false` (the Ruby boolean value)
+    def to_bool
+      false
+    end
+
+    # @return [Boolean] `true`
+    def null?
+      true
+    end
+
+    # @return [String] '' (An empty string)
+    def to_s(opts = {})
+      ''
+    end
+    alias_method :to_sass, :to_s
+
+    # Returns a string representing a null value.
+    #
+    # @return [String]
+    def inspect
+      'null'
+    end
+  end
+end
 module Sass::Script
   # A SassScript object representing a CSS list.
   # This includes both comma-separated lists and space-separated lists.
@@ -7151,23 +9170,31 @@ module Sass::Script
       @separator = separator
     end
 
+    # @see Node#deep_copy
+    def deep_copy
+      node = dup
+      node.instance_variable_set('@value', value.map {|c| c.deep_copy})
+      node
+    end
+
     # @see Node#eq
     def eq(other)
       Sass::Script::Bool.new(
-        self.class == other.class && self.value == other.value &&
+        other.is_a?(List) && self.value == other.value &&
         self.separator == other.separator)
     end
 
     # @see Node#to_s
     def to_s(opts = {})
       raise Sass::SyntaxError.new("() isn't a valid CSS value.") if value.empty?
-      return value.reject {|e| e.is_a?(List) && e.value.empty?}.map {|e| e.to_s(opts)}.join(sep_str)
+      return value.reject {|e| e.is_a?(Null) || e.is_a?(List) && e.value.empty?}.map {|e| e.to_s(opts)}.join(sep_str)
     end
 
     # @see Node#to_sass
     def to_sass(opts = {})
+      return "()" if value.empty?
       precedence = Sass::Script::Parser.precedence_of(separator)
-      value.map do |v|
+      value.reject {|e| e.is_a?(Null)}.map do |v|
         if v.is_a?(List) && Sass::Script::Parser.precedence_of(v.separator) <= precedence
           "(#{v.to_sass(opts)})"
         else
@@ -7201,6 +9228,58 @@ module Sass::Script
     end
   end
 end
+module Sass::Script
+  # A SassScript object representing a variable argument list. This works just
+  # like a normal list, but can also contain keyword arguments.
+  #
+  # The keyword arguments attached to this list are unused except when this is
+  # passed as a glob argument to a function or mixin.
+  class ArgList < List
+    # Whether \{#keywords} has been accessed. If so, we assume that all keywords
+    # were valid for the function that created this ArgList.
+    #
+    # @return [Boolean]
+    attr_accessor :keywords_accessed
+
+    # Creates a new argument list.
+    #
+    # @param value [Array<Literal>] See \{List#value}.
+    # @param keywords [Hash<String, Literal>] See \{#keywords}
+    # @param separator [String] See \{List#separator}.
+    def initialize(value, keywords, separator)
+      super(value, separator)
+      @keywords = keywords
+    end
+
+    # The keyword arguments attached to this list.
+    #
+    # @return [Hash<String, Literal>]
+    def keywords
+      @keywords_accessed = true
+      @keywords
+    end
+
+    # @see Node#children
+    def children
+      super + @keywords.values
+    end
+
+    # @see Node#deep_copy
+    def deep_copy
+      node = super
+      node.instance_variable_set('@keywords',
+        Sass::Util.map_hash(@keywords) {|k, v| [k, v.deep_copy]})
+      node
+    end
+
+    protected
+
+    # @see Node#_perform
+    def _perform(environment)
+      self
+    end
+  end
+end
 
     # Returns the Ruby value of the literal.
     # The type of this value varies based on the subclass.
@@ -7224,6 +9303,11 @@ end
       []
     end
 
+    # @see Node#deep_copy
+    def deep_copy
+      dup
+    end
+
     # Returns the options hash for this node.
     #
     # @return [{Symbol => Object}]
@@ -7239,26 +9323,6 @@ The #options attribute is not set on this #{self.class}.
   on this literal within a custom Sass function without first
   setting the #option attribute.
 MSG
-    end
-
-    # The SassScript `and` operation.
-    #
-    # @param other [Literal] The right-hand side of the operator
-    # @return [Literal] The result of a logical and:
-    #   `other` if this literal isn't a false {Bool},
-    #   and this literal otherwise
-    def and(other)
-      to_bool ? other : self
-    end
-
-    # The SassScript `or` operation.
-    #
-    # @param other [Literal] The right-hand side of the operator
-    # @return [Literal] The result of the logical or:
-    #   this literal if it isn't a false {Bool},
-    #   and `other` otherwise
-    def or(other)
-      to_bool ? self : other
     end
 
     # The SassScript `==` operation.
@@ -7423,6 +9487,13 @@ MSG
     end
     alias_method :to_sass, :to_s
 
+    # Returns whether or not this object is null.
+    #
+    # @return [Boolean] `false`
+    def null?
+      false
+    end
+
     protected
 
     # Evaluates the literal.
@@ -7524,6 +9595,13 @@ module Sass::Script
       [@operand]
     end
 
+    # @see Node#deep_copy
+    def deep_copy
+      node = dup
+      node.instance_variable_set('@operand', @operand.deep_copy)
+      node
+    end
+
     protected
 
     # Evaluates the operation.
@@ -7591,6 +9669,15 @@ module Sass::Script
     # @see Node#children
     def children
       [@before, @mid, @after].compact
+    end
+
+    # @see Node#deep_copy
+    def deep_copy
+      node = dup
+      node.instance_variable_set('@before', @before.deep_copy) if @before
+      node.instance_variable_set('@mid', @mid.deep_copy)
+      node.instance_variable_set('@after', @after.deep_copy) if @after
+      node
     end
 
     protected
@@ -7671,6 +9758,15 @@ module Sass::Script
     # @see Node#children
     def children
       [@before, @mid, @after].compact
+    end
+
+    # @see Node#deep_copy
+    def deep_copy
+      node = dup
+      node.instance_variable_set('@before', @before.deep_copy) if @before
+      node.instance_variable_set('@mid', @mid.deep_copy)
+      node.instance_variable_set('@after', @after.deep_copy) if @after
+      node
     end
 
     protected
@@ -7754,6 +9850,14 @@ module Sass::Script
       [@operand1, @operand2]
     end
 
+    # @see Node#deep_copy
+    def deep_copy
+      node = dup
+      node.instance_variable_set('@operand1', @operand1.deep_copy)
+      node.instance_variable_set('@operand2', @operand2.deep_copy)
+      node
+    end
+
     protected
 
     # Evaluates the operation.
@@ -7763,7 +9867,19 @@ module Sass::Script
     # @raise [Sass::SyntaxError] if the operation is undefined for the operands
     def _perform(environment)
       literal1 = @operand1.perform(environment)
+
+      # Special-case :and and :or to support short-circuiting.
+      if @operator == :and
+        return literal1.to_bool ? @operand2.perform(environment) : literal1
+      elsif @operator == :or
+        return literal1.to_bool ? literal1 : @operand2.perform(environment)
+      end
+
       literal2 = @operand2.perform(environment)
+
+      if (literal1.is_a?(Null) || literal2.is_a?(Null)) && @operator != :eq && @operator != :neq
+        raise Sass::SyntaxError.new("Invalid null operation: \"#{literal1.inspect} #{@operator} #{literal2.inspect}\".")
+      end
 
       begin
         opts(literal1.send(@operator, literal2))
@@ -7841,6 +9957,8 @@ module Sass
       UNICODE  = /\\#{H}{1,6}[ \t\r\n\f]?/
       s = if Sass::Util.ruby1_8?
             '\200-\377'
+          elsif Sass::Util.macruby?
+            '\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF'
           else
             '\u{80}-\u{D7FF}\u{E000}-\u{FFFD}\u{10000}-\u{10FFFF}'
           end
@@ -7897,11 +10015,18 @@ module Sass
       TILDE = /#{W}~/
       NOT = quote(":not(", Regexp::IGNORECASE)
 
+      # Defined in https://developer.mozilla.org/en/CSS/@-moz-document as a
+      # non-standard version of http://www.w3.org/TR/css3-conditional/
+      URL_PREFIX = /url-prefix\(#{W}(?:#{STRING}|#{URL})#{W}\)/i
+      DOMAIN = /domain\(#{W}(?:#{STRING}|#{URL})#{W}\)/i
+
       # Custom
       HEXCOLOR = /\#[0-9a-fA-F]+/
       INTERP_START = /#\{/
-      MOZ_ANY = quote(":-moz-any(", Regexp::IGNORECASE)
+      ANY = /:(-[-\w]+-)?any\(/i
+      OPTIONAL = /!#{W}optional/i
 
+      IDENT_HYPHEN_INTERP = /-(#\{)/
       STRING1_NOINTERP = /\"((?:[^\n\r\f\\"#]|#(?!\{)|\\#{NL}|#{ESCAPE})*)\"/
       STRING2_NOINTERP = /\'((?:[^\n\r\f\\'#]|#(?!\{)|\\#{NL}|#{ESCAPE})*)\'/
       STRING_NOINTERP = /#{STRING1_NOINTERP}|#{STRING2_NOINTERP}/
@@ -7909,14 +10034,11 @@ module Sass
       # We could use it for 1.9 only, but I don't want to introduce a cross-version
       # behavior difference.
       # In any case, almost all CSS idents will be matched by this.
-      STATIC_VALUE = /(-?#{NMSTART}|#{STRING_NOINTERP}|\s(?!%)|#[a-f0-9]|[,%]|#{NUM}|\!important)+(?=[;}])/i
-
-      STATIC_SELECTOR = /(#{NMCHAR}|\s|[,>+*]|[:#.]#{NMSTART})+(?=[{])/i
+      STATIC_VALUE = /(-?#{NMSTART}|#{STRING_NOINTERP}|#[a-f0-9]|[,%]|-?#{NUMBER}|\!important)+([;}])/i
+      STATIC_SELECTOR = /(#{NMCHAR}|[ \t]|[,>+*]|[:#.]#{NMSTART}){0,50}([{])/i
     end
   end
 end
-
-require 'strscan'
 
 module Sass
   module Script
@@ -7980,6 +10102,7 @@ module Sass
         '}' => :end_interpolation,
         ';' => :semicolon,
         '{' => :lcurly,
+        '...' => :splat,
       }
 
       OPERATORS_REVERSE = Sass::Util.map_hash(OPERATORS) {|k, v| [v, k]}
@@ -8008,6 +10131,7 @@ module Sass
         :number => /(-)?(?:(\d*\.\d+)|(\d+))([a-zA-Z%]+)?/,
         :color => HEXCOLOR,
         :bool => /(true|false)\b/,
+        :null => /null\b/,
         :ident_op => %r{(#{Regexp.union(*IDENT_OP_NAMES.map{|s| Regexp.new(Regexp.escape(s) + "(?!#{NMCHAR}|\Z)")})})},
         :op => %r{(#{Regexp.union(*OP_NAMES)})},
       }
@@ -8032,6 +10156,12 @@ module Sass
         [:single, true] => string_re('', "'"),
         [:uri, false] => /url\(#{W}(#{URLCHAR}*?)(#{W}\)|#\{)/,
         [:uri, true] => /(#{URLCHAR}*?)(#{W}\)|#\{)/,
+        # Defined in https://developer.mozilla.org/en/CSS/@-moz-document as a
+        # non-standard version of http://www.w3.org/TR/css3-conditional/
+        [:url_prefix, false] => /url-prefix\(#{W}(#{URLCHAR}*?)(#{W}\)|#\{)/,
+        [:url_prefix, true] => /(#{URLCHAR}*?)(#{W}\)|#\{)/,
+        [:domain, false] => /domain\(#{W}(#{URLCHAR}*?)(#{W}\)|#\{)/,
+        [:domain, true] => /(#{URLCHAR}*?)(#{W}\)|#\{)/,
       }
 
       # @param str [String, StringScanner] The source text to lex
@@ -8042,7 +10172,7 @@ module Sass
       # @param options [{Symbol => Object}] An options hash;
       #   see {file:SASS_REFERENCE.md#sass_options the Sass options documentation}
       def initialize(str, line, offset, options)
-        @scanner = str.is_a?(StringScanner) ? str : StringScanner.new(str)
+        @scanner = str.is_a?(StringScanner) ? str : Sass::Util::MultibyteStringScanner.new(str)
         @line = line
         @offset = offset
         @options = options
@@ -8146,7 +10276,7 @@ module Sass
         end
 
         variable || string(:double, false) || string(:single, false) || number ||
-          color || bool || string(:uri, false) || raw(UNICODERANGE) ||
+          color || bool || null || string(:uri, false) || raw(UNICODERANGE) ||
           special_fun || special_val || ident_op || ident || op
       end
 
@@ -8204,8 +10334,13 @@ MESSAGE
         [:bool, Script::Bool.new(s == 'true')]
       end
 
+      def null
+        return unless scan(REGULAR_EXPRESSIONS[:null])
+        [:null, Script::Null.new]
+      end
+
       def special_fun
-        return unless str1 = scan(/((-[\w-]+-)?calc|expression|progid:[a-z\.]*)\(/i)
+        return unless str1 = scan(/((-[\w-]+-)?(calc|element)|expression|progid:[a-z\.]*)\(/i)
         str2, _ = Sass::Shared.balance(@scanner, ?(, ?), 1)
         c = str2.count("\n")
         old_line = @line
@@ -8328,21 +10463,22 @@ module Sass
 
       # Parses the argument list for a mixin include.
       #
-      # @return [(Array<Script::Node>, {String => Script::Note})]
-      #   The root nodes of the arguments.
-      #   Keyword arguments are in a hash from names to values.
+      # @return [(Array<Script::Node>, {String => Script::Node}, Script::Node)]
+      #   The root nodes of the positional arguments, keyword arguments, and
+      #   splat argument. Keyword arguments are in a hash from names to values.
       # @raise [Sass::SyntaxError] if the argument list isn't valid SassScript
       def parse_mixin_include_arglist
         args, keywords = [], {}
         if try_tok(:lparen)
-          args, keywords = mixin_arglist || [[], {}]
+          args, keywords, splat = mixin_arglist || [[], {}]
           assert_tok(:rparen)
         end
         assert_done
 
         args.each {|a| a.options = @options}
         keywords.each {|k, v| v.options = @options}
-        return args, keywords
+        splat.options = @options if splat
+        return args, keywords, splat
       rescue Sass::SyntaxError => e
         e.modify_backtrace :line => @lexer.line, :filename => @options[:filename]
         raise e
@@ -8350,17 +10486,19 @@ module Sass
 
       # Parses the argument list for a mixin definition.
       #
-      # @return [Array<Script::Node>] The root nodes of the arguments.
+      # @return [(Array<Script::Node>, Script::Node)]
+      #   The root nodes of the arguments, and the splat argument.
       # @raise [Sass::SyntaxError] if the argument list isn't valid SassScript
       def parse_mixin_definition_arglist
-        args = defn_arglist!(false)
+        args, splat = defn_arglist!(false)
         assert_done
 
         args.each do |k, v|
           k.options = @options
           v.options = @options if v
         end
-        args
+        splat.options = @options if splat
+        return args, splat
       rescue Sass::SyntaxError => e
         e.modify_backtrace :line => @lexer.line, :filename => @options[:filename]
         raise e
@@ -8368,17 +10506,40 @@ module Sass
 
       # Parses the argument list for a function definition.
       #
-      # @return [Array<Script::Node>] The root nodes of the arguments.
+      # @return [(Array<Script::Node>, Script::Node)]
+      #   The root nodes of the arguments, and the splat argument.
       # @raise [Sass::SyntaxError] if the argument list isn't valid SassScript
       def parse_function_definition_arglist
-        args = defn_arglist!(true)
+        args, splat = defn_arglist!(true)
         assert_done
 
         args.each do |k, v|
           k.options = @options
           v.options = @options if v
         end
-        args
+        splat.options = @options if splat
+        return args, splat
+      rescue Sass::SyntaxError => e
+        e.modify_backtrace :line => @lexer.line, :filename => @options[:filename]
+        raise e
+      end
+
+      # Parse a single string value, possibly containing interpolation.
+      # Doesn't assert that the scanner is finished after parsing.
+      #
+      # @return [Script::Node] The root node of the parse tree.
+      # @raise [Sass::SyntaxError] if the string isn't valid SassScript
+      def parse_string
+        unless (peek = @lexer.peek) &&
+            (peek.type == :string ||
+            (peek.type == :funcall && peek.value.downcase == 'url'))
+          lexer.expected!("string")
+        end
+
+        expr = assert_expr :funcall
+        expr.options = @options
+        @lexer.unpeek!
+        expr
       rescue Sass::SyntaxError => e
         e.modify_backtrace :line => @lexer.line, :filename => @options[:filename]
         raise e
@@ -8431,12 +10592,16 @@ module Sass
         # sub is the name of the production beneath it,
         # and ops is a list of operators for this precedence level
         def production(name, sub, *ops)
-          class_eval <<RUBY
+          class_eval <<RUBY, __FILE__, __LINE__ + 1
             def #{name}
               interp = try_ops_after_interp(#{ops.inspect}, #{name.inspect}) and return interp
               return unless e = #{sub}
               while tok = try_tok(#{ops.map {|o| o.inspect}.join(', ')})
-                interp = try_op_before_interp(tok, e) and return interp
+                if interp = try_op_before_interp(tok, e)
+                  return interp unless other_interp = try_ops_after_interp(#{ops.inspect}, #{name.inspect}, interp)
+                  return other_interp
+                end
+
                 line = @lexer.line
                 e = Operation.new(e, assert_expr(#{sub.inspect}), tok.type)
                 e.line = line
@@ -8447,7 +10612,7 @@ RUBY
         end
 
         def unary(op, sub)
-          class_eval <<RUBY
+          class_eval <<RUBY, __FILE__, __LINE__ + 1
             def unary_#{op}
               return #{sub} unless tok = try_tok(:#{op})
               interp = try_op_before_interp(tok) and return interp
@@ -8471,7 +10636,10 @@ RUBY
         return unless e = interpolation
         arr = [e]
         while tok = try_tok(:comma)
-          interp = try_op_before_interp(tok, e) and return interp
+          if interp = try_op_before_interp(tok, e)
+            return interp unless other_interp = try_ops_after_interp([:comma], :expr, interp)
+            return other_interp
+          end
           arr << assert_expr(:interpolation)
         end
         arr.size == 1 ? arr.first : node(List.new(arr, :comma), line)
@@ -8489,15 +10657,15 @@ RUBY
         interpolation(interp)
       end
 
-      def try_ops_after_interp(ops, name)
+      def try_ops_after_interp(ops, name, prev = nil)
         return unless @lexer.after_interpolation?
         return unless op = try_tok(*ops)
-        interp = try_op_before_interp(op) and return interp
+        interp = try_op_before_interp(op, prev) and return interp
 
         wa = @lexer.whitespace?
         str = Script::String.new(Lexer::OPERATORS_REVERSE[op.type])
         str.line = @lexer.line
-        interp = Script::Interpolation.new(nil, str, assert_expr(name), !:wb, wa, :originally_text)
+        interp = Script::Interpolation.new(prev, str, assert_expr(name), !:wb, wa, :originally_text)
         interp.line = @lexer.line
         return interp
       end
@@ -8542,7 +10710,7 @@ RUBY
         return if @stop_at && @stop_at.include?(@lexer.peek.value)
 
         name = @lexer.next
-        if color = Color::HTML4_COLORS[name.value.downcase]
+        if color = Color::COLOR_NAMES[name.value.downcase]
           return node(Color.new(color))
         end
         node(Script::String.new(name.value, :identifier))
@@ -8550,37 +10718,41 @@ RUBY
 
       def funcall
         return raw unless tok = try_tok(:funcall)
-        args, keywords = fn_arglist || [[], {}]
+        args, keywords, splat = fn_arglist || [[], {}]
         assert_tok(:rparen)
-        node(Script::Funcall.new(tok.value, args, keywords))
+        node(Script::Funcall.new(tok.value, args, keywords, splat))
       end
 
       def defn_arglist!(must_have_parens)
         if must_have_parens
           assert_tok(:lparen)
         else
-          return [] unless try_tok(:lparen)
+          return [], nil unless try_tok(:lparen)
         end
-        return [] if try_tok(:rparen)
+        return [], nil if try_tok(:rparen)
 
         res = []
+        splat = nil
         must_have_default = false
         loop do
           line = @lexer.line
           offset = @lexer.offset + 1
           c = assert_tok(:const)
           var = Script::Variable.new(c.value)
-          if tok = try_tok(:colon)
+          if try_tok(:colon)
             val = assert_expr(:space)
             must_have_default = true
           elsif must_have_default
             raise SyntaxError.new("Required argument #{var.inspect} must come before any optional arguments.")
+          elsif try_tok(:splat)
+            splat = var
+            break
           end
           res << [var, val]
           break unless try_tok(:comma)
         end
         assert_tok(:rparen)
-        res
+        return res, splat
       end
 
       def fn_arglist
@@ -8602,30 +10774,21 @@ RUBY
 
         unless try_tok(:comma)
           return [], keywords if keywords
+          return [], {}, e if try_tok(:splat)
           return [e], {}
         end
 
-        other_args, other_keywords = assert_expr(type)
+        other_args, other_keywords, splat = assert_expr(type)
         if keywords
-          if other_keywords[name.underscored_name]
+          if !other_args.empty? || splat
+            raise SyntaxError.new("Positional arguments must come before keyword arguments.")
+          elsif other_keywords[name.underscored_name]
             raise SyntaxError.new("Keyword argument \"#{name.to_sass}\" passed more than once")
           end
-          return other_args, keywords.merge(other_keywords)
+          return other_args, keywords.merge(other_keywords), splat
         else
-          return [e, *other_args], other_keywords
+          return [e, *other_args], other_keywords, splat
         end
-      end
-
-      def keyword_arglist
-        return unless var = try_tok(:const)
-        unless try_tok(:colon)
-          return_tok!
-          return
-        end
-        name = var[1]
-        value = interpolation
-        return {name => value} unless try_tok(:comma)
-        {name => value}.merge(assert_expr(:keyword_arglist))
       end
 
       def raw
@@ -8679,7 +10842,7 @@ RUBY
       end
 
       def literal
-        (t = try_tok(:color, :bool)) && (return t.value)
+        (t = try_tok(:color, :bool, :null)) && (return t.value)
       end
 
       # It would be possible to have unified #assert and #try methods,
@@ -8792,8 +10955,6 @@ module Sass
     end
   end
 end
-require 'strscan'
-require 'set'
 
 module Sass
   module SCSS
@@ -8803,10 +10964,12 @@ module Sass
       # @param str [String, StringScanner] The source document to parse.
       #   Note that `Parser` *won't* raise a nice error message if this isn't properly parsed;
       #   for that, you should use the higher-level {Sass::Engine} or {Sass::CSS}.
+      # @param filename [String] The name of the file being parsed. Used for warnings.
       # @param line [Fixnum] The line on which the source string appeared,
-      #   if it's part of another document
-      def initialize(str, line = 1)
+      #   if it's part of another document.
+      def initialize(str, filename, line = 1)
         @template = str
+        @filename = filename
         @line = line
         @strs = []
       end
@@ -8833,6 +10996,18 @@ module Sass
         interp_ident
       end
 
+      # Parses a media query list.
+      #
+      # @return [Sass::Media::QueryList] The parsed query list
+      # @raise [Sass::SyntaxError] if there's a syntax error in the query list,
+      #   or if it doesn't take up the entire input string.
+      def parse_media_query_list
+        init_scanner!
+        ql = media_query_list
+        expected("media query list") unless @scanner.eos?
+        ql
+      end
+
       private
 
       include Sass::SCSS::RX
@@ -8842,7 +11017,7 @@ module Sass
           if @template.is_a?(StringScanner)
             @template
           else
-            StringScanner.new(@template.gsub("\r", ""))
+            Sass::Util::MultibyteStringScanner.new(@template.gsub("\r", ""))
           end
       end
 
@@ -8881,19 +11056,32 @@ module Sass
       end
 
       def process_comment(text, node)
-        single_line = text =~ /^\/\//
-        pre_str = single_line ? "" : @scanner.
-          string[0...@scanner.pos].
-          reverse[/.*?\*\/(.*?)($|\Z)/, 1].
-          reverse.gsub(/[^\s]/, ' ')
-        text = text.sub(/^\s*\/\//, '/*').gsub(/^\s*\/\//, ' *') + ' */' if single_line
-        comment = Sass::Tree::CommentNode.new(pre_str + text, single_line)
-        comment.line = @line - text.count("\n")
+        silent = text =~ /^\/\//
+        loud = !silent && text =~ %r{^/[/*]!}
+        line = @line - text.count("\n")
+
+        if silent
+          value = [text.sub(/^\s*\/\//, '/*').gsub(/^\s*\/\//, ' *') + ' */']
+        else
+          value = Sass::Engine.parse_interp(text, line, @scanner.pos - text.size, :filename => @filename)
+          value[0].slice!(2) if loud # get rid of the "!"
+          value.unshift(@scanner.
+            string[0...@scanner.pos].
+            reverse[/.*?\*\/(.*?)($|\Z)/, 1].
+            reverse.gsub(/[^\s]/, ' '))
+        end
+
+        type = if silent then :silent elsif loud then :loud else :normal end
+        comment = Sass::Tree::CommentNode.new(value, type)
+        comment.line = line
         node << comment
       end
 
       DIRECTIVES = Set[:mixin, :include, :function, :return, :debug, :warn, :for,
-        :each, :while, :if, :else, :extend, :import, :media, :charset]
+        :each, :while, :if, :else, :extend, :import, :media, :charset, :content,
+        :_moz_document]
+
+      PREFIXED_DIRECTIVES = Set[:supports]
 
       def directive
         return unless tok(/@/)
@@ -8902,13 +11090,20 @@ module Sass
 
         if dir = special_directive(name)
           return dir
+        elsif dir = prefixed_directive(name)
+          return dir
         end
 
         # Most at-rules take expressions (e.g. @import),
-        # but some (e.g. @page) take selector-like arguments
-        val = str {break unless expr}
-        val ||= CssParser.new(@scanner, @line).parse_selector_string
-        node = node(Sass::Tree::DirectiveNode.new("@#{name} #{val}".strip))
+        # but some (e.g. @page) take selector-like arguments.
+        # Some take no arguments at all.
+        val = expr || selector
+        val = val ? ["@#{name} "] + Sass::Util.strip_string_array(val) : ["@#{name}"]
+        directive_body(val)
+      end
+
+      def directive_body(value)
+        node = node(Sass::Tree::DirectiveNode.new(value))
 
         if tok(/\{/)
           node.has_children = true
@@ -8924,25 +11119,41 @@ module Sass
         DIRECTIVES.include?(sym) && send("#{sym}_directive")
       end
 
+      def prefixed_directive(name)
+        sym = name.gsub(/^-[a-z0-9]+-/i, '').gsub('-', '_').to_sym
+        PREFIXED_DIRECTIVES.include?(sym) && send("#{sym}_directive", name)
+      end
+
       def mixin_directive
         name = tok! IDENT
-        args = sass_script(:parse_mixin_definition_arglist)
+        args, splat = sass_script(:parse_mixin_definition_arglist)
         ss
-        block(node(Sass::Tree::MixinDefNode.new(name, args)), :directive)
+        block(node(Sass::Tree::MixinDefNode.new(name, args, splat)), :directive)
       end
 
       def include_directive
         name = tok! IDENT
-        args, keywords = sass_script(:parse_mixin_include_arglist)
+        args, keywords, splat = sass_script(:parse_mixin_include_arglist)
         ss
-        node(Sass::Tree::MixinNode.new(name, args, keywords))
+        include_node = node(Sass::Tree::MixinNode.new(name, args, keywords, splat))
+        if tok?(/\{/)
+          include_node.has_children = true
+          block(include_node, :directive)
+        else
+          include_node
+        end
+      end
+
+      def content_directive
+        ss
+        node(Sass::Tree::ContentNode.new)
       end
 
       def function_directive
         name = tok! IDENT
-        args = sass_script(:parse_function_definition_arglist)
+        args, splat = sass_script(:parse_function_definition_arglist)
         ss
-        block(node(Sass::Tree::FunctionNode.new(name, args)), :function)
+        block(node(Sass::Tree::FunctionNode.new(name, args, splat)), :function)
       end
 
       def return_directive
@@ -9034,7 +11245,10 @@ module Sass
       end
 
       def extend_directive
-        node(Sass::Tree::ExtendNode.new(expr!(:selector)))
+        selector = expr!(:selector_sequence)
+        optional = tok(OPTIONAL)
+        ss
+        node(Sass::Tree::ExtendNode.new(selector, !!optional))
       end
 
       def import_directive
@@ -9042,77 +11256,106 @@ module Sass
 
         loop do
           values << expr!(:import_arg)
-          break if use_css_import? || !tok(/,\s*/)
+          break if use_css_import?
+          break unless tok(/,/)
+          ss
         end
 
         return values
       end
 
       def import_arg
-        return unless arg = tok(STRING) || (uri = tok!(URI))
-        path = @scanner[1] || @scanner[2] || @scanner[3]
-        ss
-
-        media = str {media_query_list}.strip
-
-        if uri || path =~ /^http:\/\// || !media.strip.empty? || use_css_import?
-          return node(Sass::Tree::DirectiveNode.new("@import #{arg} #{media}".strip))
+        line = @line
+        return unless (str = tok(STRING)) || (uri = tok?(/url\(/i))
+        if uri
+          str = sass_script(:parse_string)
+          media = media_query_list
+          ss
+          return node(Tree::CssImportNode.new(str, media.to_a))
         end
 
-        node(Sass::Tree::ImportNode.new(path.strip))
+        path = @scanner[1] || @scanner[2]
+        ss
+
+        media = media_query_list
+        if path =~ /^(https?:)?\/\// || media || use_css_import?
+          node = Sass::Tree::CssImportNode.new(str, media.to_a)
+        else
+          node = Sass::Tree::ImportNode.new(path.strip)
+        end
+        node.line = line
+        node
       end
 
       def use_css_import?; false; end
 
       def media_directive
-        val = str {media_query_list}.strip
-        block(node(Sass::Tree::MediaNode.new(val)), :directive)
+        block(node(Sass::Tree::MediaNode.new(expr!(:media_query_list).to_a)), :directive)
       end
 
       # http://www.w3.org/TR/css3-mediaqueries/#syntax
       def media_query_list
-        return unless media_query
+        return unless query = media_query
+        queries = [query]
 
         ss
         while tok(/,/)
-          ss; expr!(:media_query); ss
+          ss; queries << expr!(:media_query)
         end
+        ss
 
-        true
+        Sass::Media::QueryList.new(queries)
       end
 
       def media_query
-        if tok(/only|not/i)
+        if ident1 = interp_ident
           ss
-          @expected = "media type (e.g. print, screen)"
-          tok!(IDENT)
+          ident2 = interp_ident
           ss
-        elsif !tok(IDENT) && !media_expr
-          return
+          if ident2 && ident2.length == 1 && ident2[0].is_a?(String) && ident2[0].downcase == 'and'
+            query = Sass::Media::Query.new([], ident1, [])
+          else
+            if ident2
+              query = Sass::Media::Query.new(ident1, ident2, [])
+            else
+              query = Sass::Media::Query.new([], ident1, [])
+            end
+            return query unless tok(/and/i)
+            ss
+          end
         end
+
+        if query
+          expr = expr!(:media_expr)
+        else
+          return unless expr = media_expr
+        end
+        query ||= Sass::Media::Query.new([], [], [])
+        query.expressions << expr
 
         ss
         while tok(/and/i)
-          ss; expr!(:media_expr); ss
+          ss; query.expressions << expr!(:media_expr)
         end
 
-        true
+        query
       end
 
       def media_expr
+        interp = interpolation and return interp
         return unless tok(/\(/)
+        res = ['(']
         ss
-        @expected = "media feature (e.g. min-device-width, color)"
-        tok!(IDENT)
-        ss
+        res << sass_script(:parse)
 
         if tok(/:/)
-          ss; expr!(:expr)
+          res << ': '
+          ss
+          res << sass_script(:parse)
         end
-        tok!(/\)/)
+        res << tok!(/\)/)
         ss
-
-        true
+        res
       end
 
       def charset_directive
@@ -9120,6 +11363,91 @@ module Sass
         name = @scanner[1] || @scanner[2]
         ss
         node(Sass::Tree::CharsetNode.new(name))
+      end
+
+      # The document directive is specified in
+      # http://www.w3.org/TR/css3-conditional/, but Gecko allows the
+      # `url-prefix` and `domain` functions to omit quotation marks, contrary to
+      # the standard.
+      #
+      # We could parse all document directives according to Mozilla's syntax,
+      # but if someone's using e.g. @-webkit-document we don't want them to
+      # think WebKit works sans quotes.
+      def _moz_document_directive
+        res = ["@-moz-document "]
+        loop do
+          res << str{ss} << expr!(:moz_document_function)
+          break unless c = tok(/,/)
+          res << c
+        end
+        directive_body(res.flatten)
+      end
+
+      def moz_document_function
+        return unless val = interp_uri || _interp_string(:url_prefix) ||
+          _interp_string(:domain) || function(!:allow_var) || interpolation
+        ss
+        val
+      end
+
+      # http://www.w3.org/TR/css3-conditional/
+      def supports_directive(name)
+        condition = expr!(:supports_condition)
+        node = node(Sass::Tree::SupportsNode.new(name, condition))
+
+        tok!(/\{/)
+        node.has_children = true
+        block_contents(node, :directive)
+        tok!(/\}/)
+
+        node
+      end
+
+      def supports_condition
+        supports_negation || supports_operator || supports_interpolation
+      end
+
+      def supports_negation
+        return unless tok(/not/i)
+        ss
+        Sass::Supports::Negation.new(expr!(:supports_condition_in_parens))
+      end
+
+      def supports_operator
+        return unless cond = supports_condition_in_parens
+        return cond unless op = tok(/and|or/i)
+        begin
+          ss
+          cond = Sass::Supports::Operator.new(
+            cond, expr!(:supports_condition_in_parens), op)
+        end while op = tok(/and|or/i)
+        cond
+      end
+
+      def supports_condition_in_parens
+        interp = supports_interpolation and return interp
+        return unless tok(/\(/); ss
+        if cond = supports_condition
+          tok!(/\)/); ss
+          cond
+        else
+          name = sass_script(:parse)
+          tok!(/:/); ss
+          value = sass_script(:parse)
+          tok!(/\)/); ss
+          Sass::Supports::Declaration.new(name, value)
+        end
+      end
+
+      def supports_declaration_condition
+        return unless tok(/\(/); ss
+        supports_declaration_body
+      end
+
+      def supports_interpolation
+        return unless interp = interpolation
+        ss
+        Sass::Supports::Interpolation.new(interp)
       end
 
       def variable
@@ -9138,10 +11466,6 @@ module Sass
         # but they're included here for compatibility
         # with some proprietary MS properties
         str {ss if tok(/[\/,:.=]/)}
-      end
-
-      def unary_operator
-        tok(/[+-]/)
       end
 
       def ruleset
@@ -9181,7 +11505,7 @@ module Sass
       end
 
       # This is a nasty hack, and the only place in the parser
-      # that requires backtracking.
+      # that requires a large amount of backtracking.
       # The reason is that we can't figure out if certain strings
       # are declarations or rulesets with fixed finite lookahead.
       # For example, "foo:bar baz baz baz..." could be either a property
@@ -9215,7 +11539,7 @@ module Sass
       end
 
       def selector_sequence
-        if sel = tok(STATIC_SELECTOR)
+        if sel = tok(STATIC_SELECTOR, true)
           return [sel]
         end
 
@@ -9271,35 +11595,52 @@ module Sass
       end
 
       def combinator
-        tok(PLUS) || tok(GREATER) || tok(TILDE)
+        tok(PLUS) || tok(GREATER) || tok(TILDE) || reference_combinator
+      end
+
+      def reference_combinator
+        return unless tok(/\//)
+        res = ['/']
+        ns, name = expr!(:qualified_name)
+        res << ns << '|' if ns
+        res << name << tok!(/\//)
+        res = res.flatten
+        res = res.join '' if res.all? {|e| e.is_a?(String)}
+        res
       end
 
       def simple_selector_sequence
-        # This allows for stuff like http://www.w3.org/TR/css3-animations/#keyframes-
-        return expr unless e = element_name || id_selector || class_selector ||
-          attrib || negation || pseudo || parent_selector || interpolation_selector
+        # Returning expr by default allows for stuff like
+        # http://www.w3.org/TR/css3-animations/#keyframes-
+        return expr(!:allow_var) unless e = element_name || id_selector ||
+          class_selector || placeholder_selector || attrib || pseudo ||
+          parent_selector || interpolation_selector
         res = [e]
 
         # The tok(/\*/) allows the "E*" hack
-        while v = element_name || id_selector || class_selector ||
-            attrib || negation || pseudo || interpolation_selector ||
+        while v = id_selector || class_selector || placeholder_selector || attrib ||
+            pseudo || interpolation_selector ||
             (tok(/\*/) && Selector::Universal.new(nil))
           res << v
         end
 
-        if tok?(/&/)
+        pos = @scanner.pos
+        line = @line
+        if sel = str? {simple_selector_sequence}
+          @scanner.pos = pos
+          @line = line
           begin
-            expected('"{"')
+            # If we see "*E", don't force a throw because this could be the
+            # "*prop: val" hack.
+            expected('"{"') if res.length == 1 && res[0].is_a?(Selector::Universal)
+            throw_error {expected('"{"')}
           rescue Sass::SyntaxError => e
-            e.message << "\n\n" << <<MESSAGE
-In Sass 3, the parent selector & can only be used where element names are valid,
-since it could potentially be replaced by an element name.
-MESSAGE
+            e.message << "\n\n\"#{sel}\" may only be used at the beginning of a compound selector."
             raise e
           end
         end
 
-        Selector::SimpleSequence.new(res)
+        Selector::SimpleSequence.new(res, tok(/!/))
       end
 
       def parent_selector
@@ -9319,19 +11660,30 @@ MESSAGE
         Selector::Id.new(merge(expr!(:interp_name)))
       end
 
+      def placeholder_selector
+        return unless tok(/%/)
+        @expected = "placeholder name"
+        Selector::Placeholder.new(merge(expr!(:interp_ident)))
+      end
+
       def element_name
-        return unless name = interp_ident || tok(/\*/) || (tok?(/\|/) && "")
-        if tok(/\|/)
-          @expected = "element name or *"
-          ns = name
-          name = interp_ident || tok!(/\*/)
-        end
+        ns, name = Sass::Util.destructure(qualified_name(:allow_star_name))
+        return unless ns || name
 
         if name == '*'
           Selector::Universal.new(merge(ns))
         else
           Selector::Element.new(merge(name), merge(ns))
         end
+      end
+
+      def qualified_name(allow_star_name=false)
+        return unless name = interp_ident || tok(/\*/) || (tok?(/\|/) && "")
+        return nil, name unless tok(/\|/)
+
+        return name, expr!(:interp_ident) unless allow_star_name
+        @expected = "identifier or *"
+        return name, interp_ident || tok!(/\*/)
       end
 
       def interpolation_selector
@@ -9353,16 +11705,13 @@ MESSAGE
             tok(SUBSTRINGMATCH)
           @expected = "identifier or string"
           ss
-          if val = tok(IDENT)
-            val = [val]
-          else
-            val = expr!(:interp_string)
-          end
+          val = interp_ident || expr!(:interp_string)
           ss
         end
-        tok(/\]/)
+        flags = interp_ident || interp_string
+        tok!(/\]/)
 
-        Selector::Attribute.new(merge(name), merge(ns), op, merge(val))
+        Selector::Attribute.new(merge(name), merge(ns), op, merge(val), merge(flags))
       end
 
       def attrib_name!
@@ -9389,30 +11738,51 @@ MESSAGE
         name = expr!(:interp_ident)
         if tok(/\(/)
           ss
-          arg = expr!(:pseudo_expr)
+          arg = expr!(:pseudo_arg)
+          while tok(/,/)
+            arg << ',' << str{ss}
+            arg.concat expr!(:pseudo_arg)
+          end
           tok!(/\)/)
         end
         Selector::Pseudo.new(s == ':' ? :class : :element, merge(name), merge(arg))
       end
 
+      def pseudo_arg
+        # In the CSS spec, every pseudo-class/element either takes a pseudo
+        # expression or a selector comma sequence as an argument. However, we
+        # don't want to have to know which takes which, so we handle both at
+        # once.
+        #
+        # However, there are some ambiguities between the two. For instance, "n"
+        # could start a pseudo expression like "n+1", or it could start a
+        # selector like "n|m". In order to handle this, we must regrettably
+        # backtrack.
+        expr, sel = nil, nil
+        pseudo_err = catch_error do
+          expr = pseudo_expr
+          next if tok?(/[,)]/)
+          expr = nil
+          expected '")"'
+        end
+
+        return expr if expr
+        sel_err = catch_error {sel = selector}
+        return sel if sel
+        rethrow pseudo_err if pseudo_err
+        rethrow sel_err if sel_err
+        return
+      end
+
       def pseudo_expr
-        return unless e = tok(PLUS) || tok(/-/) || tok(NUMBER) ||
+        return unless e = tok(PLUS) || tok(/[-*]/) || tok(NUMBER) ||
           interp_string || tok(IDENT) || interpolation
         res = [e, str{ss}]
-        while e = tok(PLUS) || tok(/-/) || tok(NUMBER) ||
+        while e = tok(PLUS) || tok(/[-*]/) || tok(NUMBER) ||
             interp_string || tok(IDENT) || interpolation
           res << e << str{ss}
         end
         res
-      end
-
-      def negation
-        return unless name = tok(NOT) || tok(MOZ_ANY)
-        ss
-        @expected = "selector"
-        sel = selector_comma_sequence
-        tok!(/\)/)
-        Selector::SelectorPseudoClass.new(name[1...-1], sel)
       end
 
       def declaration
@@ -9450,21 +11820,10 @@ MESSAGE
         # we don't parse it at all, and instead return a plain old string
         # containing the value.
         # This results in a dramatic speed increase.
-        if val = tok(STATIC_VALUE)
+        if val = tok(STATIC_VALUE, true)
           return space, Sass::Script::String.new(val.strip)
         end
         return space, sass_script(:parse)
-      end
-
-      def plain_value
-        return unless tok(/:/)
-        space = !str {ss}.empty?
-        @use_property_exception ||= space || !tok?(IDENT)
-
-        expression = expr
-        expression << tok(IMPORTANT) if expression
-        # expression, space, value
-        return expression, space, expression || [""]
       end
 
       def nested_properties!(node, space)
@@ -9478,41 +11837,51 @@ MESSAGE
         block(node, :property)
       end
 
-      def expr
-        return unless t = term
+      def expr(allow_var = true)
+        return unless t = term(allow_var)
         res = [t, str{ss}]
 
-        while (o = operator) && (t = term)
+        while (o = operator) && (t = term(allow_var))
           res << o << t << str{ss}
         end
 
-        res
+        res.flatten
       end
 
-      def term
-        unless e = tok(NUMBER) ||
-            tok(URI) ||
-            function ||
-            tok(STRING) ||
+      def term(allow_var)
+        if e = tok(NUMBER) ||
+            interp_uri ||
+            function(allow_var) ||
+            interp_string ||
             tok(UNICODERANGE) ||
-            tok(IDENT) ||
-            tok(HEXCOLOR)
-
-          return unless op = unary_operator
-          @expected = "number or function"
-          return [op, tok(NUMBER) || expr!(:function)]
+            interp_ident ||
+            tok(HEXCOLOR) ||
+            (allow_var && var_expr)
+          return e
         end
-        e
+
+        return unless op = tok(/[+-]/)
+        @expected = "number or function"
+        return [op, tok(NUMBER) || function(allow_var) ||
+          (allow_var && var_expr) || expr!(:interpolation)]
       end
 
-      def function
+      def function(allow_var)
         return unless name = tok(FUNCTION)
         if name == "expression(" || name == "calc("
           str, _ = Sass::Shared.balance(@scanner, ?(, ?), 1)
           [name, str]
         else
-          [name, str{ss}, expr, tok!(/\)/)]
+          [name, str{ss}, expr(allow_var), tok!(/\)/)]
         end
+      end
+
+      def var_expr
+        return unless tok(/\$/)
+        line = @line
+        var = Sass::Script::Variable.new(tok!(IDENT))
+        var.line = line
+        var
       end
 
       def interpolation
@@ -9522,6 +11891,10 @@ MESSAGE
 
       def interp_string
         _interp_string(:double) || _interp_string(:single)
+      end
+
+      def interp_uri
+        _interp_string(:uri)
       end
 
       def _interp_string(type)
@@ -9539,12 +11912,17 @@ MESSAGE
       end
 
       def interp_ident(start = IDENT)
-        return unless val = tok(start) || interpolation
+        return unless val = tok(start) || interpolation || tok(IDENT_HYPHEN_INTERP, true)
         res = [val]
         while val = tok(NAME) || interpolation
           res << val
         end
         res
+      end
+
+      def interp_ident_or_var
+        (id = interp_ident) and return id
+        (var = var_expr) and return [var]
       end
 
       def interp_name
@@ -9560,8 +11938,14 @@ MESSAGE
       end
 
       def str?
+        pos = @scanner.pos
+        line = @line
         @strs.push ""
-        yield && @strs.last
+        throw_error {yield} && @strs.last
+      rescue Sass::SyntaxError => e
+        @scanner.pos = pos
+        @line = line
+        nil
       ensure
         @strs.pop
       end
@@ -9580,6 +11964,11 @@ MESSAGE
         parser = self.class.sass_script_parser.new(@scanner, @line,
           @scanner.pos - (@scanner.string[0...@scanner.pos].rindex("\n") || 0))
         result = parser.send(*args)
+        unless @strs.empty?
+          # Convert to CSS manually so that comments are ignored.
+          src = result.to_sass
+          @strs.each {|s| s << src}
+        end
         @line = parser.line
         result
       rescue Sass::SyntaxError => e
@@ -9593,15 +11982,19 @@ MESSAGE
 
       EXPR_NAMES = {
         :media_query => "media query (e.g. print, screen, print and screen)",
-        :media_expr => "media expression (e.g. (min-device-width: 800px)))",
-        :pseudo_expr => "expression (e.g. fr, 2n+1)",
+        :media_query_list => "media query (e.g. print, screen, print and screen)",
+        :media_expr => "media expression (e.g. (min-device-width: 800px))",
+        :pseudo_arg => "expression (e.g. fr, 2n+1)",
         :interp_ident => "identifier",
         :interp_name => "identifier",
+        :qualified_name => "identifier",
         :expr => "expression (e.g. 1px, bold)",
         :_selector => "selector",
-        :selector_comma_sequence => "selector",
         :simple_selector_sequence => "selector",
         :import_arg => "file to import (string or url())",
+        :moz_document_function => "matching function (e.g. url-prefix(), domain())",
+        :supports_condition => "@supports condition (e.g. (display: flexbox))",
+        :supports_condition_in_parens => "@supports condition (e.g. (display: flexbox))",
       }
 
       TOK_NAMES = Sass::Util.to_hash(
@@ -9640,12 +12033,19 @@ MESSAGE
         raise Sass::SyntaxError.new(msg, :line => @line)
       end
 
+      def throw_error
+        old_throw_error, @throw_error = @throw_error, false
+        yield
+      ensure
+        @throw_error = old_throw_error
+      end
+
       def catch_error(&block)
         old_throw_error, @throw_error = @throw_error, true
         pos = @scanner.pos
         line = @line
         expected = @expected
-        if catch(:_sass_parser_error, &block)
+        if catch(:_sass_parser_error) {yield; false}
           @scanner.pos = pos
           @line = line
           @expected = expected
@@ -9659,7 +12059,7 @@ MESSAGE
         if @throw_err
           throw :_sass_parser_error, err
         else
-          @scanner = StringScanner.new(@scanner.string)
+          @scanner = Sass::Util::MultibyteStringScanner.new(@scanner.string)
           @scanner.pos = err[:pos]
           @line = err[:line]
           @expected = err[:expected]
@@ -9696,9 +12096,25 @@ MESSAGE
       # This is important because `#tok` is called all the time.
       NEWLINE = "\n"
 
-      def tok(rx)
+      def tok(rx, last_group_lookahead = false)
         res = @scanner.scan(rx)
         if res
+          # This fixes https://github.com/nex3/sass/issues/104, which affects
+          # Ruby 1.8.7 and REE. This fix is to replace the ?= zero-width
+          # positive lookahead operator in the Regexp (which matches without
+          # consuming the matched group), with a match that does consume the
+          # group, but then rewinds the scanner and removes the group from the
+          # end of the matched string. This fix makes the assumption that the
+          # matched group will always occur at the end of the match.
+		  if  last_group_lookahead 
+			#RG IronRuby has the negative group index code wrong, so use regexp on 
+			#RG the matched text to get the last group
+			lastgroup = rx.match( @scanner.matched )[-1]
+			if lastgroup
+			  @scanner.pos -= lastgroup.length
+			  res.slice!(-lastgroup.length..-1)
+			end
+          end
           @line += res.count(NEWLINE)
           @expected = nil
           if !@strs.empty? && rx != COMMENT && rx != SINGLE_LINE_COMMENT
@@ -9706,57 +12122,6 @@ MESSAGE
           end
           res
         end
-      end
-    end
-  end
-end
-module Sass
-  module SCSS
-    # A subclass of {Parser} that parses code in Sass documents
-    # using some SCSS constructs.
-    # This is necessary because SassScript in Sass supports `!`-style variables,
-    # whereas in SCSS it doesn't.
-    class SassParser < Parser
-      @sass_script_parser = Sass::Script::Parser
-    end
-  end
-end
-module Sass
-  module SCSS
-    # A parser for a static SCSS tree.
-    # Parses with SCSS extensions, like nested rules and parent selectors,
-    # but without dynamic SassScript.
-    # This is useful for e.g. \{#parse\_selector parsing selectors}
-    # after resolving the interpolation.
-    class StaticParser < Parser
-      # Parses the text as a selector.
-      #
-      # @param filename [String, nil] The file in which the selector appears,
-      #   or nil if there is no such file.
-      #   Used for error reporting.
-      # @return [Selector::CommaSequence] The parsed selector
-      # @raise [Sass::SyntaxError] if there's a syntax error in the selector
-      def parse_selector(filename)
-        init_scanner!
-        seq = expr!(:selector_comma_sequence)
-        expected("selector") unless @scanner.eos?
-        seq.line = @line
-        seq.filename = filename
-        seq
-      end
-
-      private
-
-      def variable; nil; end
-      def script_value; nil; end
-      def interpolation; nil; end
-      def interp_string; s = tok(STRING) and [s]; end
-      def interp_ident(ident = IDENT); s = tok(ident) and [s]; end
-      def use_css_import?; true; end
-
-      def special_directive(name)
-        return unless  %w[media import charset].include?(name)
-        super
       end
     end
   end
@@ -9822,26 +12187,69 @@ end
 
 module Sass
   module SCSS
+    # A parser for a static SCSS tree.
+    # Parses with SCSS extensions, like nested rules and parent selectors,
+    # but without dynamic SassScript.
+    # This is useful for e.g. \{#parse\_selector parsing selectors}
+    # after resolving the interpolation.
+    class StaticParser < Parser
+      # Parses the text as a selector.
+      #
+      # @param filename [String, nil] The file in which the selector appears,
+      #   or nil if there is no such file.
+      #   Used for error reporting.
+      # @return [Selector::CommaSequence] The parsed selector
+      # @raise [Sass::SyntaxError] if there's a syntax error in the selector
+      def parse_selector
+        init_scanner!
+        seq = expr!(:selector_comma_sequence)
+        expected("selector") unless @scanner.eos?
+        seq.line = @line
+        seq.filename = @filename
+        seq
+      end
+
+      private
+
+      def moz_document_function
+        return unless val = tok(URI) || tok(URL_PREFIX) || tok(DOMAIN) ||
+          function(!:allow_var)
+        ss
+        [val]
+      end
+
+      def variable; nil; end
+      def script_value; nil; end
+      def interpolation; nil; end
+      def var_expr; nil; end
+      def interp_string; s = tok(STRING) and [s]; end
+      def interp_uri; s = tok(URI) and [s]; end
+      def interp_ident(ident = IDENT); s = tok(ident) and [s]; end
+      def use_css_import?; true; end
+
+      def special_directive(name)
+        return unless %w[media import charset -moz-document].include?(name)
+        super
+      end
+
+      @sass_script_parser = Class.new(Sass::Script::CssParser)
+      @sass_script_parser.send(:include, ScriptParser)
+    end
+  end
+end
+
+module Sass
+  module SCSS
     # This is a subclass of {Parser} which only parses plain CSS.
     # It doesn't support any Sass extensions, such as interpolation,
     # parent references, nested selectors, and so forth.
     # It does support all the same CSS hacks as the SCSS parser, though.
     class CssParser < StaticParser
-      # Parse a selector, and return its value as a string.
-      #
-      # @return [String, nil] The parsed selector, or nil if no selector was parsed
-      # @raise [Sass::SyntaxError] if there's a syntax error in the selector
-      def parse_selector_string
-        init_scanner!
-        str {return unless selector}
-      end
-
       private
 
+      def placeholder_selector; nil; end
       def parent_selector; nil; end
       def interpolation; nil; end
-      def interp_string; tok(STRING); end
-      def interp_ident(ident = IDENT); tok(ident); end
       def use_css_import?; true; end
 
       def block_child(context)
@@ -10169,7 +12577,8 @@ module Sass
       # If no such files exist, it should return nil.
       #
       # The {Sass::Engine} to be returned should be passed `options`,
-      # with a few modifications. `:filename` and `:syntax` should be set appropriately,
+      # with a few modifications. `:syntax` should be set appropriately,
+      # `:filename` should be set to `uri`,
       # and `:importer` should be set to this importer.
       #
       # @param uri [String] The URI to import.
@@ -10233,7 +12642,6 @@ module Sass
 end
 
       
-require 'pathname'
 
 module Sass
   module Importers
@@ -10248,7 +12656,8 @@ module Sass
       # @param root [String] The root path.
       #   This importer will import files relative to this path.
       def initialize(root)
-        @root = root
+        @root = File.expand_path(root)
+        @same_name_warnings = Set.new
       end
 
       # @see Base#find_relative
@@ -10263,7 +12672,7 @@ module Sass
 
       # @see Base#mtime
       def mtime(name, options)
-        file, s = find_real_file(@root, name)
+        file, s = Sass::Util.destructure(find_real_file(@root, name, options))
         File.mtime(file) if file
       rescue Errno::ENOENT
         nil
@@ -10280,14 +12689,21 @@ module Sass
         @root
       end
 
+      def hash
+        @root.hash
+      end
+
+      def eql?(other)
+        root.eql?(other.root)
+      end
+
       protected
 
       # If a full uri is passed, this removes the root from it
       # otherwise returns the name unchanged
       def remove_root(name)
-        root = @root.end_with?('/') ? @root : @root + '/'
-        if name.index(root) == 0
-          name[root.length..-1]
+        if name.index(@root + "/") == 0
+          name[(@root.length + 1)..-1]
         else
           name
         end
@@ -10312,14 +12728,26 @@ module Sass
       #   The first element of each pair is a filename to look for;
       #   the second element is the syntax that file would be in (`:sass` or `:scss`).
       def possible_files(name)
+        name = escape_glob_characters(name)
         dirname, basename, extname = split(name)
         sorted_exts = extensions.sort
         syntax = extensions[extname]
 
-        return [["#{dirname}/{_,}#{basename}.#{extensions.invert[syntax]}", syntax]] if syntax
-        sorted_exts.map {|ext, syn| ["#{dirname}/{_,}#{basename}.#{ext}", syn]}
+        if syntax
+          ret = [["#{dirname}/{_,}#{basename}.#{extensions.invert[syntax]}", syntax]]
+        else
+          ret = sorted_exts.map {|ext, syn| ["#{dirname}/{_,}#{basename}.#{ext}", syn]}
+        end
+
+        # JRuby chokes when trying to import files from JARs when the path starts with './'.
+        ret.map {|f, s| [f.sub(%r{^\./}, ''), s]}
       end
 
+      def escape_glob_characters(name)
+        name.gsub(/[\*\[\]\{\}\?]/) do |char|
+          "\\#{char}"
+        end
+      end
 
       REDUNDANT_DIRECTORY = %r{#{Regexp.escape(File::SEPARATOR)}\.#{Regexp.escape(File::SEPARATOR)}}
       # Given a base directory and an `@import`ed name,
@@ -10328,15 +12756,48 @@ module Sass
       # @param dir [String] The directory relative to which to search.
       # @param name [String] The filename to search for.
       # @return [(String, Symbol)] A filename-syntax pair.
-      def find_real_file(dir, name)
-        for (f,s) in possible_files(remove_root(name))
-          path = (dir == ".") ? f : "#{dir}/#{f}"
-          if full_path = Dir[path].first
-            full_path.gsub!(REDUNDANT_DIRECTORY,File::SEPARATOR)
-            return full_path, s
+      def find_real_file(dir, name, options)
+        # on windows 'dir' can be in native File::ALT_SEPARATOR form
+        dir = dir.gsub(File::ALT_SEPARATOR, File::SEPARATOR) unless File::ALT_SEPARATOR.nil?
+
+        found = possible_files(remove_root(name)).map do |f, s|
+          path = (dir == "." || Pathname.new(f).absolute?) ? f : "#{dir}/#{f}"
+          Dir[path].map do |full_path|
+            full_path.gsub!(REDUNDANT_DIRECTORY, File::SEPARATOR)
+            [full_path, s]
           end
         end
-        nil
+        found = Sass::Util.flatten(found, 1)
+        return if found.empty?
+
+        if found.size > 1 && !@same_name_warnings.include?(found.first.first)
+          found.each {|(f, _)| @same_name_warnings << f}
+          relative_to = Pathname.new(dir)
+          if options[:_line]
+            # If _line exists, we're here due to an actual import in an
+            # import_node and we want to print a warning for a user writing an
+            # ambiguous import.
+            candidates = found.map {|(f, _)| "    " + Pathname.new(f).relative_path_from(relative_to).to_s}.join("\n")
+            Sass::Util.sass_warn <<WARNING
+WARNING: On line #{options[:_line]}#{" of #{options[:filename]}" if options[:filename]}:
+  It's not clear which file to import for '@import "#{name}"'.
+  Candidates:
+#{candidates}
+  For now I'll choose #{File.basename found.first.first}.
+  This will be an error in future versions of Sass.
+WARNING
+          else
+            # Otherwise, we're here via StalenessChecker, and we want to print a
+            # warning for a user running `sass --watch` with two ambiguous files.
+            candidates = found.map {|(f, _)| "    " + File.basename(f)}.join("\n")
+            Sass::Util.sass_warn <<WARNING
+WARNING: In #{File.dirname(name)}:
+  There are multiple files that match the name "#{File.basename(name)}":
+#{candidates}
+WARNING
+          end
+        end
+        found.first
       end
 
       # Splits a filename into three parts, a directory part, a basename, and an extension
@@ -10351,18 +12812,10 @@ module Sass
         [dirname, basename, extension]
       end
 
-      def hash
-        @root.hash
-      end
-
-      def eql?(other)
-        root.eql?(other.root)
-      end
-
       private
 
       def _find(dir, name, options)
-        full_filename, syntax = find_real_file(dir, name)
+        full_filename, syntax = Sass::Util.destructure(find_real_file(dir, name, options))
         return unless full_filename && File.readable?(full_filename)
 
         options[:syntax] = syntax
@@ -10377,8 +12830,6 @@ module Sass
     end
   end
 end
-require 'strscan'
-
 module Sass
   # This module contains functionality that's shared between Haml and Sass.
   module Shared
@@ -10395,8 +12846,8 @@ module Sass
     # @yieldparam scan [StringScanner] The scanner scanning through the string
     # @return [String] The text remaining in the scanner after all `#{`s have been processed
     def handle_interpolation(str)
-      scan = StringScanner.new(str)
-      yield scan while scan.scan(/(.*?)(\\*)\#\{/)
+      scan = Sass::Util::MultibyteStringScanner.new(str)
+      yield scan while scan.scan(/(.*?)(\\*)\#\{/m)
       scan.rest
     end
 
@@ -10419,7 +12870,7 @@ module Sass
     #   `["Foo (Bar (Baz bang) bop)", " (Bang (bop bip))"]` in the example above.
     def balance(scanner, start, finish, count = 0)
       str = ''
-      scanner = StringScanner.new(scanner) unless scanner.is_a? StringScanner
+      scanner = Sass::Util::MultibyteStringScanner.new(scanner) unless scanner.is_a? StringScanner
       regexp = Regexp.new("(.*?)[\\#{start.chr}\\#{finish.chr}]", Regexp::MULTILINE)
       while scanner.scan(regexp)
         str << scanner.matched
@@ -10455,6 +12906,451 @@ module Sass
     end
   end
 end
+# A namespace for the `@media` query parse tree.
+module Sass::Media
+  # A comma-separated list of queries.
+  #
+  #   media_query [ ',' S* media_query ]*
+  class QueryList
+    # The queries contained in this list.
+    #
+    # @return [Array<Query>]
+    attr_accessor :queries
+
+    # @param queries [Array<Query>] See \{#queries}
+    def initialize(queries)
+      @queries = queries
+    end
+
+    # Merges this query list with another. The returned query list
+    # queries for the intersection between the two inputs.
+    #
+    # Both query lists should be resolved.
+    #
+    # @param other [QueryList]
+    # @return [QueryList?] The merged list, or nil if there is no intersection.
+    def merge(other)
+      new_queries = queries.map {|q1| other.queries.map {|q2| q1.merge(q2)}}.flatten.compact
+      return if new_queries.empty?
+      QueryList.new(new_queries)
+    end
+
+    # Returns the CSS for the media query list.
+    #
+    # @return [String]
+    def to_css
+      queries.map {|q| q.to_css}.join(', ')
+    end
+
+    # Returns the Sass/SCSS code for the media query list.
+    #
+    # @param options [{Symbol => Object}] An options hash (see {Sass::CSS#initialize}).
+    # @return [String]
+    def to_src(options)
+      queries.map {|q| q.to_src(options)}.join(', ')
+    end
+
+    # Returns a representation of the query as an array of strings and
+    # potentially {Sass::Script::Node}s (if there's interpolation in it). When
+    # the interpolation is resolved and the strings are joined together, this
+    # will be the string representation of this query.
+    #
+    # @return [Array<String, Sass::Script::Node>]
+    def to_a
+      Sass::Util.intersperse(queries.map {|q| q.to_a}, ', ').flatten
+    end
+
+    # Returns a deep copy of this query list and all its children.
+    #
+    # @return [QueryList]
+    def deep_copy
+      QueryList.new(queries.map {|q| q.deep_copy})
+    end
+  end
+
+  # A single media query.
+  #
+  #   [ [ONLY | NOT]? S* media_type S* | expression ] [ AND S* expression ]*
+  class Query
+    # The modifier for the query.
+    #
+    # When parsed as Sass code, this contains strings and SassScript nodes. When
+    # parsed as CSS, it contains a single string (accessible via
+    # \{#resolved_modifier}).
+    #
+    # @return [Array<String, Sass::Script::Node>]
+    attr_accessor :modifier
+
+    # The type of the query (e.g. `"screen"` or `"print"`).
+    #
+    # When parsed as Sass code, this contains strings and SassScript nodes. When
+    # parsed as CSS, it contains a single string (accessible via
+    # \{#resolved_type}).
+    #
+    # @return [Array<String, Sass::Script::Node>]
+    attr_accessor :type
+
+    # The trailing expressions in the query.
+    #
+    # When parsed as Sass code, each expression contains strings and SassScript
+    # nodes. When parsed as CSS, each one contains a single string.
+    #
+    # @return [Array<Array<String, Sass::Script::Node>>]
+    attr_accessor :expressions
+
+    # @param modifier [Array<String, Sass::Script::Node>] See \{#modifier}
+    # @param type [Array<String, Sass::Script::Node>] See \{#type}
+    # @param expressions [Array<Array<String, Sass::Script::Node>>] See \{#expressions}
+    def initialize(modifier, type, expressions)
+      @modifier = modifier
+      @type = type
+      @expressions = expressions
+    end
+
+    # See \{#modifier}.
+    # @return [String]
+    def resolved_modifier
+      # modifier should contain only a single string
+      modifier.first || ''
+    end
+
+    # See \{#type}.
+    # @return [String]
+    def resolved_type
+      # type should contain only a single string
+      type.first || ''
+    end
+
+    # Merges this query with another. The returned query queries for
+    # the intersection between the two inputs.
+    #
+    # Both queries should be resolved.
+    #
+    # @param other [Query]
+    # @return [Query?] The merged query, or nil if there is no intersection.
+    def merge(other)
+      m1, t1 = resolved_modifier.downcase, resolved_type.downcase
+      m2, t2 = other.resolved_modifier.downcase, other.resolved_type.downcase
+      t1 = t2 if t1.empty?
+      t2 = t1 if t2.empty?
+      if ((m1 == 'not') ^ (m2 == 'not'))
+        return if t1 == t2
+        type = m1 == 'not' ? t2 : t1
+        mod = m1 == 'not' ? m2 : m1
+      elsif m1 == 'not' && m2 == 'not'
+        # CSS has no way of representing "neither screen nor print"
+        return unless t1 == t2
+        type = t1
+        mod = 'not'
+      elsif t1 != t2
+        return
+      else # t1 == t2, neither m1 nor m2 are "not"
+        type = t1
+        mod = m1.empty? ? m2 : m1
+      end
+      q = Query.new([], [], other.expressions + expressions)
+      q.type = [type]
+      q.modifier = [mod]
+      return q
+    end
+
+    # Returns the CSS for the media query.
+    #
+    # @return [String]
+    def to_css
+      css = ''
+      css << resolved_modifier
+      css << ' ' unless resolved_modifier.empty?
+      css << resolved_type
+      css << ' and ' unless resolved_type.empty? || expressions.empty?
+      css << expressions.map do |e|
+        # It's possible for there to be script nodes in Expressions even when
+        # we're converting to CSS in the case where we parsed the document as
+        # CSS originally (as in css_test.rb).
+        e.map {|c| c.is_a?(Sass::Script::Node) ? c.to_sass : c.to_s}.join
+      end.join(' and ')
+      css
+    end
+
+    # Returns the Sass/SCSS code for the media query.
+    #
+    # @param options [{Symbol => Object}] An options hash (see {Sass::CSS#initialize}).
+    # @return [String]
+    def to_src(options)
+      src = ''
+      src << Sass::Media._interp_to_src(modifier, options)
+      src << ' ' unless modifier.empty?
+      src << Sass::Media._interp_to_src(type, options)
+      src << ' and ' unless type.empty? || expressions.empty?
+      src << expressions.map do |e|
+        Sass::Media._interp_to_src(e, options)
+      end.join(' and ')
+      src
+    end
+
+    # @see \{MediaQuery#to\_a}
+    def to_a
+      res = []
+      res += modifier
+      res << ' ' unless modifier.empty?
+      res += type
+      res << ' and ' unless type.empty? || expressions.empty?
+      res += Sass::Util.intersperse(expressions, ' and ').flatten
+      res
+    end
+
+    # Returns a deep copy of this query and all its children.
+    #
+    # @return [Query]
+    def deep_copy
+      Query.new(
+        modifier.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c},
+        type.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c},
+        expressions.map {|e| e.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}})
+    end
+  end
+
+  # Converts an interpolation array to source.
+  #
+  # @param [Array<String, Sass::Script::Node>] The interpolation array to convert.
+  # @param options [{Symbol => Object}] An options hash (see {Sass::CSS#initialize}).
+  # @return [String]
+  def self._interp_to_src(interp, options)
+    interp.map do |r|
+      next r if r.is_a?(String)
+      "\#{#{r.to_sass(options)}}"
+    end.join
+  end
+end
+# A namespace for the `@supports` condition parse tree.
+module Sass::Supports
+  # The abstract superclass of all Supports conditions.
+  class Condition
+    # Runs the SassScript in the supports condition.
+    #
+    # @param env [Sass::Environment] The environment in which to run the script.
+    def perform(environment); Sass::Util.abstract(self); end
+
+    # Returns the CSS for this condition.
+    #
+    # @return [String]
+    def to_css; Sass::Util.abstract(self); end
+
+    # Returns the Sass/CSS code for this condition.
+    #
+    # @param options [{Symbol => Object}] An options hash (see {Sass::CSS#initialize}).
+    # @return [String]
+    def to_src(options); Sass::Util.abstract(self); end
+
+    # Returns a deep copy of this condition and all its children.
+    #
+    # @return [Condition]
+    def deep_copy; Sass::Util.abstract(self); end
+
+    # Sets the options hash for the script nodes in the supports condition.
+    #
+    # @param options [{Symbol => Object}] The options has to set.
+    def options=(options); Sass::Util.abstract(self); end
+  end
+
+  # An operator condition (e.g. `CONDITION1 and CONDITION2`).
+  class Operator < Condition
+    # The left-hand condition.
+    #
+    # @return [Sass::Supports::Condition]
+    attr_accessor :left
+
+    # The right-hand condition.
+    #
+    # @return [Sass::Supports::Condition]
+    attr_accessor :right
+
+    # The operator ("and" or "or").
+    #
+    # @return [String]
+    attr_accessor :op
+
+    def initialize(left, right, op)
+      @left = left
+      @right = right
+      @op = op
+    end
+
+    def perform(env)
+      @left.perform(env)
+      @right.perform(env)
+    end
+
+    def to_css
+      "#{left_parens @left.to_css} #{op} #{right_parens @right.to_css}"
+    end
+
+    def to_src(options)
+      "#{left_parens @left.to_src(options)} #{op} #{right_parens @right.to_src(options)}"
+    end
+
+    def deep_copy
+      copy = dup
+      copy.left = @left.deep_copy
+      copy.right = @right.deep_copy
+      copy
+    end
+
+    def options=(options)
+      @left.options = options
+      @right.options = options
+    end
+
+    private
+
+    def left_parens(str)
+      return "(#{str})" if @left.is_a?(Negation)
+      return str
+    end
+
+    def right_parens(str)
+      return "(#{str})" if @right.is_a?(Negation) || @right.is_a?(Operator)
+      return str
+    end
+  end
+
+  # A negation condition (`not CONDITION`).
+  class Negation < Condition
+    # The condition being negated.
+    #
+    # @return [Sass::Supports::Condition]
+    attr_accessor :condition
+
+    def initialize(condition)
+      @condition = condition
+    end
+
+    def perform(env)
+      @condition.perform(env)
+    end
+
+    def to_css
+      "not #{parens @condition.to_css}"
+    end
+
+    def to_src(options)
+      "not #{parens @condition.to_src(options)}"
+    end
+
+    def deep_copy
+      copy = dup
+      copy.condition = condition.deep_copy
+      copy
+    end
+
+    def options=(options)
+      condition.options = options
+    end
+
+    private
+
+    def parens(str)
+      return "(#{str})" if @condition.is_a?(Negation) || @condition.is_a?(Operator)
+      return str
+    end
+  end
+
+  # A declaration condition (e.g. `(feature: value)`).
+  class Declaration < Condition
+    # The feature name.
+    #
+    # @param [Sass::Script::Node]
+    attr_accessor :name
+
+    # The name of the feature after any SassScript has been resolved.
+    # Only set once \{Tree::Visitors::Perform} has been run.
+    #
+    # @return [String]
+    attr_accessor :resolved_name
+
+    # The feature value.
+    #
+    # @param [Sass::Script::Node]
+    attr_accessor :value
+
+    # The value of the feature after any SassScript has been resolved.
+    # Only set once \{Tree::Visitors::Perform} has been run.
+    #
+    # @return [String]
+    attr_accessor :resolved_value
+
+    def initialize(name, value)
+      @name = name
+      @value = value
+    end
+
+    def perform(env)
+      @resolved_name = name.perform(env)
+      @resolved_value = value.perform(env)
+    end
+
+    def to_css
+      "(#{@resolved_name}: #{@resolved_value})"
+    end
+
+    def to_src(options)
+      "(#{@name.to_sass(options)}: #{@value.to_sass(options)})"
+    end
+
+    def deep_copy
+      copy = dup
+      copy.name = @name.deep_copy
+      copy.value = @value.deep_copy
+      copy
+    end
+
+    def options=(options)
+      @name.options = options
+      @value.options = options
+    end
+  end
+
+  # An interpolation condition (e.g. `#{$var}`).
+  class Interpolation < Condition
+    # The SassScript expression in the interpolation.
+    #
+    # @param [Sass::Script::Node]
+    attr_accessor :value
+
+    # The value of the expression after it's been resolved.
+    # Only set once \{Tree::Visitors::Perform} has been run.
+    #
+    # @return [String]
+    attr_accessor :resolved_value
+
+    def initialize(value)
+      @value = value
+    end
+
+    def perform(env)
+      val = value.perform(env)
+      @resolved_value = val.is_a?(Sass::Script::String) ? val.value : val.to_s
+    end
+
+    def to_css
+      @resolved_value
+    end
+
+    def to_src(options)
+      "\#{#{@value.to_sass(options)}}"
+    end
+
+    def deep_copy
+      copy = dup
+      copy.value = @value.deep_copy
+      copy
+    end
+
+    def options=(options)
+      @value.options = options
+    end
+  end
+end
 
 module Sass
 
@@ -10463,10 +13359,13 @@ module Sass
   # `name`: `String`
   # : The name of the mixin/function.
   #
-  # `args`: `Array<(String, Script::Node)>`
+  # `args`: `Array<(Script::Node, Script::Node)>`
   # : The arguments for the mixin/function.
-  #   Each element is a tuple containing the name of the argument
+  #   Each element is a tuple containing the variable node of the argument
   #   and the parse tree for the default value of the argument.
+  #
+  # `splat`: `Script::Node?`
+  # : The variable node of the splat argument for this callable, or null.
   #
   # `environment`: {Sass::Environment}
   # : The environment in which the mixin/function was defined.
@@ -10475,7 +13374,13 @@ module Sass
   #
   # `tree`: `Array<Tree::Node>`
   # : The parse tree for the mixin/function.
-  Callable = Struct.new(:name, :args, :environment, :tree)
+  #
+  # `has_content`: `Boolean`
+  # : Whether the callable accepts a content block.
+  #
+  # `type`: `String`
+  # : The user-friendly name of the type of the callable.
+  Callable = Struct.new(:name, :args, :splat, :environment, :tree, :has_content, :type)
 
   # This class handles the parsing and compilation of the Sass template.
   # Example usage:
@@ -10507,7 +13412,10 @@ module Sass
     #
     # `children`: `Array<Line>`
     # : The lines nested below this one.
-    class Line < Struct.new(:text, :tabs, :index, :offset, :filename, :children)
+    #
+    # `comment_tab_str`: `String?`
+    # : The prefix indentation for this comment, if it is a comment.
+    class Line < Struct.new(:text, :tabs, :index, :offset, :filename, :children, :comment_tab_str)
       def comment?
         text[0] == COMMENT_CHAR && (text[1] == SASS_COMMENT_CHAR || text[1] == CSS_COMMENT_CHAR)
       end
@@ -10523,6 +13431,10 @@ module Sass
     # The character that follows the general COMMENT_CHAR and designates a Sass comment,
     # which is not output as a CSS comment.
     SASS_COMMENT_CHAR = ?/
+
+    # The character that indicates that a comment allows interpolation
+    # and should be preserved even in `:compressed` mode.
+    SASS_LOUD_COMMENT_CHAR = ?!
 
     # The character that follows the general COMMENT_CHAR and designates a CSS comment,
     # which is embedded in the CSS document.
@@ -10578,7 +13490,7 @@ module Sass
       # for quite a long time.
       options[:line_comments] ||= options[:line_numbers]
 
-      options[:load_paths] = options[:load_paths].map do |p|
+      options[:load_paths] = (options[:load_paths] + Sass.load_paths).map do |p|
         next p unless p.is_a?(String) || (defined?(Pathname) && p.is_a?(Pathname))
         options[:filesystem_importer].new(p.to_s)
       end
@@ -10629,7 +13541,7 @@ module Sass
     # If you're compiling a single Sass file from the filesystem,
     # use \{Sass::Engine.for\_file}.
     # If you're compiling multiple files from the filesystem,
-    # use {Sass::Plugin.
+    # use {Sass::Plugin}.
     #
     # @param template [String] The Sass template.
     #   This template can be encoded using any encoding
@@ -10726,7 +13638,6 @@ module Sass
         sha = Digest::SHA1.hexdigest(@template)
 
         if root = @options[:cache_store].retrieve(key, sha)
-          @options = root.options.merge(@options)
           root.options = @options
           return root
         end
@@ -10735,7 +13646,7 @@ module Sass
       check_encoding!
 
       if @options[:syntax] == :scss
-        root = Sass::SCSS::Parser.new(@template).parse
+        root = Sass::SCSS::Parser.new(@template, @options[:filename]).parse
       else
         root = Tree::RootNode.new(@template)
         append_children(root, tree(tabulate(@template)).first, true)
@@ -10745,7 +13656,7 @@ module Sass
       if @options[:cache] && key && sha
         begin
           old_options = root.options
-          root.options = {:importer => root.options[:importer]}
+          root.options = {}
           @options[:cache_store].store(key, sha, root)
         ensure
           root.options = old_options
@@ -10775,7 +13686,7 @@ module Sass
       comment_tab_str = nil
       first = true
       lines = []
-      string.gsub(/\r|\n|\r\n|\r\n/, "\n").scan(/^[^\n]*?$/).each_with_index do |line, index|
+      string.gsub(/\r\n|\r|\n/, "\n").scan(/^[^\n]*?$/).each_with_index do |line, index|
         index += (@options[:line] || 1)
         if line.strip.empty?
           lines.last.text << "\n" if lines.last && lines.last.comment?
@@ -10838,7 +13749,8 @@ but this line was indented by #{Sass::Shared.human_indentation line[/^\s*/]}.
 MSG
       end
 
-      last.text << "\n" << $1
+      last.comment_tab_str ||= comment_tab_str
+      last.text << "\n" << line
       true
     end
 
@@ -10901,11 +13813,11 @@ MSG
           continued_rule = nil
         end
 
-        if child.is_a?(Tree::CommentNode) && child.silent
+        if child.is_a?(Tree::CommentNode) && child.type == :silent
           if continued_comment &&
               child.line == continued_comment.line +
-              continued_comment.value.count("\n") + 1
-            continued_comment.value << "\n" << child.value
+              continued_comment.lines + 1
+            continued_comment.value += ["\n"] + child.value
             next
           end
 
@@ -10956,7 +13868,7 @@ WARNING
       when ?$
         parse_variable(line)
       when COMMENT_CHAR
-        parse_comment(line.text)
+        parse_comment(line)
       when DIRECTIVE_CHAR
         parse_directive(parent, line, root)
       when ESCAPE_CHAR
@@ -10975,9 +13887,9 @@ WARNING
     end
 
     def parse_property_or_rule(line)
-      scanner = StringScanner.new(line.text)
+      scanner = Sass::Util::MultibyteStringScanner.new(line.text)
       hack_char = scanner.scan(/[:\*\.]|\#(?!\{)/)
-      parser = Sass::SCSS::SassParser.new(scanner, @line)
+      parser = Sass::SCSS::Parser.new(scanner, @options[:filename], @line)
 
       unless res = parser.parse_interp_ident
         return Tree::RuleNode.new(parse_interp(line.text))
@@ -11002,7 +13914,14 @@ WARNING
       else
         expr = parse_script(value, :offset => line.offset + line.text.index(value))
       end
-      Tree::PropNode.new(parse_interp(name), expr, prop)
+      node = Tree::PropNode.new(parse_interp(name), expr, prop)
+      if value.strip.empty? && line.children.empty?
+        raise SyntaxError.new(
+          "Invalid property: \"#{node.declaration}\" (no value)." +
+          node.pseudo_class_selector_message)
+      end
+
+      node
     end
 
     def parse_variable(line)
@@ -11018,13 +13937,23 @@ WARNING
     end
 
     def parse_comment(line)
-      if line[1] == CSS_COMMENT_CHAR || line[1] == SASS_COMMENT_CHAR
-        silent = line[1] == SASS_COMMENT_CHAR
-        Tree::CommentNode.new(
-          format_comment_text(line[2..-1], silent),
-          silent)
+      if line.text[1] == CSS_COMMENT_CHAR || line.text[1] == SASS_COMMENT_CHAR
+        silent = line.text[1] == SASS_COMMENT_CHAR
+        loud = !silent && line.text[2] == SASS_LOUD_COMMENT_CHAR
+        if silent
+          value = [line.text]
+        else
+          value = self.class.parse_interp(line.text, line.index, line.offset, :filename => @filename)
+          value[0].slice!(2) if loud # get rid of the "!"
+        end
+        value = with_extracted_values(value) do |str|
+          str = str.gsub(/^#{line.comment_tab_str}/m, '')[2..-1] # get rid of // or /*
+          format_comment_text(str, silent)
+        end
+        type = if silent then :silent elsif loud then :loud else :normal end
+        Tree::CommentNode.new(value, type)
       else
-        Tree::RuleNode.new(parse_interp(line))
+        Tree::RuleNode.new(parse_interp(line.text))
       end
     end
 
@@ -11034,60 +13963,66 @@ WARNING
 
       # If value begins with url( or ",
       # it's a CSS @import rule and we don't want to touch it.
-      if directive == "import"
-        parse_import(line, value)
-      elsif directive == "mixin"
+      case directive
+      when 'import'
+        parse_import(line, value, offset)
+      when 'mixin'
         parse_mixin_definition(line)
-      elsif directive == "include"
+      when 'content'
+        parse_content_directive(line)
+      when 'include'
         parse_mixin_include(line, root)
-      elsif directive == "function"
+      when 'function'
         parse_function(line, root)
-      elsif directive == "for"
+      when 'for'
         parse_for(line, root, value)
-      elsif directive == "each"
+      when 'each'
         parse_each(line, root, value)
-      elsif directive == "else"
+      when 'else'
         parse_else(parent, line, value)
-      elsif directive == "while"
+      when 'while'
         raise SyntaxError.new("Invalid while directive '@while': expected expression.") unless value
         Tree::WhileNode.new(parse_script(value, :offset => offset))
-      elsif directive == "if"
+      when 'if'
         raise SyntaxError.new("Invalid if directive '@if': expected expression.") unless value
         Tree::IfNode.new(parse_script(value, :offset => offset))
-      elsif directive == "debug"
+      when 'debug'
         raise SyntaxError.new("Invalid debug directive '@debug': expected expression.") unless value
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath debug directives.",
           :line => @line + 1) unless line.children.empty?
         offset = line.offset + line.text.index(value).to_i
         Tree::DebugNode.new(parse_script(value, :offset => offset))
-      elsif directive == "extend"
+      when 'extend'
         raise SyntaxError.new("Invalid extend directive '@extend': expected expression.") unless value
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath extend directives.",
           :line => @line + 1) unless line.children.empty?
+        optional = !!value.gsub!(/\s+#{Sass::SCSS::RX::OPTIONAL}$/, '')
         offset = line.offset + line.text.index(value).to_i
-        Tree::ExtendNode.new(parse_interp(value, offset))
-      elsif directive == "warn"
+        Tree::ExtendNode.new(parse_interp(value, offset), optional)
+      when 'warn'
         raise SyntaxError.new("Invalid warn directive '@warn': expected expression.") unless value
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath warn directives.",
           :line => @line + 1) unless line.children.empty?
         offset = line.offset + line.text.index(value).to_i
         Tree::WarnNode.new(parse_script(value, :offset => offset))
-      elsif directive == "return"
+      when 'return'
         raise SyntaxError.new("Invalid @return: expected expression.") unless value
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath return directives.",
           :line => @line + 1) unless line.children.empty?
         offset = line.offset + line.text.index(value).to_i
         Tree::ReturnNode.new(parse_script(value, :offset => offset))
-      elsif directive == "charset"
+      when 'charset'
         name = value && value[/\A(["'])(.*)\1\Z/, 2] #"
         raise SyntaxError.new("Invalid charset directive '@charset': expected string.") unless name
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath charset directives.",
           :line => @line + 1) unless line.children.empty?
         Tree::CharsetNode.new(name)
-      elsif directive == "media"
-        Tree::MediaNode.new(value)
+      when 'media'
+        parser = Sass::SCSS::Parser.new(value, @options[:filename], @line)
+        Tree::MediaNode.new(parser.parse_media_query_list.to_a)
       else
-        Tree::DirectiveNode.new(line.text)
+        Tree::DirectiveNode.new(
+          value.nil? ? ["@#{directive}"] : ["@#{directive} "] + parse_interp(value, offset))
       end
     end
 
@@ -11147,15 +14082,15 @@ WARNING
       nil
     end
 
-    def parse_import(line, value)
+    def parse_import(line, value, offset)
       raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath import directives.",
         :line => @line + 1) unless line.children.empty?
 
-      scanner = StringScanner.new(value)
+      scanner = Sass::Util::MultibyteStringScanner.new(value)
       values = []
 
       loop do
-        unless node = parse_import_arg(scanner)
+        unless node = parse_import_arg(scanner, offset + scanner.pos)
           raise SyntaxError.new("Invalid @import: expected file to import, was #{scanner.rest.inspect}",
             :line => @line)
         end
@@ -11163,24 +14098,37 @@ WARNING
         break unless scanner.scan(/,\s*/)
       end
 
+      if scanner.scan(/;/)
+        raise SyntaxError.new("Invalid @import: expected end of line, was \";\".",
+          :line => @line)
+      end
+
       return values
     end
 
-    def parse_import_arg(scanner)
+    def parse_import_arg(scanner, offset)
       return if scanner.eos?
-      unless (str = scanner.scan(Sass::SCSS::RX::STRING)) ||
-          (uri = scanner.scan(Sass::SCSS::RX::URI))
-        return Tree::ImportNode.new(scanner.scan(/[^,]+/))
+
+      if scanner.match?(/url\(/i)
+        script_parser = Sass::Script::Parser.new(scanner, @line, offset, @options)
+        str = script_parser.parse_string
+        media_parser = Sass::SCSS::Parser.new(scanner, @options[:filename], @line)
+        media = media_parser.parse_media_query_list
+        return Tree::CssImportNode.new(str, media.to_a)
+      end
+
+      unless str = scanner.scan(Sass::SCSS::RX::STRING)
+        return Tree::ImportNode.new(scanner.scan(/[^,;]+/))
       end
 
       val = scanner[1] || scanner[2]
       scanner.scan(/\s*/)
-      if media = scanner.scan(/[^,].*/)
-        Tree::DirectiveNode.new("@import #{str || uri} #{media}")
-      elsif uri
-        Tree::DirectiveNode.new("@import #{uri}")
-      elsif val =~ /^http:\/\//
-        Tree::DirectiveNode.new("@import url(#{val})")
+      if !scanner.match?(/[,;]|$/)
+        media_parser = Sass::SCSS::Parser.new(scanner, @options[:filename], @line)
+        media = media_parser.parse_media_query_list
+        Tree::CssImportNode.new(str || uri, media.to_a)
+      elsif val =~ /^(https?:)?\/\//
+        Tree::CssImportNode.new("url(#{val})")
       else
         Tree::ImportNode.new(val)
       end
@@ -11192,9 +14140,18 @@ WARNING
       raise SyntaxError.new("Invalid mixin \"#{line.text[1..-1]}\".") if name.nil?
 
       offset = line.offset + line.text.size - arg_string.size
-      args = Script::Parser.new(arg_string.strip, @line, offset, @options).
+      args, splat = Script::Parser.new(arg_string.strip, @line, offset, @options).
         parse_mixin_definition_arglist
-      Tree::MixinDefNode.new(name, args)
+      Tree::MixinDefNode.new(name, args, splat)
+    end
+
+    CONTENT_RE = /^@content\s*(.+)?$/
+    def parse_content_directive(line)
+      trailing = line.text.scan(CONTENT_RE).first.first
+      raise SyntaxError.new("Invalid content directive. Trailing characters found: \"#{trailing}\".") unless trailing.nil?
+      raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath @content directives.",
+        :line => line.index + 1) unless line.children.empty?
+      Tree::ContentNode.new
     end
 
     MIXIN_INCLUDE_RE = /^(?:\+|@include)\s*(#{Sass::SCSS::RX::IDENT})(.*)$/
@@ -11203,11 +14160,9 @@ WARNING
       raise SyntaxError.new("Invalid mixin include \"#{line.text}\".") if name.nil?
 
       offset = line.offset + line.text.size - arg_string.size
-      args, keywords = Script::Parser.new(arg_string.strip, @line, offset, @options).
+      args, keywords, splat = Script::Parser.new(arg_string.strip, @line, offset, @options).
         parse_mixin_include_arglist
-      raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath mixin directives.",
-        :line => @line + 1) unless line.children.empty?
-      Tree::MixinNode.new(name, args, keywords)
+      Tree::MixinNode.new(name, args, keywords, splat)
     end
 
     FUNCTION_RE = /^@function\s*(#{Sass::SCSS::RX::IDENT})(.*)$/
@@ -11216,9 +14171,9 @@ WARNING
       raise SyntaxError.new("Invalid function definition \"#{line.text}\".") if name.nil?
 
       offset = line.offset + line.text.size - arg_string.size
-      args = Script::Parser.new(arg_string.strip, @line, offset, @options).
+      args, splat = Script::Parser.new(arg_string.strip, @line, offset, @options).
         parse_function_definition_arglist
-      Tree::FunctionNode.new(name, args)
+      Tree::FunctionNode.new(name, args, splat)
     end
 
     def parse_script(script, options = {})
@@ -11273,77 +14228,99 @@ WARNING
     end
   end
 end
-require 'fileutils'
 
-require 'fileutils'
+dir = File.dirname(__FILE__)
+$LOAD_PATH.unshift dir unless $LOAD_PATH.include?(dir)
 
-# XXX CE: is this still necessary now that we have the compiler class?
+# This is necessary to set so that the Haml code that tries to load Sass
+# knows that Sass is indeed loading,
+# even if there's some crazy autoload stuff going on.
+SASS_BEGUN_TO_LOAD = true unless defined?(SASS_BEGUN_TO_LOAD)
+
+
+# The module that contains everything Sass-related:
+#
+# * {Sass::Engine} is the class used to render Sass/SCSS within Ruby code.
+# * {Sass::Plugin} is interfaces with web frameworks (Rails and Merb in particular).
+# * {Sass::SyntaxError} is raised when Sass encounters an error.
+# * {Sass::CSS} handles conversion of CSS to Sass.
+#
+# Also see the {file:SASS_REFERENCE.md full Sass reference}.
 module Sass
-  # A lightweight infrastructure for defining and running callbacks.
-  # Callbacks are defined using \{#define\_callback\} at the class level,
-  # and called using `run_#{name}` at the instance level.
+  # The global load paths for Sass files. This is meant for plugins and
+  # libraries to register the paths to their Sass stylesheets to that they may
+  # be `@imported`. This load path is used by every instance of [Sass::Engine].
+  # They are lower-precedence than any load paths passed in via the
+  # {file:SASS_REFERENCE.md#load_paths-option `:load_paths` option}.
   #
-  # Clients can add callbacks by calling the generated `on_#{name}` method,
-  # and passing in a block that's run when the callback is activated.
+  # If the `SASS_PATH` environment variable is set,
+  # the initial value of `load_paths` will be initialized based on that.
+  # The variable should be a colon-separated list of path names
+  # (semicolon-separated on Windows).
   #
-  # @example Define a callback
-  #   class Munger
-  #     extend Sass::Callbacks
-  #     define_callback :string_munged
+  # Note that files on the global load path are never compiled to CSS
+  # themselves, even if they aren't partials. They exist only to be imported.
   #
-  #     def munge(str)
-  #       res = str.gsub(/[a-z]/, '\1\1')
-  #       run_string_munged str, res
-  #       res
-  #     end
-  #   end
-  #
-  # @example Use a callback
-  #   m = Munger.new
-  #   m.on_string_munged {|str, res| puts "#{str} was munged into #{res}!"}
-  #   m.munge "bar" #=> bar was munged into bbaarr!
-  module Callbacks
-    # Automatically includes {InstanceMethods}
-    # when something extends this module.
-    #
-    # @param base [Module]
-    def self.extended(base)
-      base.send(:include, InstanceMethods)
-    end
-    protected
+  # @example
+  #   Sass.load_paths << File.dirname(__FILE__ + '/sass')
+  # @return [Array<String, Pathname, Sass::Importers::Base>]
+  def self.load_paths
+    @load_paths ||= ENV['SASS_PATH'] ?
+      ENV['SASS_PATH'].split(Sass::Util.windows? ? ';' : ':') : []
+  end
 
-    module InstanceMethods
-      # Removes all callbacks registered against this object.
-      def clear_callbacks!
-        @_sass_callbacks = {}
-      end
-    end
+  # Compile a Sass or SCSS string to CSS.
+  # Defaults to SCSS.
+  #
+  # @param contents [String] The contents of the Sass file.
+  # @param options [{Symbol => Object}] An options hash;
+  #   see {file:SASS_REFERENCE.md#sass_options the Sass options documentation}
+  # @raise [Sass::SyntaxError] if there's an error in the document
+  # @raise [Encoding::UndefinedConversionError] if the source encoding
+  #   cannot be converted to UTF-8
+  # @raise [ArgumentError] if the document uses an unknown encoding with `@charset`
+  def self.compile(contents, options = {})
+    options[:syntax] ||= :scss
+    Engine.new(contents, options).to_css
+  end
 
-    # Define a callback with the given name.
-    # This will define an `on_#{name}` method
-    # that registers a block,
-    # and a `run_#{name}` method that runs that block
-    # (optionall with some arguments).
-    #
-    # @param name [Symbol] The name of the callback
-    # @return [void]
-    def define_callback(name)
-      class_eval <<RUBY
-def on_#{name}(&block)
-  @_sass_callbacks ||= {}
-  (@_sass_callbacks[#{name.inspect}] ||= []) << block
-end
-
-def run_#{name}(*args)
-  return unless @_sass_callbacks
-  return unless @_sass_callbacks[#{name.inspect}]
-  @_sass_callbacks[#{name.inspect}].each {|c| c[*args]}
-end
-private :run_#{name}
-RUBY
+  # Compile a file on disk to CSS.
+  #
+  # @param filename [String] The path to the Sass, SCSS, or CSS file on disk.
+  # @param options [{Symbol => Object}] An options hash;
+  #   see {file:SASS_REFERENCE.md#sass_options the Sass options documentation}
+  # @raise [Sass::SyntaxError] if there's an error in the document
+  # @raise [Encoding::UndefinedConversionError] if the source encoding
+  #   cannot be converted to UTF-8
+  # @raise [ArgumentError] if the document uses an unknown encoding with `@charset`
+  #
+  # @overload compile_file(filename, options = {})
+  #   Return the compiled CSS rather than writing it to a file.
+  #
+  #   @return [String] The compiled CSS.
+  #
+  # @overload compile_file(filename, css_filename, options = {})
+  #   Write the compiled CSS to a file.
+  #
+  #   @param css_filename [String] The location to which to write the compiled CSS.
+  def self.compile_file(filename, *args)
+    options = args.last.is_a?(Hash) ? args.pop : {}
+    css_filename = args.shift
+    result = Sass::Engine.for_file(filename, options).render
+    if css_filename
+      options[:css_filename] ||= css_filename
+      open(css_filename,"w") {|css_file| css_file.write(result)}
+      nil
+    else
+      result
     end
   end
 end
+
+
+# Rails 3.0.0.beta.2+, < 3.1
+#RG if defined?(ActiveSupport) && Sass::Util.has?(:public_method, ActiveSupport, :on_load) &&
+#RG     !Sass::Util.ap_geq?('3.1.0.beta')
 # We keep configuration in its own self-contained file
 # so that we can load it independently in Rails 3,
 # where the full plugin stuff is lazy-loaded.
@@ -11377,8 +14354,6 @@ module Sass
       # @return [{Symbol => Object}]
       def options
         @options ||= default_options.dup
-        @options[:cache_store] ||= Sass::CacheStores::Filesystem.new(@options[:cache_location])
-        @options
       end
 
       # Sets the options hash.
@@ -11469,6 +14444,77 @@ module Sass
     end
   end
 end
+#RG   ActiveSupport.on_load(:before_configuration) do
+#RG   end
+#RG end
+
+# XXX CE: is this still necessary now that we have the compiler class?
+module Sass
+  # A lightweight infrastructure for defining and running callbacks.
+  # Callbacks are defined using \{#define\_callback\} at the class level,
+  # and called using `run_#{name}` at the instance level.
+  #
+  # Clients can add callbacks by calling the generated `on_#{name}` method,
+  # and passing in a block that's run when the callback is activated.
+  #
+  # @example Define a callback
+  #   class Munger
+  #     extend Sass::Callbacks
+  #     define_callback :string_munged
+  #
+  #     def munge(str)
+  #       res = str.gsub(/[a-z]/, '\1\1')
+  #       run_string_munged str, res
+  #       res
+  #     end
+  #   end
+  #
+  # @example Use a callback
+  #   m = Munger.new
+  #   m.on_string_munged {|str, res| puts "#{str} was munged into #{res}!"}
+  #   m.munge "bar" #=> bar was munged into bbaarr!
+  module Callbacks
+    # Automatically includes {InstanceMethods}
+    # when something extends this module.
+    #
+    # @param base [Module]
+    def self.extended(base)
+      base.send(:include, InstanceMethods)
+    end
+    protected
+
+    module InstanceMethods
+      # Removes all callbacks registered against this object.
+      def clear_callbacks!
+        @_sass_callbacks = {}
+      end
+    end
+
+    # Define a callback with the given name.
+    # This will define an `on_#{name}` method
+    # that registers a block,
+    # and a `run_#{name}` method that runs that block
+    # (optionall with some arguments).
+    #
+    # @param name [Symbol] The name of the callback
+    # @return [void]
+    def define_callback(name)
+      class_eval <<RUBY, __FILE__, __LINE__ + 1
+def on_#{name}(&block)
+  @_sass_callbacks ||= {}
+  (@_sass_callbacks[#{name.inspect}] ||= []) << block
+end
+
+def run_#{name}(*args)
+  return unless @_sass_callbacks
+  return unless @_sass_callbacks[#{name.inspect}]
+  @_sass_callbacks[#{name.inspect}].each {|c| c[*args]}
+end
+private :run_#{name}
+RUBY
+    end
+  end
+end
 module Sass
   module Plugin
     # The class handles `.s[ca]ss` file staleness checks via their mtime timestamps.
@@ -11509,6 +14555,10 @@ module Sass
       #   See {file:SASS_REFERENCE.md#sass_options the Sass options documentation}.
       def initialize(options)
         @dependencies = self.class.dependencies_cache
+
+        # URIs that are being actively checked for staleness. Protects against
+        # import loops.
+        @actively_checking = Set.new
 
         # Entries in the following instance-level caches are never explicitly expired.
         # Instead they are supposed to automaticaly go out of scope when a series of staleness checks
@@ -11607,7 +14657,7 @@ module Sass
       end
 
       def dependencies(uri, importer)
-        stored_mtime, dependencies = @dependencies[[uri, importer]]
+        stored_mtime, dependencies = Sass::Util.destructure(@dependencies[[uri, importer]])
 
         if !stored_mtime || stored_mtime < mtime(uri, importer)
           dependencies = compute_dependencies(uri, importer)
@@ -11619,10 +14669,16 @@ module Sass
 
       def dependency_updated?(css_mtime)
         Proc.new do |uri, importer|
-          sass_mtime = mtime(uri, importer)
-          !sass_mtime ||
-            sass_mtime > css_mtime ||
-            dependencies_stale?(uri, importer, css_mtime)
+          next true if @actively_checking.include?(uri)
+          begin
+            @actively_checking << uri
+            sass_mtime = mtime(uri, importer)
+            !sass_mtime ||
+              sass_mtime > css_mtime ||
+              dependencies_stale?(uri, importer, css_mtime)
+          ensure
+            @actively_checking.delete uri
+          end
         end
       end
 
@@ -11675,7 +14731,7 @@ module Sass::Plugin
       self.options.merge!(options)
     end
 
-    # Register a callback to be run before stylesheets are mass-updated.
+    # Register a callback to be run after stylesheets are mass-updated.
     # This is run whenever \{#update\_stylesheets} is called,
     # unless the \{file:SASS_REFERENCE.md#never_update-option `:never_update` option}
     # is enabled.
@@ -11687,6 +14743,22 @@ module Sass::Plugin
     #   The first element of each pair is the source file,
     #   the second is the target CSS file.
     define_callback :updating_stylesheets
+
+    # Register a callback to be run after a single stylesheet is updated.
+    # The callback is only run if the stylesheet is really updated;
+    # if the CSS file is fresh, this won't be run.
+    #
+    # Even if the \{file:SASS_REFERENCE.md#full_exception-option `:full_exception` option}
+    # is enabled, this callback won't be run
+    # when an exception CSS file is being written.
+    # To run an action for those files, use \{#on\_compilation\_error}.
+    #
+    # @yield [template, css]
+    # @yieldparam template [String]
+    #   The location of the Sass/SCSS file being updated.
+    # @yieldparam css [String]
+    #   The location of the CSS file being generated.
+    define_callback :updated_stylesheet
 
     # Register a callback to be run before a single stylesheet is updated.
     # The callback is only run if the stylesheet is guaranteed to be updated;
@@ -11703,6 +14775,13 @@ module Sass::Plugin
     # @yieldparam css [String]
     #   The location of the CSS file being generated.
     define_callback :updating_stylesheet
+
+    def on_updating_stylesheet_with_deprecation_warning(&block)
+      Sass::Util.sass_warn("Sass::Compiler#on_updating_stylesheet callback is deprecated and will be removed in a future release. Use Sass::Compiler#on_updated_stylesheet instead, which is run after stylesheet compilation.")
+      on_updating_stylesheet_without_deprecation_warning(&block)
+    end
+    alias_method :on_updating_stylesheet_without_deprecation_warning, :on_updating_stylesheet
+    alias_method :on_updating_stylesheet, :on_updating_stylesheet_with_deprecation_warning
 
     # Register a callback to be run when Sass decides not to update a stylesheet.
     # In particular, the callback is run when Sass finds that
@@ -11797,28 +14876,26 @@ module Sass::Plugin
     #   The first string in each pair is the location of the Sass/SCSS file,
     #   the second is the location of the CSS file that it should be compiled to.
     def update_stylesheets(individual_files = [])
-      run_updating_stylesheets individual_files
+      individual_files = individual_files.dup
       Sass::Plugin.checked_for_updates = true
       staleness_checker = StalenessChecker.new(engine_options)
 
-      individual_files.each do |t, c|
-        if options[:always_update] || staleness_checker.stylesheet_needs_update?(c, t)
-          update_stylesheet(t, c)
-        end
-      end
-
       template_location_array.each do |template_location, css_location|
-
-        Dir.glob(File.join(template_location, "**", "[^_]*.s[ca]ss")).sort.each do |file|
+        Sass::Util.glob(File.join(template_location, "**", "[^_]*.s[ca]ss")).sort.each do |file|
           # Get the relative path to the file
           name = file.sub(template_location.to_s.sub(/\/*$/, '/'), "")
           css = css_filename(name, css_location)
+          individual_files << [file, css]
+        end
+      end
 
-          if options[:always_update] || staleness_checker.stylesheet_needs_update?(css, file)
-            update_stylesheet file, css
-          else
-            run_not_updating_stylesheet file, css
-          end
+      run_updating_stylesheets individual_files
+
+      individual_files.each do |file, css|
+        if options[:always_update] || staleness_checker.stylesheet_needs_update?(css, file)
+          update_stylesheet(file, css)
+        else
+          run_not_updating_stylesheet(file, css)
         end
       end
     end
@@ -11835,10 +14912,10 @@ module Sass::Plugin
     #
     # Before the watching starts in earnest, `watch` calls \{#update\_stylesheets}.
     #
-    # Note that `watch` uses the [FSSM](http://github.com/ttilley/fssm) library
+    # Note that `watch` uses the [Listen](http://github.com/guard/listen) library
     # to monitor the filesystem for changes.
-    # FSSM isn't loaded until `watch` is run.
-    # The version of FSSM distributed with Sass is loaded by default,
+    # Listen isn't loaded until `watch` is run.
+    # The version of Listen distributed with Sass is loaded by default,
     # but if another version has already been loaded that will be used instead.
     #
     # @param individual_files [Array<(String, String)>]
@@ -11851,15 +14928,15 @@ module Sass::Plugin
       update_stylesheets(individual_files)
 
       begin
-        require 'fssm'
+        require 'listen'
       rescue LoadError => e
-        dir = Sass::Util.scope("vendor/fssm/lib")
+        dir = Sass::Util.scope("vendor/listen/lib")
         if $LOAD_PATH.include?(dir)
           e.message << "\n" <<
             if File.exists?(scope(".git"))
               'Run "git submodule update --init" to get the recommended version.'
             else
-              'Run "gem install fssm" to get it.'
+              'Run "gem install listen" to get it.'
             end
           raise e
         else
@@ -11868,60 +14945,61 @@ module Sass::Plugin
         end
       end
 
-      unless individual_files.empty? && FSSM::Backends::Default.name == "FSSM::Backends::FSEvents"
-        # As of FSSM 0.1.4, it doesn't support FSevents on individual files,
-        # but it also isn't smart enough to switch to polling itself.
-        require 'fssm/backends/polling'
-        Sass::Util.silence_warnings do
-          FSSM::Backends.const_set(:Default, FSSM::Backends::Polling)
-        end
+      template_paths = template_locations # cache the locations
+      individual_files_hash = individual_files.inject({}) do |h, files|
+        parent = File.dirname(files.first)
+        (h[parent] ||= []) << files unless template_paths.include?(parent)
+        h
       end
+      directories = template_paths + individual_files_hash.keys +
+        [{:relative_paths => true}]
 
       # TODO: Keep better track of what depends on what
       # so we don't have to run a global update every time anything changes.
-      FSSM.monitor do |mon|
-        template_location_array.each do |template_location, css_location|
-          mon.path template_location do |path|
-            path.glob '**/*.s[ac]ss'
-
-            path.update do |base, relative|
-              run_template_modified File.join(base, relative)
-              update_stylesheets(individual_files)
-            end
-
-            path.create do |base, relative|
-              run_template_created File.join(base, relative)
-              update_stylesheets(individual_files)
-            end
-
-            path.delete do |base, relative|
-              run_template_deleted File.join(base, relative)
-              css = File.join(css_location, relative.gsub(/\.s[ac]ss$/, '.css'))
-              try_delete_css css
-              update_stylesheets(individual_files)
-            end
+      listener = Listen::MultiListener.new(*directories) do |modified, added, removed|
+        modified.each do |f|
+          parent = File.dirname(f)
+          if files = individual_files_hash[parent]
+            next unless files.first == f
+          else
+            next unless f =~ /\.s[ac]ss$/
           end
+          run_template_modified(f)
         end
 
-        individual_files.each do |template, css|
-          mon.file template do |path|
-            path.update do
-              run_template_modified template
-              update_stylesheets(individual_files)
-            end
-
-            path.create do
-              run_template_created template
-              update_stylesheets(individual_files)
-            end
-
-            path.delete do
-              run_template_deleted template
-              try_delete_css css
-              update_stylesheets(individual_files)
-            end
+        added.each do |f|
+          parent = File.dirname(f)
+          if files = individual_files_hash[parent]
+            next unless files.first == f
+          else
+            next unless f =~ /\.s[ac]ss$/
           end
+          run_template_created(f)
         end
+
+        removed.each do |f|
+          parent = File.dirname(f)
+          if files = individual_files_hash[parent]
+            next unless files.first == f
+            try_delete_css files[1]
+          else
+            next unless f =~ /\.s[ac]ss$/
+            try_delete_css f.gsub(/\.s[ac]ss$/, '.css')
+          end
+          run_template_deleted(f)
+        end
+
+        update_stylesheets(individual_files)
+      end
+
+      # The native windows listener is much slower than the polling
+      # option, according to https://github.com/nex3/sass/commit/a3031856b22bc834a5417dedecb038b7be9b9e3e#commitcomment-1295118
+      listener.force_polling(true) if @options[:poll] || Sass::Util.windows?
+
+      begin
+        listener.start
+      rescue Exception => e
+        raise e unless e.is_a?(Interrupt)
       end
     end
 
@@ -11955,18 +15033,23 @@ module Sass::Plugin
         engine_opts = engine_options(:css_filename => css, :filename => filename)
         result = Sass::Engine.for_file(filename, engine_opts).render
       rescue Exception => e
+        compilation_error_occured = true
         run_compilation_error e, filename, css
         result = Sass::SyntaxError.exception_to_css(e, options)
       else
         run_updating_stylesheet filename, css
       end
 
-      # Finally, write the file
+      write_file(css, result)
+      run_updated_stylesheet(filename, css) unless compilation_error_occured
+    end
+
+    def write_file(css, content)
       flag = 'w'
       flag = 'wb' if Sass::Util.windows? && options[:unix_newlines]
       File.open(css, flag) do |file|
-        file.set_encoding(result.encoding) unless Sass::Util.ruby1_8?
-        file.print(result)
+        file.set_encoding(content.encoding) unless Sass::Util.ruby1_8?
+        file.print(content)
       end
     end
 
@@ -12083,14 +15166,10 @@ module Sass
     #   the second is the location of the CSS file that it should be compiled to.
     # @see #update_stylesheets
     def force_update_stylesheets(individual_files = [])
-      old_options = options
-      self.options = options.dup
-      options[:never_update] = false
-      options[:always_update] = true
-      options[:cache] = false
-      update_stylesheets(individual_files)
-    ensure
-      self.options = old_options
+      Compiler.new(options.dup.merge(
+          :never_update => false,
+          :always_update => true,
+          :cache => false)).update_stylesheets(individual_files)
     end
 
     # All other method invocations are proxied to the \{#compiler}.
@@ -12287,6 +15366,7 @@ unless defined?(Sass::GENERIC_LOADED)
                               :always_check   => true)
 end
 end
+
 # Rails 3.0.0.beta.2+, < 3.1
 if defined?(ActiveSupport) && Sass::Util.has?(:public_method, ActiveSupport, :on_load) &&
     !Sass::Util.ap_geq?('3.1.0.beta')

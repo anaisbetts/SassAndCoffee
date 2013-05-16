@@ -119,6 +119,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="features.scss">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -143,6 +143,9 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SassAndCoffee.Ruby.nuspec" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\date.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\date\format.rb" />
+    <EmbeddedResource Include="Sass\lib\ruby\1.9.1\rational18.rb" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
