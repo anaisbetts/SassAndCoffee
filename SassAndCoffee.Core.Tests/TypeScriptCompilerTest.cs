@@ -7,7 +7,7 @@
 
     public class TypeScriptCompilerTest {
         [Fact]
-        public void CoffeeScriptSmokeTest() {
+        public void TypeScriptSmokeTest() {
             var input = @"var foo:number = 5;";
             using (var fixture = new TypeScriptCompiler(new InstanceProvider<IJavaScriptRuntime>(
                 () => new IEJavaScriptRuntime()))) {
@@ -18,7 +18,7 @@
         }
 
         [Fact]
-        public void CoffeeScriptFailTest() {
+        public void TypeScriptFailTest() {
             var input = "test.invlid.stuff/^/g!%%";
             using (var fixture = new TypeScriptCompiler(new InstanceProvider<IJavaScriptRuntime>(
                 () => new IEJavaScriptRuntime()))) {
