@@ -22,7 +22,7 @@
         <!--<tags>Tag1 Tag2</tags>-->
 
         <dependencies>
-            <dependency id="SassAndCoffee.AspNet" version="2.1.0" />
+            <dependency id="SassAndCoffee.AspNet" version="2.1.1" />
         </dependencies>
     </metadata>
 </package>
