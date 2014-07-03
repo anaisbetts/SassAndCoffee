@@ -1,3 +1,9 @@
+# See:http://marcel.bowlitz.com/ironruby/ironruby-and-the-dreaded-method-not-found-error/
+class System::Object
+  def initialize
+  end
+end
+
 # This is necessary to set so that the Haml code that tries to load Sass
 # knows that Sass is indeed loading,
 # even if there's some crazy autoload stuff going on.
