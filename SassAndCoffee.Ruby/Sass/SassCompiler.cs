@@ -58,16 +58,10 @@
                 } catch (Exception e) {
                     // Provide more information for SassSyntaxErrors
                     if (e.Message == "Sass::SyntaxError") {
-                        dynamic error = e;
-                        StringBuilder sb = new StringBuilder();
-                        sb.AppendFormat("{0}\n\n", error.to_s());
-                        sb.AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(pathInfo.FullName) ?? "");
-                        sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? pathInfo.FullName);
-                        sb.AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "");
-                        sb.AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "");
-                        sb.AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
-                        throw new Exception(sb.ToString(), e);
-                    } else {
+                        var messageFromException = buildErrorMessageFromException(pathInfo, e);
+                        throw new Exception(messageFromException, e);
+                    }
+                    else {
                         throw;
                     }
                 } finally {
@@ -75,6 +69,60 @@
                 }
                 return result;
             }
+        }
+
+        public string CompileScss(string input, bool compressed) {
+            lock (_lock) {
+                Initialize();
+
+                string result;
+                try {
+                    result = (string) _sassCompiler.compile(input, compressed ? _scssOptionCompressed : _scssOption);
+                }
+                catch (Exception e) {
+                    // Provide more information for SassSyntaxErrors
+                    if (e.Message == "Sass::SyntaxError") {
+                        var messageFromException = buildErrorMessageFromException(null, e);
+                        throw new Exception(messageFromException, e);
+                    }
+
+                    throw;
+                }
+                return result;
+            }
+        }
+
+        public string CompileSass(string input, bool compressed) {
+            lock (_lock) {
+                Initialize();
+
+                string result;
+                try {
+                    result = (string) _sassCompiler.compile(input, compressed ? _sassOptionCompressed : _sassOption);
+                }
+                catch (Exception e) {
+                    // Provide more information for SassSyntaxErrors
+                    if (e.Message == "Sass::SyntaxError") {
+                        var messageFromException = buildErrorMessageFromException(null, e);
+                        throw new Exception(messageFromException, e);
+                    }
+
+                    throw;
+                }
+                return result;
+            }
+        }
+
+        private static string buildErrorMessageFromException(FileSystemInfo pathInfo, dynamic error) {
+            var fullName = pathInfo != null ? pathInfo.FullName : "No file";
+            var sb = new StringBuilder();
+            sb.AppendFormat("{0}\n\n", error.to_s());
+            sb.AppendFormat("Backtrace:\n{0}\n\n", error.sass_backtrace_str(fullName) ?? "");
+            sb.AppendFormat("FileName: {0}\n\n", error.sass_filename() ?? fullName);
+            sb.AppendFormat("MixIn: {0}\n\n", error.sass_mixin() ?? "");
+            sb.AppendFormat("Line Number: {0}\n\n", error.sass_line() ?? "");
+            sb.AppendFormat("Sass Template:\n{0}\n\n", error.sass_template ?? "");
+            return sb.ToString();
         }
 
         private void Initialize() {

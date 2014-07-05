@@ -8,6 +8,7 @@
 *.log
 *.lib
 *.ncb
+*.ncrunchsolution
 *.obj
 *.opensdf
 *.orig
@@ -32,6 +33,7 @@ _resharper*
 [Dd]ebug/
 [Rr]elease/
 _ReSharper
+_ReSharper.*
 TestResults/
 packages/
 
